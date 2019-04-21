@@ -109,7 +109,7 @@ impl AnimeBuilder {
             .ok_or(AnimeBuildError::NotStarted)?;
 
         let variation= builder.build()?;
-        if variation.kind == NameKind::Main {
+        if variation.kind == TitleKind::Main {
             debug_assert_eq!(self.title, None);
             self.title = Some(variation.title.clone());
         }
@@ -124,12 +124,12 @@ pub enum AnimeBuildError {
     MissingTitle,
     NotStarted,
     AlreadyStarted,
-    MalformedNameVariation,
+    MalformedTitle,
 }
 
 impl From<TitleVariationError> for AnimeBuildError {
     fn from(_: TitleVariationError) -> AnimeBuildError {
-        AnimeBuildError::MalformedNameVariation
+        AnimeBuildError::MalformedTitle
     }
 }
 
@@ -169,7 +169,7 @@ impl TitleVariationBuilder {
     }
 
     fn set_kind(&mut self, kind: &str) -> Option<TitleVariationError> {
-        match NameKind::try_from(kind) {
+        match TitleKind::try_from(kind) {
             Ok(kind) => {
                 self.kind = Some(kind);
                 None
@@ -188,10 +188,8 @@ enum TitleVariationError {
     KindUnknown,
 }
 
-impl TryFrom<&str> for TitleKind {
-    type Error = TitleVariationError;
-
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
+impl TitleKind {
+    fn try_from(value: &str) -> Result<Self, TitleVariationError> {
         match value {
             "main" => Ok(TitleKind::Main),
             "official" => Ok(TitleKind::Official),

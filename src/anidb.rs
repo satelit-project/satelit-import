@@ -6,23 +6,28 @@ use std::io::BufReader;
 use std::path::Path;
 use std::str::FromStr;
 
+use std::num::ParseIntError;
+use std::str::Utf8Error;
+
 use quick_xml::events::BytesStart;
 use quick_xml::events::BytesText;
 use quick_xml::events::Event;
 use quick_xml::Reader;
 
-use build::AnimeTitleBuilder;
-use build::BuildError;
-use entity::AnimeTitle;
-use super::DecodingError;
-use super::XmlError;
+use quick_xml::Error as QXError;
 
+use build::AnimeBuilder;
+use build::AnimeBuildError;
+use entity::Anime;
+
+/// AniDB dumb parser
 pub struct AniDb {
     reader: Reader<BufReader<File>>,
     buffer: Vec<u8>,
 }
 
 impl AniDb {
+    /// Returns parser for file at `path` or `XmlError` if file doesn't contain valid xml
     pub fn new(path: &Path) -> Result<Self, XmlError> {
         let reader = Reader::from_file(path)?;
         let buffer = Vec::with_capacity(1024);
@@ -32,11 +37,12 @@ impl AniDb {
 }
 
 // TODO: don't copy strings
+// TODO: add logging
 impl Iterator for AniDb {
-    type Item = AnimeTitle;
+    type Item = Anime;
 
-    fn next(&mut self) -> Option<AnimeTitle> {
-        let mut builder = AnimeTitleBuilder::new();
+    fn next(&mut self) -> Option<Anime> {
+        let mut builder = AnimeBuilder::new();
 
         loop {
             match self.reader.read_event(&mut self.buffer) {
@@ -52,9 +58,9 @@ impl Iterator for AniDb {
                         continue;
                     }
                 }
-                Ok(Event::Text(ref text)) if builder.is_building_name() => {
-                    if let Err(e) = builder.handle_title_name(text) {
-                        eprintln!("failed to parse title name: {:?}", e);
+                Ok(Event::Text(ref text)) if builder.is_building_title() => {
+                    if let Err(e) = builder.handle_title(text) {
+                        eprintln!("failed to parse title: {:?}", e);
                         continue;
                     }
                 }
@@ -83,28 +89,15 @@ impl Iterator for AniDb {
     }
 }
 
-impl From<BuildError> for DecodingError {
-    fn from(err: BuildError) -> Self {
-        use self::BuildError::*;
-
-        match err {
-            NameBuildingNotStarted | NameBuildingNotFinished | IncompleteNameVariation => {
-                DecodingError::IncorrectAttributeParsing
-            }
-            _ => DecodingError::MalformedAttribute,
-        }
-    }
-}
-
-impl AnimeTitleBuilder {
-    fn handle_id(&mut self, tag: &BytesStart<'_>) -> Result<(), DecodingError> {
+impl AnimeBuilder {
+    fn handle_id(&mut self, tag: &BytesStart<'_>) -> Result<(), ParseError> {
         let mut attributes = tag.attributes();
         let attr = attributes
             .next()
-            .ok_or(DecodingError::MalformedAttribute)??;
+            .ok_or(ParseError::MalformedAttribute)??;
 
         if attr.key != b"aid" {
-            return Err(DecodingError::MalformedAttribute);
+            return Err(ParseError::MalformedAttribute);
         }
 
         let raw_id = attr.unescaped_value()?;
@@ -115,9 +108,9 @@ impl AnimeTitleBuilder {
         Ok(())
     }
 
-    fn handle_title_start(&mut self, tag: &BytesStart<'_>) -> Result<(), DecodingError> {
+    fn handle_title_start(&mut self, tag: &BytesStart<'_>) -> Result<(), ParseError> {
         let attributes = tag.attributes();
-        self.start_name_building()?;
+        self.start_title_building()?;
 
         for attr in attributes {
             let attr = attr?;
@@ -126,10 +119,10 @@ impl AnimeTitleBuilder {
 
             match attr.key {
                 b"xml:lang" => {
-                    self.set_name_lang(value)?;
+                    self.set_title_lang(value)?;
                 }
                 b"type" => {
-                    self.set_name_type(value)?;
+                    self.set_title_kind(value)?;
                 }
                 _ => continue,
             }
@@ -138,16 +131,71 @@ impl AnimeTitleBuilder {
         Ok(())
     }
 
-    fn handle_title_name(&mut self, text: &BytesText<'_>) -> Result<(), DecodingError> {
+    fn handle_title(&mut self, text: &BytesText<'_>) -> Result<(), ParseError> {
         let raw_name = text.unescaped()?;
         let name = std::str::from_utf8(&raw_name)?;
-        self.set_name(name)?;
+        self.set_title(name)?;
 
         Ok(())
     }
 
-    fn handle_title_end(&mut self) -> Result<(), DecodingError> {
-        self.finish_name_building()?;
+    fn handle_title_end(&mut self) -> Result<(), ParseError> {
+        self.finish_title_building()?;
         Ok(())
+    }
+}
+
+#[derive(Debug)]
+/// Represents error that may happen on xml parsing
+pub enum XmlError {
+    Io(std::io::Error),
+    InvalidXml,
+}
+
+impl From<QXError> for XmlError {
+    fn from(error: QXError) -> Self {
+        match error {
+            QXError::Io(io_err) => XmlError::Io(io_err),
+            _ => XmlError::InvalidXml,
+        }
+    }
+}
+
+#[derive(Debug)]
+/// Represents error that may happen on xml processing
+pub enum ParseError {
+    MalformedAttribute,
+    IncorrectAttributeParsing,
+    BadUtf8,
+}
+
+impl From<QXError> for ParseError {
+    fn from(_: QXError) -> Self {
+        ParseError::MalformedAttribute
+    }
+}
+
+impl From<Utf8Error> for ParseError {
+    fn from(_: Utf8Error) -> Self {
+        ParseError::BadUtf8
+    }
+}
+
+impl From<ParseIntError> for ParseError {
+    fn from(_: ParseIntError) -> Self {
+        ParseError::MalformedAttribute
+    }
+}
+
+impl From<AnimeBuildError> for ParseError {
+    fn from(err: AnimeBuildError) -> Self {
+        use AnimeBuildError::*;
+
+        match err {
+            NotStarted | AlreadyStarted | MalformedTitle => {
+                ParseError::IncorrectAttributeParsing
+            }
+            _ => ParseError::MalformedAttribute,
+        }
     }
 }
