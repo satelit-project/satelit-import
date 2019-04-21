@@ -2,39 +2,39 @@
 pub struct Anime {
     /// ID of the anime in AniDB database
     pub id: u32,
-    /// Canonical name for the anime
-    pub name: String,
-    /// Non-canonical names for the anime
-    pub variations: Vec<NameVariation>,
+    /// Canonical title for the anime
+    pub title: String,
+    /// Non-canonical title for the anime
+    pub variations: Vec<TitleVariation>,
 }
 
 impl Anime {
-    pub fn new(id: u32, name: String, variations: Vec<NameVariation>) -> Self {
-        AnimeTitle { id, name, variations }
+    pub fn new(id: u32, title: String, variations: Vec<TitleVariation>) -> Self {
+        Anime { id, title, variations }
     }
 }
 
-/// Non-canonical name for an anime title
-pub struct NameVariation {
-    pub name: String,
+/// Non-canonical title for an anime entity
+pub struct TitleVariation {
+    pub title: String,
     pub lang: String,
-    pub kind: NameKind,
+    pub kind: TitleKind,
 }
 
-impl NameVariation {
-    pub fn new(name: String, lang: String, kind: NameKind) -> Self {
-        NameVariation { name, lang, kind }
+impl TitleVariation {
+    pub fn new(title: String, lang: String, kind: TitleKind) -> Self {
+        TitleVariation { title, lang, kind }
     }
 }
 
 #[derive(PartialEq)]
-pub enum NameKind {
-    /// Canonical name
+pub enum TitleKind {
+    /// Canonical title
     Main,
     /// As seen on official resources like Crunchyroll on theaters
     Official,
-    /// "Also known as" name
+    /// "Also known as" title
     Synonym,
-    /// Shorter name
+    /// Shorter title
     Short,
 }
