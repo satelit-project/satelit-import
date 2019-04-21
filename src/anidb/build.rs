@@ -1,7 +1,6 @@
-use super::entity::*;
-
-use std::convert::TryFrom;
 use std::string::ToString;
+
+use super::entity::*;
 
 /// Produces instances of `Anime` from parts
 pub struct AnimeBuilder {

@@ -1,5 +1,5 @@
+pub mod entity;
 mod build;
-mod entity;
 
 use std::fs::File;
 use std::io::BufReader;
