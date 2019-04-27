@@ -38,7 +38,6 @@ impl AniDb {
     }
 }
 
-// TODO: don't copy strings
 // TODO: add logging
 impl Iterator for AniDb {
     type Item = Anime;
@@ -91,6 +90,75 @@ impl Iterator for AniDb {
     }
 }
 
+/// Represents error that may happen on xml parsing
+#[derive(Debug)]
+pub enum XmlError {
+    Io(std::io::Error),
+    InvalidXml(String),
+}
+
+impl std::fmt::Display for XmlError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        use XmlError::*;
+
+        match self {
+            Io(e) => e.fmt(f),
+            InvalidXml(msg) => msg.fmt(f),
+        }
+    }
+}
+
+impl std::error::Error for XmlError { }
+
+impl From<QXError> for XmlError {
+    fn from(error: QXError) -> Self {
+        match error {
+            QXError::Io(io_err) => XmlError::Io(io_err),
+            _ => XmlError::InvalidXml(format!("{}", error)),
+        }
+    }
+}
+
+/// Represents error that may happen on xml processing
+#[derive(Debug)]
+pub enum ParseError {
+    MalformedAttribute,
+    UnexpectedState,
+    BadUtf8,
+}
+
+impl From<QXError> for ParseError {
+    fn from(_: QXError) -> Self {
+        ParseError::MalformedAttribute
+    }
+}
+
+impl From<Utf8Error> for ParseError {
+    fn from(_: Utf8Error) -> Self {
+        ParseError::BadUtf8
+    }
+}
+
+impl From<ParseIntError> for ParseError {
+    fn from(_: ParseIntError) -> Self {
+        ParseError::MalformedAttribute
+    }
+}
+
+impl From<AnimeBuildError> for ParseError {
+    fn from(err: AnimeBuildError) -> Self {
+        use AnimeBuildError::*;
+
+        match err {
+            NotStarted | AlreadyStarted | MalformedTitle => {
+                ParseError::UnexpectedState
+            }
+            _ => ParseError::MalformedAttribute,
+        }
+    }
+}
+
+// private helpers
 impl AnimeBuilder {
     fn handle_id(&mut self, tag: &BytesStart<'_>) -> Result<(), ParseError> {
         let mut attributes = tag.attributes();
@@ -144,73 +212,5 @@ impl AnimeBuilder {
     fn handle_title_end(&mut self) -> Result<(), ParseError> {
         self.finish_title_building()?;
         Ok(())
-    }
-}
-
-#[derive(Debug)]
-/// Represents error that may happen on xml parsing
-pub enum XmlError {
-    Io(std::io::Error),
-    InvalidXml(String),
-}
-
-impl std::fmt::Display for XmlError {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        use XmlError::*;
-
-        match self {
-            Io(e) => e.fmt(f),
-            InvalidXml(msg) => msg.fmt(f),
-        }
-    }
-}
-
-impl std::error::Error for XmlError { }
-
-impl From<QXError> for XmlError {
-    fn from(error: QXError) -> Self {
-        match error {
-            QXError::Io(io_err) => XmlError::Io(io_err),
-            _ => XmlError::InvalidXml(format!("{}", error)),
-        }
-    }
-}
-
-#[derive(Debug)]
-/// Represents error that may happen on xml processing
-pub enum ParseError {
-    MalformedAttribute,
-    UnexpectedState,
-    BadUtf8,
-}
-
-impl From<QXError> for ParseError {
-    fn from(_: QXError) -> Self {
-        ParseError::MalformedAttribute
-    }
-}
-
-impl From<Utf8Error> for ParseError {
-    fn from(_: Utf8Error) -> Self {
-        ParseError::BadUtf8
-    }
-}
-
-impl From<ParseIntError> for ParseError {
-    fn from(_: ParseIntError) -> Self {
-        ParseError::MalformedAttribute
-    }
-}
-
-impl From<AnimeBuildError> for ParseError {
-    fn from(err: AnimeBuildError) -> Self {
-        use AnimeBuildError::*;
-
-        match err {
-            NotStarted | AlreadyStarted | MalformedTitle => {
-                ParseError::UnexpectedState
-            }
-            _ => ParseError::MalformedAttribute,
-        }
     }
 }
