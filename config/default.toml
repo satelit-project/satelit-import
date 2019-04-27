@@ -1,0 +1,6 @@
+[db]
+path = "db/anime.sqlite"
+
+[anidb]
+last-dump = "db/anidb-dump/last.xml"
+new-dump = "db/anidb-dump/new.xml"
