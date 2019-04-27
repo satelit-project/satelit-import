@@ -1,4 +1,4 @@
-pub mod entity;
+mod entity;
 mod build;
 
 use std::fs::File;
@@ -18,7 +18,9 @@ use quick_xml::Error as QXError;
 
 use build::AnimeBuilder;
 use build::AnimeBuildError;
-use entity::Anime;
+
+pub use entity::Anime;
+pub use entity::TitleVariation;
 
 /// AniDB dumb parser
 pub struct AniDb {
@@ -149,14 +151,27 @@ impl AnimeBuilder {
 /// Represents error that may happen on xml parsing
 pub enum XmlError {
     Io(std::io::Error),
-    InvalidXml,
+    InvalidXml(String),
 }
+
+impl std::fmt::Display for XmlError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        use XmlError::*;
+
+        match self {
+            Io(e) => e.fmt(f),
+            InvalidXml(msg) => msg.fmt(f),
+        }
+    }
+}
+
+impl std::error::Error for XmlError { }
 
 impl From<QXError> for XmlError {
     fn from(error: QXError) -> Self {
         match error {
             QXError::Io(io_err) => XmlError::Io(io_err),
-            _ => XmlError::InvalidXml,
+            _ => XmlError::InvalidXml(format!("{}", error)),
         }
     }
 }
@@ -165,7 +180,7 @@ impl From<QXError> for XmlError {
 /// Represents error that may happen on xml processing
 pub enum ParseError {
     MalformedAttribute,
-    IncorrectAttributeParsing,
+    UnexpectedState,
     BadUtf8,
 }
 
@@ -193,7 +208,7 @@ impl From<AnimeBuildError> for ParseError {
 
         match err {
             NotStarted | AlreadyStarted | MalformedTitle => {
-                ParseError::IncorrectAttributeParsing
+                ParseError::UnexpectedState
             }
             _ => ParseError::MalformedAttribute,
         }
