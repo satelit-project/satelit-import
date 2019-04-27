@@ -2,5 +2,6 @@
 path = "db/anime.sqlite"
 
 [anidb]
+dump-url = "http://anidb.net/api/anime-titles.xml.gz"
 last-dump = "db/anidb-dump/last.xml"
 new-dump = "db/anidb-dump/new.xml"
