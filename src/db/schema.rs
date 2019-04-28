@@ -1,5 +1,5 @@
 table! {
-    schedule (id) {
+    schedules (id) {
         id -> Integer,
         anime_id -> Integer,
         state -> Integer,

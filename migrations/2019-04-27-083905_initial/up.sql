@@ -1,7 +1,7 @@
-create table schedule
+create table schedules
 (
     id          integer not null
-        constraint schedule_pk
+        constraint schedules_pk
             primary key autoincrement,
 
     anime_id   integer not null,
@@ -9,5 +9,5 @@ create table schedule
     data_mask1 integer default 0 not null
 );
 
-create unique index schedule_anime_id_uindex
-    on schedule (anime_id);
+create unique index schedules_anime_id_uindex
+    on schedules (anime_id);
