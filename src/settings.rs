@@ -2,6 +2,7 @@ use config::{Config, ConfigError, File};
 use serde::Deserialize;
 
 use std::sync::Once;
+use std::time::Duration;
 
 /// Global settings used to configure app state
 #[derive(Debug, Deserialize)]
@@ -47,12 +48,24 @@ impl Settings {
 #[derive(Debug, Deserialize)]
 pub struct Db {
     path: String,
+    max_connections: u32,
+    connection_timeout: Duration,
 }
 
 impl Db {
     /// Returns path to database
     pub fn path(&self) -> &str {
         &self.path
+    }
+
+    /// Returns number of maximum allowed db connections
+    pub fn max_connections(&self) -> u32 {
+        self.max_connections
+    }
+
+    /// Returns timeout for a db connection
+    pub fn connection_timeout(&self) -> Duration {
+        self.connection_timeout
     }
 }
 

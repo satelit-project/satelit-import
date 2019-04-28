@@ -1,5 +1,7 @@
 [db]
 path = "db/anime.sqlite"
+max-connections = 8
+connection-timeout = 15
 
 [anidb]
 dump-url = "http://anidb.net/api/anime-titles.xml.gz"
