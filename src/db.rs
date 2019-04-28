@@ -1,10 +1,10 @@
+pub mod entity;
 mod schema;
 
 pub use diesel::r2d2::PoolError;
 
 use diesel::prelude::*;
 use diesel::query_builder::*;
-use diesel::sqlite::*;
 use diesel::r2d2;
 
 use crate::settings;
