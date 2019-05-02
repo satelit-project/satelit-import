@@ -6,8 +6,12 @@ edition = "2018"
 
 [dependencies]
 quick-xml = "0.14.0"
-dotenv = "0.13.0"
-reqwest = "0.9.15"
+
 config = "0.9.2"
-serde = { version = "1.0.90", features = ["derive"] }
+
 diesel = { version = "1.4.2", features = ["sqlite", "r2d2"] }
+serde = { version = "1.0.90", features = ["derive"] }
+
+reqwest = "0.9.15"
+futures = "0.1.26"
+tokio = "0.1.19"
