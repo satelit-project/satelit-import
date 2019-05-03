@@ -18,7 +18,7 @@ pub struct GzipExtractor<P: AsRef<Path> + Clone + Send + 'static> {
 }
 
 impl<P: AsRef<Path> + Clone + Send + 'static> GzipExtractor<P> {
-    pub const DEFAULT_CHUNK_SIZE: usize = 8192;
+    pub const DEFAULT_CHUNK_SIZE: usize = 1024;
 
     /// Returns new instance for extracting from `src_path` to `dest_path`. Read buffer size is
     /// set to `Self::DEFAULT_CHUNK_SIZE`
@@ -81,7 +81,7 @@ struct AsyncReadWrite<S: AsyncRead, D: AsyncWrite> {
 
 impl<S: AsyncRead, D: AsyncWrite> AsyncReadWrite<S, D> {
     fn new(src: S, dst: D, chunk_size: usize) -> Self {
-        let buf = Vec::<u8>::with_capacity(chunk_size);
+        let buf = vec![0; chunk_size];
         AsyncReadWrite {
             src,
             dst,
@@ -102,7 +102,7 @@ impl<S: AsyncRead, D: AsyncWrite> Future for AsyncReadWrite<S, D> {
         use AsyncReadWriteState::*;
 
         let buf = self.buf.as_mut_slice();
-        loop {
+        'g: loop {
             match &self.state {
                 &Reading => {
                     while self.readed < self.chunk_size {
@@ -112,8 +112,8 @@ impl<S: AsyncRead, D: AsyncWrite> Future for AsyncReadWrite<S, D> {
                         self.readed += n;
 
                         if n == 0 {
-                            self.state = Flushing;
-                            continue;
+                            self.state = if self.readed == 0 { Flushing } else { Writing };
+                            continue 'g;
                         }
                     }
 
@@ -121,12 +121,11 @@ impl<S: AsyncRead, D: AsyncWrite> Future for AsyncReadWrite<S, D> {
                     self.state = Writing;
                 }
                 &Writing => {
-                    while self.readed > 0 {
-                        let bs = &buf[self.written..self.chunk_size];
+                    while self.written < self.readed {
+                        let bs = &buf[self.written..self.readed];
                         let n = try_ready!(self.dst.poll_write(bs));
 
                         self.written += n;
-                        self.readed -= n;
                     }
 
                     self.readed = 0;
@@ -142,20 +141,48 @@ impl<S: AsyncRead, D: AsyncWrite> Future for AsyncReadWrite<S, D> {
 }
 
 #[cfg(test)]
-mod tests {
+mod tests_rw {
+    use std::io::{Read, Write, Seek, SeekFrom};
+    use std::ops::Deref;
     use super::*;
-    use std::io::Read;
 
+    /// Tests the case when data can be read into buffer all at once
     #[test]
-    fn test_read_write() -> Result<(), std::io::Error> {
-        let mut tmp_src = tempfile::Builder::new()
-            .rand_bytes(32)
-            .tempfile()?;
+    fn test_read_write_all() -> Result<(), std::io::Error> {
+        let content = "hello world";
+        let (src, dst) = read_write_content(content.to_mut(), 32)?;
+
+        assert_eq!(src, content);
+        assert_eq!(src, dst);
+
+        Ok(())
+    }
+
+    /// Test the case when data will not fit into read buffer all at once
+    #[test]
+    fn test_read_write_chunked() -> Result<(), std::io::Error> {
+        let content = "hello world ".repeat(20);
+        let (src, dst) = read_write_content(content.to_mut(), 16)?;
+
+        assert_eq!(src, content);
+        assert_eq!(src, dst);
+
+        Ok(())
+    }
+
+    /// Writes content of a file into another file and returns their content
+    fn read_write_content<T>(mut content: T, chunk_size: usize) -> Result<(T, T), std::io::Error>
+        where T: AsMut<[u8]> + From<Vec<u8>>
+    {
+        let mut tmp_src = tempfile::Builder::new().tempfile()?;
         let mut tmp_dst = tempfile::Builder::new().tempfile()?;
+
+        tmp_src.write_all(content.as_mut())?;
+        tmp_src.flush()?;
+        tmp_src.seek(SeekFrom::Start(0))?;
 
         let src = tokio::fs::File::open(tmp_src.path().to_owned());
         let dst = tokio::fs::File::create(tmp_dst.path().to_owned());
-        let chunk_size = 1024usize;
 
         let task = src.join(dst)
             .and_then(move |(src, dst)| {
@@ -165,13 +192,73 @@ mod tests {
 
         tokio::run(task);
 
-        let mut expected = String::new();
-        tmp_src.read_to_string(&mut expected)?;
+        let mut expected = vec![];
+        tmp_src.read_to_end(&mut expected)?;
 
-        let mut got = String::new();
-        tmp_dst.read_to_string(&mut got)?;
+        let mut got = vec![];
+        tmp_dst.read_to_end(&mut got)?;
 
-        assert_eq!(expected, got);
-        Ok(())
+        Ok((T::from(expected), T::from(got)))
+    }
+
+    // String helpers
+
+    #[derive(Debug)]
+    struct StringMut(String);
+
+    trait ToMut {
+        fn to_mut(&self) -> StringMut;
+    }
+
+    // String helpers implementations
+
+    impl ToMut for String {
+        fn to_mut(&self) -> StringMut {
+            StringMut(self.clone())
+        }
+    }
+
+    impl ToMut for str {
+        fn to_mut(&self) -> StringMut {
+            StringMut(self.to_owned())
+        }
+    }
+
+    impl AsMut<[u8]> for StringMut {
+        fn as_mut(&mut self) -> &mut [u8] {
+            unsafe { self.0.as_bytes_mut() }
+        }
+    }
+
+    impl From<Vec<u8>> for StringMut {
+        fn from(bytes: Vec<u8>) -> Self {
+            unsafe { StringMut(String::from_utf8_unchecked(bytes)) }
+        }
+    }
+
+    impl Deref for StringMut {
+        type Target = str;
+
+        fn deref(&self) -> &Self::Target {
+            &self.0
+        }
+    }
+
+    impl std::cmp::PartialEq for StringMut {
+        fn eq(&self, other: &StringMut) -> bool {
+            self.0 == other.0
+        }
+    }
+
+    impl std::cmp::PartialEq<String> for StringMut {
+        fn eq(&self, other: &String) -> bool {
+            &self.0 == other
+        }
+    }
+
+    impl std::cmp::PartialEq<&str> for StringMut {
+        fn eq(&self, other: &&str) -> bool {
+            &self.0 == other
+        }
     }
 }
