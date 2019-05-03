@@ -73,6 +73,7 @@ impl Db {
 #[derive(Debug, Deserialize)]
 pub struct AniDb {
     dump_url: String,
+    download_path: String,
     last_dump: String,
     new_dump: String,
 }
@@ -81,6 +82,11 @@ impl AniDb {
     /// Returns URL to latest AniDB dump
     pub fn dump_url(&self) -> &str {
         &self.dump_url
+    }
+
+    /// Path where new dumps will be downloaded
+    pub fn download_path(&self) -> &str {
+        &self.download_path
     }
 
     /// Return path to latest imported dump
