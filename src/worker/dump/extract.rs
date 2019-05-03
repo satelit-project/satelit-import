@@ -1,7 +1,7 @@
 use futures::prelude::*;
 use futures::try_ready;
 use tokio::io::{AsyncRead, AsyncWrite};
-use tokio::fs::{File};
+use tokio::fs::File;
 use flate2::bufread::GzDecoder;
 
 use std::path::Path;
@@ -26,7 +26,7 @@ impl<P: AsRef<Path> + Clone + Send + 'static> GzipExtractor<P> {
         GzipExtractor {
             src_path,
             dest_path,
-            chunk_size: GzipExtractor::<P>::DEFAULT_CHUNK_SIZE
+            chunk_size: GzipExtractor::<P>::DEFAULT_CHUNK_SIZE,
         }
     }
 
@@ -36,7 +36,7 @@ impl<P: AsRef<Path> + Clone + Send + 'static> GzipExtractor<P> {
     }
 
     /// Asynchronously extracts archive
-    pub fn extract(&self) -> impl Future<Item = (), Error = std::io::Error> {
+    pub fn extract(&self) -> impl Future<Item=(), Error=std::io::Error> {
         let src = File::open(self.src_path.clone());
         let dest = File::create(self.dest_path.clone());
         let chunk_size = self.chunk_size;
@@ -119,7 +119,7 @@ impl<S: AsyncRead, D: AsyncWrite> Future for AsyncReadWrite<S, D> {
 
                     self.written = 0;
                     self.state = Writing;
-                },
+                }
                 &Writing => {
                     while self.readed > 0 {
                         let bs = &buf[self.written..self.chunk_size];
@@ -131,12 +131,47 @@ impl<S: AsyncRead, D: AsyncWrite> Future for AsyncReadWrite<S, D> {
 
                     self.readed = 0;
                     self.state = Reading;
-                },
+                }
                 &Flushing => {
                     try_ready!(self.dst.poll_flush());
                     return Ok(Async::Ready(()));
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Read;
+
+    #[test]
+    fn test_read_write() -> Result<(), std::io::Error> {
+        let mut tmp_src = tempfile::Builder::new()
+            .rand_bytes(32)
+            .tempfile()?;
+        let mut tmp_dst = tempfile::Builder::new().tempfile()?;
+
+        let src = tokio::fs::File::open(tmp_src.path().to_owned());
+        let dst = tokio::fs::File::create(tmp_dst.path().to_owned());
+        let chunk_size = 1024usize;
+
+        let task = src.join(dst)
+            .and_then(move |(src, dst)| {
+                AsyncReadWrite::new(src, dst, chunk_size)
+            })
+            .map_err(|e| panic!(format!("{}", e)));
+
+        tokio::run(task);
+
+        let mut expected = String::new();
+        tmp_src.read_to_string(&mut expected)?;
+
+        let mut got = String::new();
+        tmp_dst.read_to_string(&mut got)?;
+
+        assert_eq!(expected, got);
+        Ok(())
     }
 }
