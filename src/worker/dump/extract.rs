@@ -7,6 +7,14 @@ use flate2::bufread::GzDecoder;
 use std::path::Path;
 use std::io::BufReader;
 
+use crate::settings::Settings;
+
+/// Creates gzip extractor configured with global app settings
+pub fn extractor() -> GzipExtractor<&'static str> {
+    let settings = Settings::shared().anidb();
+    GzipExtractor::new(settings.download_path(), settings.dump_path())
+}
+
 /// Asynchronously extracts single file from gzip archive
 pub struct GzipExtractor<P: AsRef<Path> + Clone + Send + 'static> {
     /// Path to gzip archive

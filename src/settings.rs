@@ -74,8 +74,8 @@ impl Db {
 pub struct AniDb {
     dump_url: String,
     download_path: String,
-    last_dump: String,
-    new_dump: String,
+    old_dump_path: String,
+    dump_path: String,
 }
 
 impl AniDb {
@@ -90,12 +90,12 @@ impl AniDb {
     }
 
     /// Return path to latest imported dump
-    pub fn last_dump(&self) -> &str {
-        &self.last_dump
+    pub fn old_dump_path(&self) -> &str {
+        &self.old_dump_path
     }
 
     /// Returns path to dump to be imported
-    pub fn new_dump(&self) -> &str {
-        &self.new_dump
+    pub fn dump_path(&self) -> &str {
+        &self.dump_path
     }
 }

@@ -6,5 +6,5 @@ connection-timeout = 15
 [anidb]
 dump-url = "http://anidb.net/api/anime-titles.xml.gz"
 download-path = "db/anidb-dump/dump.gz"
-last-dump = "db/anidb-dump/last.xml"
-new-dump = "db/anidb-dump/new.xml"
+old-dump-path = "db/anidb-dump/old.xml"
+dump-path = "db/anidb-dump/new.xml"
