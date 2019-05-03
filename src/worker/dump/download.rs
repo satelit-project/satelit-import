@@ -11,7 +11,7 @@ use std::path::Path;
 use crate::settings;
 
 /// Creates downloader with configuration from global app settings
-pub fn downloader() -> Result<DumpDownloader<ReqwestFileDownloader, &'static str, &'static str>, DownloadError> {
+pub fn downloader() -> Result<DumpDownloader<impl FileDownload, &'static str, &'static str>, DownloadError> {
     const USER_AGENT: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_4) AppleWebKit/605.1.15 \
 (KHTML, like Gecko) Version/12.1 Safari/605.1.15";
 
@@ -76,7 +76,7 @@ pub trait FileDownload {
 }
 
 /// File downloading client which is built on top of `reqwest` library
-pub struct ReqwestFileDownloader(Client);
+struct ReqwestFileDownloader(Client);
 
 impl FileDownload for ReqwestFileDownloader {
     type Chunk = reqwest::r#async::Chunk;
@@ -91,7 +91,7 @@ impl FileDownload for ReqwestFileDownloader {
 /// A stateful wrapper around `reqwest`'s byte stream
 ///
 /// It flattens `Decoder` from inside `Request` future into `Stream`
-pub enum ReqwestFileStream {
+enum ReqwestFileStream {
     /// Performing http request
     Request(Box<dyn Future<Item = Response, Error = reqwest::Error>>),
     /// Downloading http's response body
