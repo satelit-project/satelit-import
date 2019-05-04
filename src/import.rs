@@ -106,31 +106,31 @@ pub trait AnimeProvider {
 }
 
 /// Data source for anime entities from AniDB dumps
-pub struct AniDbAnimeProvider<'p> {
-    old_dump_path: &'p Path,
-    new_dump_path: &'p Path,
+pub struct AniDbAnimeProvider<P: AsRef<Path>> {
+    old_dump_path: P,
+    new_dump_path: P,
 }
 
-impl<'p> AniDbAnimeProvider<'p> {
+impl<P: AsRef<Path>> AniDbAnimeProvider<P> {
     /// Creates instance with AniDB anime dumps
     ///
     /// * `old_dump_path` – path to previously imported dump
     /// * `new_dump_path` - path to dump that should be imported
-    pub fn new(old_dump_path: &'p Path, new_dump_path: &'p Path) -> Self {
+    pub fn new(old_dump_path: P, new_dump_path: P) -> Self {
         AniDbAnimeProvider { old_dump_path, new_dump_path }
     }
 }
 
-impl AnimeProvider for AniDbAnimeProvider<'_> {
+impl<P: AsRef<Path>> AnimeProvider for AniDbAnimeProvider<P> {
     type Iterator = AniDb;
     type Error = XmlError;
 
     fn old_anime_titles(&self) -> Result<Self::Iterator, Self::Error> {
-        AniDb::new(self.old_dump_path)
+        AniDb::new(self.old_dump_path.as_ref())
     }
 
     fn new_anime_titles(&self) -> Result<Self::Iterator, Self::Error> {
-        AniDb::new(self.new_dump_path)
+        AniDb::new(self.new_dump_path.as_ref())
     }
 }
 
