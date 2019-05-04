@@ -1,5 +1,5 @@
 use futures::prelude::*;
-use reqwest::r#async::{Client, ClientBuilder, Response};
+use reqwest::r#async::{Client, ClientBuilder};
 use reqwest::header::{HeaderMap, HeaderValue, self};
 use reqwest::Method;
 use tokio::fs::File;
@@ -26,7 +26,7 @@ pub fn downloader() -> Result<DumpDownloader<impl FileDownload, &'static str, &'
         .build()?;
 
     Ok(DumpDownloader {
-        downloader: ReqwestFileDownloader(client),
+        downloader: client,
         dump_url: settings.dump_url(),
         dest_path: settings.download_path(),
     })
@@ -75,58 +75,20 @@ pub trait FileDownload {
     fn download(&self, url: &str) -> Self::Bytes;
 }
 
-/// File downloading client which is built on top of `reqwest` library
-struct ReqwestFileDownloader(Client);
-
-impl FileDownload for ReqwestFileDownloader {
+impl FileDownload for Client {
     type Chunk = reqwest::r#async::Chunk;
-    type Bytes = ReqwestFileStream;
+    type Bytes = Box<dyn Stream<Item = Self::Chunk, Error = DownloadError>>;
 
     fn download(&self, url: &str) -> Self::Bytes {
-        let req = self.0.request(Method::GET, url).send();
-        ReqwestFileStream::Request(Box::new(req))
-    }
-}
+        let bytes = self.request(Method::GET, url)
+            .send()
+            .into_stream()
+            .take(1)
+            .map(|r| r.into_body())
+            .flatten()
+            .map_err(|e| DownloadError::from(e));
 
-/// A stateful wrapper around `reqwest`'s byte stream
-///
-/// It flattens `Decoder` from inside `Request` future into `Stream`
-enum ReqwestFileStream {
-    /// Performing http request
-    Request(Box<dyn Future<Item = Response, Error = reqwest::Error>>),
-    /// Downloading http's response body
-    Download(reqwest::r#async::Decoder)
-}
-
-impl Stream for ReqwestFileStream {
-    type Item = reqwest::r#async::Chunk;
-    type Error = DownloadError;
-
-    fn poll(&mut self) -> Result<Async<Option<Self::Item>>, Self::Error> {
-        use ReqwestFileStream::*;
-
-        loop {
-            match self {
-                &mut Request(ref mut r) => {
-                    let response = match r.poll() {
-                        Ok(Async::Ready(res)) => res,
-                        Ok(Async::NotReady) => return Ok(Async::NotReady),
-                        Err(e) => return Err(DownloadError::from(e)),
-                    };
-
-                    match response.error_for_status() {
-                        Ok(response) => *self = Download(response.into_body()),
-                        Err(e) => return Err(DownloadError::from(e)),
-                    }
-                }
-                &mut Download(ref mut d) => {
-                    match d.poll() {
-                        Ok(r) => return Ok(r),
-                        Err(e) => return Err(DownloadError::from(e)),
-                    }
-                }
-            }
-        }
+        Box::new(bytes) // TODO: how to eliminate alloc?
     }
 }
 
