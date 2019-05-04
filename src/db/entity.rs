@@ -1,10 +1,6 @@
-use diesel::deserialize::FromSql;
-use diesel::serialize::ToSql;
 use diesel::sql_types::Integer;
-use diesel::sqlite::Sqlite;
-use diesel::backend::Backend;
 
-use std::io::Write;
+use super::schema::schedules;
 
 /// Represents scheduled anidb item import
 #[derive(Queryable)]
@@ -12,7 +8,7 @@ pub struct Schedule {
     pub id: i32,
     pub anidb_id: i32,
     pub state: ScheduleState,
-    pub priority: u32,
+    pub priority: SchedulePriority,
     pub has_poster: bool,
     pub has_air_date: bool,
     pub has_type: bool,
@@ -35,24 +31,25 @@ pub enum ScheduleState {
     Finished = 2
 }
 
-// Conversion from ScheduleState to Integer (SQLite)
-impl ToSql<Integer, Sqlite> for ScheduleState {
-    fn to_sql<W: Write>(&self, out: &mut diesel::serialize::Output<W, Sqlite>) -> diesel::serialize::Result {
-        ToSql::<Integer, Sqlite>::to_sql(&(*self as i32), out)
-    }
+/// Represents scraping priority of a schedule
+#[sql_type = "Integer"]
+#[derive(Debug, Clone, Copy, PartialEq, FromSqlRow, AsExpression)]
+pub enum SchedulePriority {
+    /// Lowest priority meaning that the item should be scraped if no more work is available
+    Idle = 0,
+
+    /// Newly added item that should be scraped asap
+    New = 1_000,
 }
 
-// Conversion from Integer (SQLite) to ScheduleState
-impl FromSql<Integer, Sqlite> for ScheduleState {
-    fn from_sql(bytes: Option<&<Sqlite as Backend>::RawValue>) -> diesel::deserialize::Result<Self> {
-        use ScheduleState::*;
+#[derive(Insertable)]
+#[table_name = "schedules"]
+pub struct NewSchedule {
+    pub anidb_id: i32,
+}
 
-        let value: i32 = FromSql::<Integer, Sqlite>::from_sql(bytes)?;
-        match value {
-            0 => Ok(Pending),
-            1 => Ok(Processing),
-            2 => Ok(Finished),
-            _ => Err(format!("Unrecognized ScheduleState raw value: {}", value).into())
-        }
+impl NewSchedule {
+    pub fn new(anidb_id: i32) -> Self {
+        NewSchedule { anidb_id }
     }
 }

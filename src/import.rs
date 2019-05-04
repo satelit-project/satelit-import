@@ -1,4 +1,7 @@
+use log::{warn, trace};
+
 use crate::anidb::{Anime, AniDb, XmlError};
+
 use std::path::Path;
 use std::cmp::Ordering;
 
@@ -27,10 +30,10 @@ impl<P, S> AnimeImporter<P, S>
 
         while old.is_some() || new.is_some() {
             if old.is_none() && new.is_some() {
-                self.scheduler.add_title(new.as_ref().unwrap());
+                self.add_title(new.as_ref().unwrap());
                 new = iter_new.next();
             } else if old.is_some() && new.is_none() {
-                self.scheduler.remove_title(old.as_ref().unwrap());
+                self.remove_title(old.as_ref().unwrap());
                 old = iter_old.next();
             } else {
                 let o = old.as_ref().unwrap();
@@ -38,11 +41,11 @@ impl<P, S> AnimeImporter<P, S>
 
                 match o.id.cmp(&n.id) {
                     Ordering::Less => {
-                        self.scheduler.remove_title(o);
+                        self.remove_title(o);
                         old = iter_old.next();
                     },
                     Ordering::Greater => {
-                        self.scheduler.add_title(n);
+                        self.add_title(n);
                         new = iter_new.next();
                     },
                     Ordering::Equal => {
@@ -54,6 +57,20 @@ impl<P, S> AnimeImporter<P, S>
         }
 
         Ok(())
+    }
+
+    fn add_title(&mut self, anime: &Anime) {
+        match self.scheduler.add_title(anime) {
+            Err(e) => warn!("adding schedule failed for id:{}: {}", anime.id, e),
+            Ok(()) => trace!("added new schedule for id:{}", anime.id),
+        }
+    }
+
+    fn remove_title(&mut self, anime: &Anime) {
+        match self.scheduler.remove_title(anime) {
+            Err(e) => warn!("removing schedule failed for id:{}: {}", anime.id, e),
+            Ok(()) => trace!("removed old schedule for id:{}", anime.id),
+        }
     }
 }
 
@@ -119,9 +136,11 @@ impl AnimeProvider for AniDbAnimeProvider<'_> {
 
 /// Processes changes to anime entities storage
 pub trait ImportScheduler {
+    type Error: std::error::Error;
+
     /// Adds new anime title to anime storage
-    fn add_title(&mut self, anime: &Anime);
+    fn add_title(&mut self, anime: &Anime) -> Result<(), Self::Error>;
 
     /// Removes anime title from anime storage
-    fn remove_title(&mut self, anime: &Anime);
+    fn remove_title(&mut self, anime: &Anime) -> Result<(), Self::Error>;
 }

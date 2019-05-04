@@ -1,7 +1,7 @@
 /// Anime entity
 pub struct Anime {
     /// ID of the anime in AniDB database
-    pub id: u32,
+    pub id: i32,
     /// Canonical title for the anime
     pub title: String,
     /// Non-canonical title for the anime
@@ -9,7 +9,7 @@ pub struct Anime {
 }
 
 impl Anime {
-    pub fn new(id: u32, title: String, variations: Vec<TitleVariation>) -> Self {
+    pub fn new(id: i32, title: String, variations: Vec<TitleVariation>) -> Self {
         Anime { id, title, variations }
     }
 }

@@ -1,28 +1,57 @@
 pub mod entity;
 pub mod schema;
+pub mod schedules;
 mod convert;
 
 pub use diesel::r2d2::PoolError;
+pub use diesel::result::Error as UnderlyingError;
 
 use diesel::prelude::*;
 use diesel::r2d2;
-use diesel::insert_into;
-use diesel::query_dsl::RunQueryDsl;
+
+use std::fmt;
 
 use crate::settings;
-use entity::NewSchedule;
 
-/// Entity that represents *schedule* table in db
-pub struct Schedules<P> where P: ConnectionPool {
-    pool: P,
+/// Query that can be performed on database
+pub trait Table<P: ConnectionPool> {
+    fn execute<O, F>(&self, f: F) -> Result<O, QueryError>
+        where F: Fn(&P::Connection) -> Result<O, QueryError>;
 }
 
-impl<P> Schedules<P> where P: ConnectionPool {
-    /// Creates new instance with specified connection pool
-    pub fn new(pool: P) -> Self {
-        Schedules { pool }
+/// Represents an error that may happen on querying db
+#[derive(Debug)]
+pub enum QueryError {
+    /// Failed to acquire db connection from connection pool
+    PoolFailed(PoolError),
+    /// Failed to perform db query
+    QueryFailed(UnderlyingError),
+}
+
+impl From<PoolError> for QueryError {
+    fn from(e: PoolError) -> Self {
+        QueryError::PoolFailed(e)
     }
 }
+
+impl From<UnderlyingError> for QueryError {
+    fn from(e: UnderlyingError) -> Self {
+        QueryError::QueryFailed(e)
+    }
+}
+
+impl fmt::Display for QueryError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use QueryError::*;
+
+        match self {
+            &PoolFailed(ref e) => <PoolError as fmt::Display>::fmt(&e, f),
+            &QueryFailed(ref e) => <UnderlyingError as fmt::Display>::fmt(&e, f),
+        }
+    }
+}
+
+impl std::error::Error for QueryError {}
 
 /// Creates new connection pool with specified settings
 ///
@@ -44,7 +73,10 @@ pub fn new_connection_pool() -> Result<impl ConnectionPool, PoolError> {
 ///
 /// `pool.clone()` should be used to pass connection pool around
 pub trait ConnectionPool: Clone {
-    type Connection: diesel::Connection;
+    type Connection: diesel::Connection<
+        Backend=diesel::sqlite::Sqlite,
+        TransactionManager=diesel::connection::AnsiTransactionManager
+    >;
 
     fn get(&self) -> Result<Self::Connection, PoolError>;
 }

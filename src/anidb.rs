@@ -172,7 +172,7 @@ impl AnimeBuilder {
 
         let raw_id = attr.unescaped_value()?;
         let raw_id = std::str::from_utf8(&raw_id)?;
-        let id = u32::from_str(&raw_id)?;
+        let id = i32::from_str(&raw_id)?;
         self.set_id(id);
 
         Ok(())

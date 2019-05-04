@@ -4,7 +4,7 @@ use super::entity::*;
 
 /// Produces instances of `Anime` from parts
 pub struct AnimeBuilder {
-    id: Option<u32>,
+    id: Option<i32>,
     title: Option<String>,
     variations: Vec<TitleVariation>,
 
@@ -47,7 +47,7 @@ impl AnimeBuilder {
     }
 
     /// Sets `id` for current `Anime` instance
-    pub fn set_id(&mut self, id: u32) {
+    pub fn set_id(&mut self, id: i32) {
         self.id = Some(id);
     }
 

@@ -6,7 +6,7 @@ create table schedules
 
     anidb_id          integer not null,
     state             integer default 0 not null,
-    priority          integer default 0 not null,
+    priority          integer default 1000 not null,
     has_poster        integer default 0 not null,
     has_air_date      integer default 0 not null,
     has_type          integer default 0 not null,
