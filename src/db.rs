@@ -13,8 +13,11 @@ use std::fmt;
 
 use crate::settings;
 
-/// Query that can be performed on database
+/// Represents a db table which can be queried
 pub trait Table<P: ConnectionPool> {
+    /// Provides you with db connection to perform table query
+    ///
+    /// * f – closure to where db connection will be passes
     fn execute<O, F>(&self, f: F) -> Result<O, QueryError>
         where F: Fn(&P::Connection) -> Result<O, QueryError>;
 }

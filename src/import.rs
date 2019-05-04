@@ -10,18 +10,25 @@ use std::cmp::Ordering;
 pub struct AnimeImporter<P, S>
     where P: AnimeProvider, S: ImportScheduler
 {
+    /// Data source for anime titles
     provider: P,
+    /// Scheduler for importing changes to db
     scheduler: S,
 }
 
 impl<P, S> AnimeImporter<P, S>
     where P: AnimeProvider, S: ImportScheduler
 {
+    /// Creates new instance with provided parameters
     pub fn new(provider: P, scheduler: S) -> Self {
         AnimeImporter { provider, scheduler }
     }
 
-    /// Starts anime import. This method will block current thread until import is done
+    /// Starts importing anime titles by using id's to determine diff that should be processes.
+    /// This method assumes that id's sorted in ascending order and no duplicates exists
+    ///
+    /// ## Note
+    /// This method will block current thread until import is done
     pub fn begin(mut self) -> Result<(), ImportError> {
         let mut iter_old = self.provider.old_anime_titles()?;
         let mut iter_new = self.provider.new_anime_titles()?;
@@ -77,6 +84,10 @@ impl<P, S> AnimeImporter<P, S>
 
 /// Represents an error that may occur during anime import
 pub enum ImportError {
+    /// Failed to read data from data source
+    ///
+    /// For example, situation where `AnimeProvider` will not be able to provide anime titles
+    /// will cause that error.
     DataSourceFailed(String)
 }
 
@@ -96,13 +107,16 @@ pub trait AnimeProvider {
     /// the error
     type Error: std::error::Error;
 
-    /// Returns iterator for previously imported anime titles. It used to build a diff of changed
-    /// anime entities and process them only. The iterator may return `None` at any time. In that
-    /// case all titles returned from `new_anime_titles` iterator would be imported as new titles
+    /// Returns iterator for previously imported anime titles
+    ///
+    /// It used to build a diff of changed anime entities and process them only. The iterator may
+    /// return `None` at any time. In that case all titles returned from `new_anime_titles`
+    /// iterator would be imported as new titles
     fn old_anime_titles(&self) -> Result<Self::Iterator, Self::Error>;
 
-    /// Returns iterator for anime titles that should be imported. If non-empty iterator is returned
-    /// from `old_anime_titles` then only diff will be processes
+    /// Returns iterator for anime titles that should be imported
+    ///
+    /// If non-empty iterator is returned from `old_anime_titles` then only diff will be processes
     fn new_anime_titles(&self) -> Result<Self::Iterator, Self::Error>;
 }
 
@@ -148,6 +162,7 @@ pub trait ImportScheduler {
 
 /// Schedules for anime titles from AniDB dump
 pub struct AniDbImportScheduler<P: ConnectionPool> {
+    /// Db table for scheduled imports
     schedules: schedules::Schedules<P>,
 }
 
