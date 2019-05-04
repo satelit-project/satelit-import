@@ -1,6 +1,7 @@
 use log::{warn, trace};
 
 use crate::anidb::{Anime, AniDb, XmlError};
+use crate::db::{schedules, Table, ConnectionPool, QueryError, entity::NewSchedule};
 
 use std::path::Path;
 use std::cmp::Ordering;
@@ -143,4 +144,26 @@ pub trait ImportScheduler {
 
     /// Removes anime title from anime storage
     fn remove_title(&mut self, anime: &Anime) -> Result<(), Self::Error>;
+}
+
+/// Schedules for anime titles from AniDB dump
+pub struct AniDbImportScheduler<P: ConnectionPool> {
+    schedules: schedules::Schedules<P>,
+}
+
+impl<P: ConnectionPool> ImportScheduler for AniDbImportScheduler<P> {
+    type Error = QueryError;
+
+    fn add_title(&mut self, anime: &Anime) -> Result<(), Self::Error> {
+        use crate::schedules_insert;
+
+        let schedule = NewSchedule::new(anime.id);
+        schedules_insert!(self.schedules, &schedule)
+    }
+
+    fn remove_title(&mut self, anime: &Anime) -> Result<(), Self::Error> {
+        use crate::schedules_delete;
+
+        schedules_delete!(self.schedules, anidb_id(anime.id))
+    }
 }
