@@ -10,6 +10,7 @@ use futures::prelude::*;
 use futures::try_ready;
 use log::{error, trace};
 
+/// Creates new task configured with global app settings
 pub fn new_task() -> impl Future<Item = (), Error = ()> {
     let settings = crate::settings::shared();
 
