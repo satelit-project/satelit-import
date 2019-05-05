@@ -10,6 +10,7 @@ use futures::prelude::*;
 use futures::try_ready;
 use log::{error, trace};
 
+// TODO: Why I'm forced to use box here?
 /// Task to download and import AniDB dump
 pub struct DumpImportTask {
     download: Box<dyn Future<Item = (), Error = download::DownloadError>>,
