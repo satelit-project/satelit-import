@@ -10,16 +10,53 @@ use futures::prelude::*;
 use futures::try_ready;
 use log::{error, trace};
 
-// TODO: Why I'm forced to use box here?
+pub fn new_task() -> impl Future<Item = (), Error = ()> {
+    let settings = crate::settings::shared();
+
+    let download = download::downloader(
+        settings.import().dump_url(),
+        settings.import().download_path(),
+    );
+
+    let extract = extract::extractor(
+        settings.import().download_path(),
+        settings.import().dump_path(),
+        settings.import().chunk_size(),
+    );
+
+    let import = import::importer(
+        settings.import().old_dump_path(),
+        settings.import().dump_path(),
+        crate::db::connection_pool(),
+    );
+
+    DumpImportTask {
+        download,
+        extract,
+        import,
+        state: DumpImportState::Downloading,
+    }
+}
+
 /// Task to download and import AniDB dump
-pub struct DumpImportTask {
-    download: Box<dyn Future<Item = (), Error = download::DownloadError>>,
-    extract: Box<dyn Future<Item = (), Error = extract::ExtractError>>,
-    import: Box<dyn Future<Item = (), Error = import::ImportError>>,
+pub struct DumpImportTask<D, E, I>
+where
+    D: Future<Item = (), Error = download::DownloadError>,
+    E: Future<Item = (), Error = extract::ExtractError>,
+    I: Future<Item = (), Error = import::ImportError>,
+{
+    download: D,
+    extract: E,
+    import: I,
     state: DumpImportState,
 }
 
-impl DumpImportTask {
+impl<D, E, I> DumpImportTask<D, E, I>
+where
+    D: Future<Item = (), Error = download::DownloadError>,
+    E: Future<Item = (), Error = extract::ExtractError>,
+    I: Future<Item = (), Error = import::ImportError>,
+{
     fn poll_download(&mut self) -> Result<Async<()>, ()> {
         match self.download.poll() {
             Err(e) => {
@@ -69,38 +106,12 @@ impl DumpImportTask {
     }
 }
 
-impl Default for DumpImportTask {
-    /// Creates task configured with global settings
-    fn default() -> Self {
-        let settings = crate::settings::shared();
-
-        let download = download::downloader(
-            settings.import().dump_url(),
-            settings.import().download_path(),
-        );
-
-        let extract = extract::extractor(
-            settings.import().download_path(),
-            settings.import().dump_path(),
-            settings.import().chunk_size(),
-        );
-
-        let import = import::importer(
-            settings.import().old_dump_path(),
-            settings.import().dump_path(),
-            crate::db::connection_pool(),
-        );
-
-        DumpImportTask {
-            download: Box::new(download),
-            extract: Box::new(extract),
-            import: Box::new(import),
-            state: DumpImportState::Downloading,
-        }
-    }
-}
-
-impl Future for DumpImportTask {
+impl<D, E, I> Future for DumpImportTask<D, E, I>
+where
+    D: Future<Item = (), Error = download::DownloadError>,
+    E: Future<Item = (), Error = extract::ExtractError>,
+    I: Future<Item = (), Error = import::ImportError>,
+{
     type Item = ();
     type Error = ();
 
