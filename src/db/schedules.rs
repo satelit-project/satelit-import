@@ -1,6 +1,7 @@
 use super::{ConnectionPool, Table, QueryError};
 
 /// Entity that represents *schedule* table in db
+#[derive(Clone)]
 pub struct Schedules<P: ConnectionPool> {
     /// Db connection pool
     pool: P,

@@ -3,6 +3,5 @@ extern crate diesel; // TODO: remove when diesel will support 2018 edition's mac
 
 pub mod settings;
 pub mod anidb;
-pub mod import;
 pub mod db;
 pub mod worker;
