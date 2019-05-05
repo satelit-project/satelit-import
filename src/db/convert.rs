@@ -10,7 +10,7 @@ use super::entity::*;
 
 // Conversion from ScheduleState
 impl ToSql<Integer, Sqlite> for ScheduleState {
-    fn to_sql<W: Write>(&self, out: &mut diesel::serialize::Output<W, Sqlite>) -> diesel::serialize::Result {
+    fn to_sql<W: Write>(&self, out: &mut diesel::serialize::Output<'_, W, Sqlite>) -> diesel::serialize::Result {
         ToSql::<Integer, Sqlite>::to_sql(&(*self as i32), out)
     }
 }
@@ -32,7 +32,7 @@ impl FromSql<Integer, Sqlite> for ScheduleState {
 
 // Conversion from SchedulePriority
 impl ToSql<Integer, Sqlite> for SchedulePriority {
-    fn to_sql<W: Write>(&self, out: &mut diesel::serialize::Output<W, Sqlite>) -> diesel::serialize::Result {
+    fn to_sql<W: Write>(&self, out: &mut diesel::serialize::Output<'_, W, Sqlite>) -> diesel::serialize::Result {
         ToSql::<Integer, Sqlite>::to_sql(&(*self as i32), out)
     }
 }

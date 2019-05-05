@@ -101,7 +101,7 @@ pub enum DownloadError {
 }
 
 impl Debug for DownloadError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use DownloadError::*;
 
         match self {
@@ -112,7 +112,7 @@ impl Debug for DownloadError {
 }
 
 impl Display for DownloadError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use DownloadError::*;
 
         match self {

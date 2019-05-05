@@ -44,7 +44,7 @@ impl From<UnderlyingError> for QueryError {
 }
 
 impl fmt::Display for QueryError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use QueryError::*;
 
         match self {
