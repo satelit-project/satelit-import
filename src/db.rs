@@ -1,7 +1,7 @@
-pub mod entity;
-pub mod schema;
-pub mod schedules;
 mod convert;
+pub mod entity;
+pub mod schedules;
+pub mod schema;
 
 pub use diesel::r2d2::PoolError;
 pub use diesel::result::Error as UnderlyingError;
@@ -19,7 +19,8 @@ pub trait Table<P: ConnectionPool> {
     ///
     /// * f – closure to where db connection will be passes
     fn execute<O, F>(&self, f: F) -> Result<O, QueryError>
-        where F: Fn(&P::Connection) -> Result<O, QueryError>;
+    where
+        F: Fn(&P::Connection) -> Result<O, QueryError>;
 }
 
 /// Represents an error that may happen on querying db
@@ -77,8 +78,8 @@ pub fn new_connection_pool() -> Result<impl ConnectionPool, PoolError> {
 /// `pool.clone()` should be used to pass connection pool around
 pub trait ConnectionPool: Clone {
     type Connection: diesel::Connection<
-        Backend=diesel::sqlite::Sqlite,
-        TransactionManager=diesel::connection::AnsiTransactionManager
+        Backend = diesel::sqlite::Sqlite,
+        TransactionManager = diesel::connection::AnsiTransactionManager,
     >;
 
     fn get(&self) -> Result<Self::Connection, PoolError>;

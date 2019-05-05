@@ -10,7 +10,11 @@ pub struct Anime {
 
 impl Anime {
     pub fn new(id: i32, title: String, variations: Vec<TitleVariation>) -> Self {
-        Anime { id, title, variations }
+        Anime {
+            id,
+            title,
+            variations,
+        }
     }
 }
 

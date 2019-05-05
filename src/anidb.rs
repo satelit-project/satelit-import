@@ -1,5 +1,5 @@
-mod entity;
 mod build;
+mod entity;
 
 use std::fs::File;
 use std::io::BufReader;
@@ -16,8 +16,8 @@ use quick_xml::Reader;
 
 use quick_xml::Error as QXError;
 
-use build::AnimeBuilder;
 use build::AnimeBuildError;
+use build::AnimeBuilder;
 
 pub use entity::Anime;
 pub use entity::TitleVariation;
@@ -108,7 +108,7 @@ impl std::fmt::Display for XmlError {
     }
 }
 
-impl std::error::Error for XmlError { }
+impl std::error::Error for XmlError {}
 
 impl From<QXError> for XmlError {
     fn from(error: QXError) -> Self {
@@ -150,9 +150,7 @@ impl From<AnimeBuildError> for ParseError {
         use AnimeBuildError::*;
 
         match err {
-            NotStarted | AlreadyStarted | MalformedTitle => {
-                ParseError::UnexpectedState
-            }
+            NotStarted | AlreadyStarted | MalformedTitle => ParseError::UnexpectedState,
             _ => ParseError::MalformedAttribute,
         }
     }
@@ -162,9 +160,7 @@ impl From<AnimeBuildError> for ParseError {
 impl AnimeBuilder {
     fn handle_id(&mut self, tag: &BytesStart<'_>) -> Result<(), ParseError> {
         let mut attributes = tag.attributes();
-        let attr = attributes
-            .next()
-            .ok_or(ParseError::MalformedAttribute)??;
+        let attr = attributes.next().ok_or(ParseError::MalformedAttribute)??;
 
         if attr.key != b"aid" {
             return Err(ParseError::MalformedAttribute);

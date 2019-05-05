@@ -28,7 +28,7 @@ pub struct Schedule {
 pub enum ScheduleState {
     Pending = 0,
     Processing = 1,
-    Finished = 2
+    Finished = 2,
 }
 
 /// Represents scraping priority of a schedule

@@ -1,19 +1,21 @@
 use futures::prelude::*;
+use reqwest::header::{self, HeaderMap, HeaderValue};
 use reqwest::r#async::{Client, ClientBuilder};
-use reqwest::header::{HeaderMap, HeaderValue, self};
 use reqwest::Method;
 use tokio::fs::File;
 
-use std::time::Duration;
-use std::fmt::{Debug, Display, self};
+use std::fmt::{self, Debug, Display};
 use std::path::Path;
+use std::time::Duration;
 
 use crate::settings;
 
 /// Creates downloader with configuration from global app settings
-pub fn downloader() -> Result<DumpDownloader<impl FileDownload, &'static str, &'static str>, DownloadError> {
-    const USER_AGENT: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_4) AppleWebKit/605.1.15 \
-(KHTML, like Gecko) Version/12.1 Safari/605.1.15";
+pub fn downloader(
+) -> Result<DumpDownloader<impl FileDownload, &'static str, &'static str>, DownloadError> {
+    const USER_AGENT: &str =
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_4) AppleWebKit/605.1.15 \
+         (KHTML, like Gecko) Version/12.1 Safari/605.1.15";
 
     let settings = settings::Settings::shared().anidb();
     let mut headers = HeaderMap::new();
@@ -42,24 +44,30 @@ pub struct DumpDownloader<D: FileDownload, U: AsRef<str>, P: AsRef<Path> + Clone
     dest_path: P,
 }
 
-impl<D: FileDownload, U: AsRef<str>, P: AsRef<Path> + Clone + Send + 'static> DumpDownloader<D, U, P> {
+impl<D: FileDownload, U: AsRef<str>, P: AsRef<Path> + Clone + Send + 'static>
+    DumpDownloader<D, U, P>
+{
     /// Creates new instance
     pub fn new(downloader: D, dump_url: U, dest_path: P) -> Self {
-        DumpDownloader { downloader, dump_url, dest_path }
+        DumpDownloader {
+            downloader,
+            dump_url,
+            dest_path,
+        }
     }
 
     /// Asynchronously downloads dump at `dump_url` and saves it on disk at `dest_path`
     pub fn download(&self) -> impl Future<Item = (), Error = DownloadError> {
         let dump = self.downloader.download(self.dump_url.as_ref());
-        let file = File::create(self.dest_path.clone())
-            .map_err(DownloadError::from);
+        let file = File::create(self.dest_path.clone()).map_err(DownloadError::from);
 
         file.and_then(move |f| {
             dump.fold(f, |f, chunk| {
                 tokio::io::write_all(f, chunk)
                     .map_err(DownloadError::from)
                     .map(|(f, _)| f)
-            }).and_then(|_| Ok(()))
+            })
+            .and_then(|_| Ok(()))
         })
     }
 }
@@ -69,7 +77,7 @@ pub trait FileDownload {
     /// Type of chunks of data stream
     type Chunk: AsRef<[u8]>;
     /// Stream of data chunks
-    type Bytes: Stream<Item=Self::Chunk, Error=DownloadError>;
+    type Bytes: Stream<Item = Self::Chunk, Error = DownloadError>;
 
     /// Asynchronously starts downloading file at specified `url`
     fn download(&self, url: &str) -> Self::Bytes;
@@ -80,7 +88,8 @@ impl FileDownload for Client {
     type Bytes = Box<dyn Stream<Item = Self::Chunk, Error = DownloadError>>;
 
     fn download(&self, url: &str) -> Self::Bytes {
-        let bytes = self.request(Method::GET, url)
+        let bytes = self
+            .request(Method::GET, url)
             .send()
             .into_stream()
             .take(1)

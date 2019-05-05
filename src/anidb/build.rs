@@ -107,7 +107,7 @@ impl AnimeBuilder {
             .take()
             .ok_or(AnimeBuildError::NotStarted)?;
 
-        let variation= builder.build()?;
+        let variation = builder.build()?;
         if variation.kind == TitleKind::Main {
             debug_assert_eq!(self.title, None);
             self.title = Some(variation.title.clone());
@@ -172,7 +172,7 @@ impl TitleVariationBuilder {
             Ok(kind) => {
                 self.kind = Some(kind);
                 None
-            },
+            }
             Err(err) => Some(err),
         }
     }

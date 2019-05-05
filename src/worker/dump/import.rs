@@ -1,13 +1,13 @@
-use log::{warn, trace};
 use futures::prelude::*;
 use futures::try_ready;
+use log::{trace, warn};
 use tokio_threadpool::{blocking, BlockingError};
 
-use crate::anidb::{Anime, AniDb, XmlError};
-use crate::db::{schedules, Table, ConnectionPool, QueryError, entity::NewSchedule};
+use crate::anidb::{AniDb, Anime, XmlError};
+use crate::db::{entity::NewSchedule, schedules, ConnectionPool, QueryError, Table};
 
-use std::path::Path;
 use std::cmp::Ordering;
+use std::path::Path;
 
 /// Performs anime import from AniDB dump asynchronously
 ///
@@ -16,12 +16,14 @@ use std::cmp::Ordering;
 /// section of tokio thread pool. If this is not desired behavior, spawn a separate task and use
 /// this future there. For more info see docs for `tokio_threadpool::blocking`
 pub struct DumpImporter<P, S>(AnimeImporter<P, S>)
-    where P: AnimeProvider<Iterator=AniDb, Error=XmlError>,
-          S: ImportScheduler<Error=QueryError>;
+where
+    P: AnimeProvider<Iterator = AniDb, Error = XmlError>,
+    S: ImportScheduler<Error = QueryError>;
 
 impl<P, S> DumpImporter<P, S>
-    where P: AnimeProvider<Iterator=AniDb, Error=XmlError>,
-          S: ImportScheduler<Error=QueryError>
+where
+    P: AnimeProvider<Iterator = AniDb, Error = XmlError>,
+    S: ImportScheduler<Error = QueryError>,
 {
     pub fn new(provider: P, scheduler: S) -> Self {
         let importer = AnimeImporter::new(provider, scheduler);
@@ -30,8 +32,9 @@ impl<P, S> DumpImporter<P, S>
 }
 
 impl<P, S> Future for DumpImporter<P, S>
-    where P: AnimeProvider<Iterator=AniDb, Error=XmlError>,
-          S: ImportScheduler<Error=QueryError>
+where
+    P: AnimeProvider<Iterator = AniDb, Error = XmlError>,
+    S: ImportScheduler<Error = QueryError>,
 {
     type Item = ();
     type Error = ImportError;
@@ -46,7 +49,7 @@ impl<P, S> Future for DumpImporter<P, S>
 
         match try_ready!(inner) {
             Ok(v) => Ok(Async::Ready(v)),
-            Err(e) => Err(e)
+            Err(e) => Err(e),
         }
     }
 }
@@ -54,7 +57,9 @@ impl<P, S> Future for DumpImporter<P, S>
 /// Performs anime import with titles from `provider` and schedules changes in `scheduler`.
 #[derive(Clone)]
 pub struct AnimeImporter<P, S>
-    where P: AnimeProvider, S: ImportScheduler
+where
+    P: AnimeProvider,
+    S: ImportScheduler,
 {
     /// Data source for anime titles
     provider: P,
@@ -63,12 +68,16 @@ pub struct AnimeImporter<P, S>
 }
 
 impl<P, S> AnimeImporter<P, S>
-    where P: AnimeProvider<Error=XmlError>,
-          S: ImportScheduler
+where
+    P: AnimeProvider<Error = XmlError>,
+    S: ImportScheduler,
 {
     /// Creates new instance with provided parameters
     pub fn new(provider: P, scheduler: S) -> Self {
-        AnimeImporter { provider, scheduler }
+        AnimeImporter {
+            provider,
+            scheduler,
+        }
     }
 
     /// Starts importing anime titles by using id's to determine diff that should be processes.
@@ -158,7 +167,7 @@ impl From<BlockingError> for ImportError {
 pub trait AnimeProvider: Clone + Send {
     /// Iterator for anime entities that should be processes. Entities should be sorted by id
     /// and returned in ascended order
-    type Iterator: Iterator<Item=Anime>;
+    type Iterator: Iterator<Item = Anime>;
 
     /// If provider can't return an iterator this error type will be used to determine a cause of
     /// the error
@@ -190,7 +199,10 @@ impl<P: AsRef<Path> + Clone + Send> AniDbAnimeProvider<P> {
     /// * `old_dump_path` – path to previously imported dump
     /// * `new_dump_path` - path to dump that should be imported
     pub fn new(old_dump_path: P, new_dump_path: P) -> Self {
-        AniDbAnimeProvider { old_dump_path, new_dump_path }
+        AniDbAnimeProvider {
+            old_dump_path,
+            new_dump_path,
+        }
     }
 }
 
@@ -232,12 +244,12 @@ impl<P: ConnectionPool + Send> ImportScheduler for AniDbImportScheduler<P> {
         use crate::schedules_insert;
 
         let schedule = NewSchedule::new(anime.id);
-        schedules_insert!(self.schedules, & schedule)
+        schedules_insert!(self.schedules, &schedule)
     }
 
     fn remove_title(&mut self, anime: &Anime) -> Result<(), Self::Error> {
         use crate::schedules_delete;
 
-        schedules_delete!( self.schedules, anidb_id(anime.id))
+        schedules_delete!(self.schedules, anidb_id(anime.id))
     }
 }

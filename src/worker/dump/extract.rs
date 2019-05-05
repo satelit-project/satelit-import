@@ -1,11 +1,11 @@
+use flate2::bufread::GzDecoder;
 use futures::prelude::*;
 use futures::try_ready;
-use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::fs::File;
-use flate2::bufread::GzDecoder;
+use tokio::io::{AsyncRead, AsyncWrite};
 
-use std::path::Path;
 use std::io::BufReader;
+use std::path::Path;
 
 use crate::settings::Settings;
 
@@ -44,18 +44,17 @@ impl<P: AsRef<Path> + Clone + Send + 'static> GzipExtractor<P> {
     }
 
     /// Asynchronously extracts archive
-    pub fn extract(&self) -> impl Future<Item=(), Error=std::io::Error> {
+    pub fn extract(&self) -> impl Future<Item = (), Error = std::io::Error> {
         let src = File::open(self.src_path.clone());
         let dest = File::create(self.dest_path.clone());
         let chunk_size = self.chunk_size;
 
-        src.join(dest)
-            .and_then(move |(src, dest)| {
-                let reader = BufReader::new(src);
-                let decoder = GzDecoder::new(reader);
+        src.join(dest).and_then(move |(src, dest)| {
+            let reader = BufReader::new(src);
+            let decoder = GzDecoder::new(reader);
 
-                AsyncReadWrite::new(decoder, dest, chunk_size)
-            })
+            AsyncReadWrite::new(decoder, dest, chunk_size)
+        })
     }
 }
 
@@ -150,9 +149,9 @@ impl<S: AsyncRead, D: AsyncWrite> Future for AsyncReadWrite<S, D> {
 
 #[cfg(test)]
 mod tests_rw {
-    use std::io::{Read, Write, Seek, SeekFrom};
-    use std::ops::Deref;
     use super::*;
+    use std::io::{Read, Seek, SeekFrom, Write};
+    use std::ops::Deref;
 
     /// Tests the case when data can be read into buffer all at once
     #[test]
@@ -180,7 +179,8 @@ mod tests_rw {
 
     /// Writes content of a file into another file and returns their content
     fn read_write_content<T>(mut content: T, chunk_size: usize) -> Result<(T, T), std::io::Error>
-        where T: AsMut<[u8]> + From<Vec<u8>>
+    where
+        T: AsMut<[u8]> + From<Vec<u8>>,
     {
         let mut tmp_src = tempfile::Builder::new().tempfile()?;
         let mut tmp_dst = tempfile::Builder::new().tempfile()?;
@@ -192,10 +192,9 @@ mod tests_rw {
         let src = tokio::fs::File::open(tmp_src.path().to_owned());
         let dst = tokio::fs::File::create(tmp_dst.path().to_owned());
 
-        let task = src.join(dst)
-            .and_then(move |(src, dst)| {
-                AsyncReadWrite::new(src, dst, chunk_size)
-            })
+        let task = src
+            .join(dst)
+            .and_then(move |(src, dst)| AsyncReadWrite::new(src, dst, chunk_size))
             .map_err(|e| panic!(format!("{}", e)));
 
         tokio::run(task);
