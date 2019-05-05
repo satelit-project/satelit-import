@@ -8,16 +8,16 @@ use std::fmt::{self, Debug, Display};
 use std::path::Path;
 use std::time::Duration;
 
-use crate::settings;
-
 /// Creates downloader with configuration from global app settings
-pub fn downloader(
-) -> Result<DumpDownloader<impl FileDownload, &'static str, &'static str>, DownloadError> {
+pub fn downloader<U, P>(dump_url: U, dest_path: P) -> impl Future<Item = (), Error = DownloadError>
+where
+    U: AsRef<str>,
+    P: AsRef<Path> + Clone + Send + 'static,
+{
     const USER_AGENT: &str =
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_4) AppleWebKit/605.1.15 \
          (KHTML, like Gecko) Version/12.1 Safari/605.1.15";
 
-    let settings = settings::shared().anidb();
     let mut headers = HeaderMap::new();
     headers.insert(header::USER_AGENT, HeaderValue::from_static(USER_AGENT));
 
@@ -25,13 +25,11 @@ pub fn downloader(
         .default_headers(headers)
         .gzip(true)
         .connect_timeout(Duration::new(60, 0))
-        .build()?;
+        .build();
 
-    Ok(DumpDownloader {
-        downloader: client,
-        dump_url: settings.dump_url(),
-        dest_path: settings.download_path(),
-    })
+    futures::future::result(client)
+        .from_err()
+        .and_then(move |client| DumpDownloader::new(client, dump_url, dest_path).download())
 }
 
 /// AniDB dump downloader

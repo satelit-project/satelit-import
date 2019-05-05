@@ -4,21 +4,26 @@ use log::{trace, warn};
 use tokio_threadpool::{blocking, BlockingError};
 
 use std::cmp::Ordering;
+use std::fmt;
 use std::path::Path;
 
 use crate::anidb::{AniDb, Anime, XmlError};
-use crate::db::{self, entity::NewSchedule, schedules, ConnectionPool, QueryError, Table};
-use crate::settings;
+use crate::db::{entity::NewSchedule, schedules, ConnectionPool, QueryError, Table};
 
 /// Creates AniDB dump importer configured with global app settings
 ///
 /// Returned future will block your current task until it's ready
-pub fn importer() -> impl Future<Item = (), Error = ImportError> {
-    let settings = settings::shared().anidb();
-    let provider = AniDbAnimeProvider::new(settings.old_dump_path(), settings.dump_path());
-
-    let pool = db::connection_pool();
-    let schedules = schedules::Schedules::new(pool);
+pub fn importer<P, C>(
+    old_dump_path: P,
+    dump_path: P,
+    connection_pool: C,
+) -> impl Future<Item = (), Error = ImportError>
+where
+    P: AsRef<Path> + Clone + Send + 'static,
+    C: ConnectionPool + Send,
+{
+    let provider = AniDbAnimeProvider::new(old_dump_path, dump_path);
+    let schedules = schedules::Schedules::new(connection_pool);
     let scheduler = AniDbImportScheduler::new(schedules);
 
     DumpImporter::new(provider, scheduler)
@@ -154,6 +159,7 @@ where
 }
 
 /// Represents an error that may occur during anime import
+#[derive(Debug)]
 pub enum ImportError {
     /// Failed to read data from data source
     ///
@@ -177,6 +183,19 @@ impl From<BlockingError> for ImportError {
         ImportError::InternalError(format!("failed to enter blocking section: {}", e))
     }
 }
+
+impl fmt::Display for ImportError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use ImportError::*;
+
+        match self {
+            DataSourceFailed(e) => e.fmt(f),
+            InternalError(e) => e.fmt(f),
+        }
+    }
+}
+
+impl std::error::Error for ImportError {}
 
 /// Data source for anime records that should be imported
 pub trait AnimeProvider: Clone + Send {

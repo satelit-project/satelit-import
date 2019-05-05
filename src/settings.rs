@@ -23,7 +23,6 @@ pub fn shared() -> &'static Settings {
 #[derive(Debug, Deserialize)]
 pub struct Settings {
     db: Db,
-    anidb: AniDb,
     import: Import,
 }
 
@@ -31,11 +30,6 @@ impl Settings {
     /// Returns database settings
     pub fn db(&self) -> &Db {
         &self.db
-    }
-
-    /// Returns AniDB settings
-    pub fn anidb(&self) -> &AniDb {
-        &self.anidb
     }
 
     /// Returns dump import settings
@@ -75,16 +69,17 @@ impl Db {
     }
 }
 
-/// Global AniDB settings
+/// Global anime import settings
 #[derive(Debug, Deserialize)]
-pub struct AniDb {
+pub struct Import {
     dump_url: String,
     download_path: String,
     old_dump_path: String,
     dump_path: String,
+    chunk_size: usize,
 }
 
-impl AniDb {
+impl Import {
     /// Returns URL to latest AniDB dump
     pub fn dump_url(&self) -> &str {
         &self.dump_url
@@ -104,15 +99,7 @@ impl AniDb {
     pub fn dump_path(&self) -> &str {
         &self.dump_path
     }
-}
 
-/// Global dump import settings
-#[derive(Debug, Deserialize)]
-pub struct Import {
-    chunk_size: usize,
-}
-
-impl Import {
     /// Size of read buffer for gzip extraction
     pub fn chunk_size(&self) -> usize {
         self.chunk_size

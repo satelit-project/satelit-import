@@ -7,16 +7,20 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use std::io::BufReader;
 use std::path::Path;
 
-use crate::settings;
+pub type ExtractError = std::io::Error;
 
 /// Creates gzip extractor configured with global app settings
-pub fn extractor() -> GzipExtractor<&'static str> {
-    let settings = settings::shared().anidb();
-    let mut extractor = GzipExtractor::new(settings.download_path(), settings.dump_path());
-
-    let settings = settings::shared().import();
-    extractor.set_chunk_size(settings.chunk_size());
-    extractor
+pub fn extractor<P>(
+    src_path: P,
+    dst_path: P,
+    chunk_size: usize,
+) -> impl Future<Item = (), Error = ExtractError>
+where
+    P: AsRef<Path> + Clone + Send + 'static,
+{
+    let mut extractor = GzipExtractor::new(src_path, dst_path);
+    extractor.set_chunk_size(chunk_size);
+    extractor.extract()
 }
 
 /// Asynchronously extracts single file from gzip archive
@@ -48,7 +52,7 @@ impl<P: AsRef<Path> + Clone + Send + 'static> GzipExtractor<P> {
     }
 
     /// Asynchronously extracts archive
-    pub fn extract(&self) -> impl Future<Item = (), Error = std::io::Error> {
+    pub fn extract(&self) -> impl Future<Item = (), Error = ExtractError> {
         let src = File::open(self.src_path.clone());
         let dest = File::create(self.dest_path.clone());
         let chunk_size = self.chunk_size;
@@ -107,7 +111,7 @@ impl<S: AsyncRead, D: AsyncWrite> AsyncReadWrite<S, D> {
 
 impl<S: AsyncRead, D: AsyncWrite> Future for AsyncReadWrite<S, D> {
     type Item = ();
-    type Error = std::io::Error;
+    type Error = ExtractError;
 
     fn poll(&mut self) -> Result<Async<Self::Item>, Self::Error> {
         use AsyncReadWriteState::*;
@@ -159,7 +163,7 @@ mod tests_rw {
 
     /// Tests the case when data can be read into buffer all at once
     #[test]
-    fn test_read_write_all() -> Result<(), std::io::Error> {
+    fn test_read_write_all() -> Result<(), ExtractError> {
         let content = "hello world";
         let (src, dst) = read_write_content(content.to_mut(), 32)?;
 
@@ -171,7 +175,7 @@ mod tests_rw {
 
     /// Test the case when data will not fit into read buffer all at once
     #[test]
-    fn test_read_write_chunked() -> Result<(), std::io::Error> {
+    fn test_read_write_chunked() -> Result<(), ExtractError> {
         let content = "hello world ".repeat(20);
         let (src, dst) = read_write_content(content.to_mut(), 16)?;
 
@@ -182,7 +186,7 @@ mod tests_rw {
     }
 
     /// Writes content of a file into another file and returns their content
-    fn read_write_content<T>(mut content: T, chunk_size: usize) -> Result<(T, T), std::io::Error>
+    fn read_write_content<T>(mut content: T, chunk_size: usize) -> Result<(T, T), ExtractError>
     where
         T: AsMut<[u8]> + From<Vec<u8>>,
     {
