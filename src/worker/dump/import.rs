@@ -3,11 +3,26 @@ use futures::try_ready;
 use log::{trace, warn};
 use tokio_threadpool::{blocking, BlockingError};
 
-use crate::anidb::{AniDb, Anime, XmlError};
-use crate::db::{entity::NewSchedule, schedules, ConnectionPool, QueryError, Table};
-
 use std::cmp::Ordering;
 use std::path::Path;
+
+use crate::anidb::{AniDb, Anime, XmlError};
+use crate::db::{self, entity::NewSchedule, schedules, ConnectionPool, QueryError, Table};
+use crate::settings;
+
+/// Creates AniDB dump importer configured with global app settings
+///
+/// Returned future will block your current task until it's ready
+pub fn importer() -> impl Future<Item = (), Error = ImportError> {
+    let settings = settings::shared().anidb();
+    let provider = AniDbAnimeProvider::new(settings.old_dump_path(), settings.dump_path());
+
+    let pool = db::connection_pool();
+    let schedules = schedules::Schedules::new(pool);
+    let scheduler = AniDbImportScheduler::new(schedules);
+
+    DumpImporter::new(provider, scheduler)
+}
 
 /// Performs anime import from AniDB dump asynchronously
 ///
@@ -235,6 +250,12 @@ pub trait ImportScheduler: Clone + Send {
 pub struct AniDbImportScheduler<P: ConnectionPool + Send> {
     /// Db table for scheduled imports
     schedules: schedules::Schedules<P>,
+}
+
+impl<P: ConnectionPool + Send> AniDbImportScheduler<P> {
+    pub fn new(schedules: schedules::Schedules<P>) -> Self {
+        AniDbImportScheduler { schedules }
+    }
 }
 
 impl<P: ConnectionPool + Send> ImportScheduler for AniDbImportScheduler<P> {

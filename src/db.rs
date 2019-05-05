@@ -10,13 +10,36 @@ use diesel::prelude::*;
 use diesel::r2d2;
 
 use std::fmt;
+use std::sync::Once;
 
 use crate::settings;
+
+type SqlitePool = r2d2::Pool<r2d2::ConnectionManager<SqliteConnection>>;
+
+/// Returns global connection pool with global settings
+pub fn connection_pool() -> impl ConnectionPool {
+    static mut SHARED: *const SqlitePool = 0 as *const SqlitePool;
+    static ONCE: Once = Once::new();
+
+    unsafe {
+        ONCE.call_once(|| {
+            let pool = new_r2d2_sqlite_pool().expect("failed to initialize db connection pool");
+            SHARED = Box::into_raw(Box::new(pool))
+        });
+
+        (*SHARED).clone()
+    }
+}
 
 /// Creates new connection pool with global settings
 ///
 /// There are should be only one connection pool per app
 pub fn new_connection_pool() -> Result<impl ConnectionPool, PoolError> {
+    new_r2d2_sqlite_pool()
+}
+
+/// Creates new connection pool with global settings
+fn new_r2d2_sqlite_pool() -> Result<SqlitePool, PoolError> {
     let settings = settings::shared().db();
     let manager = r2d2::ConnectionManager::<SqliteConnection>::new(settings.path());
     let pool = r2d2::Pool::builder()
