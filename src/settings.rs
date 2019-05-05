@@ -4,29 +4,30 @@ use serde::Deserialize;
 use std::sync::Once;
 use std::time::Duration;
 
+/// Returns reference to global settings instance
+pub fn shared() -> &'static Settings {
+    static mut SHARED: *const Settings = 0 as *const Settings;
+    static ONCE: Once = Once::new();
+
+    unsafe {
+        ONCE.call_once(|| {
+            let settings = Settings::new().expect("failed to read settings");
+            SHARED = Box::into_raw(Box::new(settings));
+        });
+
+        &*SHARED
+    }
+}
+
 /// Global settings used to configure app state
 #[derive(Debug, Deserialize)]
 pub struct Settings {
     db: Db,
     anidb: AniDb,
+    import: Import,
 }
 
 impl Settings {
-    /// Returns reference to global settings instance
-    pub fn shared() -> &'static Self {
-        static mut SHARED: *const Settings = 0 as *const Settings;
-        static ONCE: Once = Once::new();
-
-        unsafe {
-            ONCE.call_once(|| {
-                let settings = Self::new().expect("failed to read settings");
-                SHARED = Box::into_raw(Box::new(settings));
-            });
-
-            &*SHARED
-        }
-    }
-
     /// Returns database settings
     pub fn db(&self) -> &Db {
         &self.db
@@ -35,6 +36,11 @@ impl Settings {
     /// Returns AniDB settings
     pub fn anidb(&self) -> &AniDb {
         &self.anidb
+    }
+
+    /// Returns dump import settings
+    pub fn import(&self) -> &Import {
+        &self.import
     }
 
     fn new() -> Result<Self, ConfigError> {
@@ -97,5 +103,18 @@ impl AniDb {
     /// Returns path to dump to be imported
     pub fn dump_path(&self) -> &str {
         &self.dump_path
+    }
+}
+
+/// Global dump import settings
+#[derive(Debug, Deserialize)]
+pub struct Import {
+    chunk_size: usize,
+}
+
+impl Import {
+    /// Size of read buffer for gzip extraction
+    pub fn chunk_size(&self) -> usize {
+        self.chunk_size
     }
 }

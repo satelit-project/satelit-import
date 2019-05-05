@@ -7,12 +7,16 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use std::io::BufReader;
 use std::path::Path;
 
-use crate::settings::Settings;
+use crate::settings;
 
 /// Creates gzip extractor configured with global app settings
 pub fn extractor() -> GzipExtractor<&'static str> {
-    let settings = Settings::shared().anidb();
-    GzipExtractor::new(settings.download_path(), settings.dump_path())
+    let settings = settings::shared().anidb();
+    let mut extractor = GzipExtractor::new(settings.download_path(), settings.dump_path());
+
+    let settings = settings::shared().import();
+    extractor.set_chunk_size(settings.chunk_size());
+    extractor
 }
 
 /// Asynchronously extracts single file from gzip archive

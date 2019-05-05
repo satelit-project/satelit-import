@@ -17,7 +17,7 @@ pub fn downloader(
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_4) AppleWebKit/605.1.15 \
          (KHTML, like Gecko) Version/12.1 Safari/605.1.15";
 
-    let settings = settings::Settings::shared().anidb();
+    let settings = settings::shared().anidb();
     let mut headers = HeaderMap::new();
     headers.insert(header::USER_AGENT, HeaderValue::from_static(USER_AGENT));
 

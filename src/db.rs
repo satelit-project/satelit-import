@@ -13,6 +13,20 @@ use std::fmt;
 
 use crate::settings;
 
+/// Creates new connection pool with global settings
+///
+/// There are should be only one connection pool per app
+pub fn new_connection_pool() -> Result<impl ConnectionPool, PoolError> {
+    let settings = settings::shared().db();
+    let manager = r2d2::ConnectionManager::<SqliteConnection>::new(settings.path());
+    let pool = r2d2::Pool::builder()
+        .max_size(settings.max_connections())
+        .connection_timeout(settings.connection_timeout())
+        .build(manager)?;
+
+    Ok(pool)
+}
+
 /// Represents a db table which can be queried
 pub trait Table<P: ConnectionPool> {
     /// Provides you with db connection to perform table query
@@ -56,20 +70,6 @@ impl fmt::Display for QueryError {
 }
 
 impl std::error::Error for QueryError {}
-
-/// Creates new connection pool with specified settings
-///
-/// There are should be only one connection pool per app
-pub fn new_connection_pool() -> Result<impl ConnectionPool, PoolError> {
-    let settings = settings::Settings::shared().db();
-    let manager = r2d2::ConnectionManager::<SqliteConnection>::new(settings.path());
-    let pool = r2d2::Pool::builder()
-        .max_size(settings.max_connections())
-        .connection_timeout(settings.connection_timeout())
-        .build(manager)?;
-
-    Ok(pool)
-}
 
 /// Connection pool for project's database
 ///
