@@ -142,3 +142,73 @@ impl From<std::io::Error> for DownloadError {
         DownloadError::Fs(e)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use futures::stream::{self, IterOk};
+    use std::fs::{self, File};
+    use std::path::PathBuf;
+    use tokio::prelude::*;
+
+    #[test]
+    fn test_download() {
+        let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        path.push("resources/tests/downloaded");
+
+        if path.exists() {
+            fs::remove_file(&path).expect("failed to clean test data");
+        }
+
+        let chunks = vec![
+            Chunk([1, 2]),
+            Chunk([3, 4]),
+            Chunk([5, 6]),
+            Chunk([7, 8]),
+            Chunk([9, 10]),
+        ];
+
+        let downloader = FakeDownloader {
+            content: chunks.clone(),
+        };
+
+        let fut = DumpDownloader::new(downloader, "", path.clone());
+        tokio::run(
+            fut.download()
+                .map_err(|e| panic!("failed to save data: {}", e)),
+        );
+
+        let mut expected: Vec<u8> = vec![];
+        let mut got = vec![];
+
+        chunks.iter().for_each(|c| expected.extend(c.0.iter()));
+
+        File::open(path)
+            .and_then(|mut f| f.read_to_end(&mut got))
+            .expect("failed to read downloaded file");
+
+        assert_eq!(expected, got);
+    }
+
+    #[derive(Clone)]
+    struct Chunk([u8; 2]);
+
+    impl AsRef<[u8]> for Chunk {
+        fn as_ref(&self) -> &[u8] {
+            &self.0
+        }
+    }
+
+    struct FakeDownloader {
+        content: Vec<Chunk>,
+    }
+
+    impl FileDownload for FakeDownloader {
+        type Chunk = Chunk;
+        type Bytes = IterOk<std::vec::IntoIter<Chunk>, DownloadError>;
+
+        fn download(&self, _url: &str) -> Self::Bytes {
+            stream::iter_ok(self.content.clone().into_iter())
+        }
+    }
+}
