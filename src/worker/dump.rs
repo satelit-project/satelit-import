@@ -1,14 +1,16 @@
+pub mod copy;
 pub mod download;
 pub mod extract;
 pub mod import;
 
+pub use copy::copier;
 pub use download::downloader;
 pub use extract::extractor;
 pub use import::importer;
 
 use futures::prelude::*;
 use futures::try_ready;
-use log::{error, trace};
+use log::{error, info, trace};
 
 /// Creates new task configured with global app settings
 pub fn new_task() -> impl Future<Item = (), Error = ()> {
@@ -17,6 +19,11 @@ pub fn new_task() -> impl Future<Item = (), Error = ()> {
     let download = download::downloader(
         settings.import().dump_url(),
         settings.import().download_path(),
+    );
+
+    let copy = copy::copier(
+        settings.import().dump_path(),
+        settings.import().old_dump_path(),
     );
 
     let extract = extract::extractor(
@@ -33,6 +40,7 @@ pub fn new_task() -> impl Future<Item = (), Error = ()> {
 
     DumpImportTask {
         download,
+        copy,
         extract,
         import,
         state: DumpImportState::Downloading,
@@ -40,21 +48,29 @@ pub fn new_task() -> impl Future<Item = (), Error = ()> {
 }
 
 /// Task to download and import AniDB dump
-pub struct DumpImportTask<D, E, I>
+pub struct DumpImportTask<D, C, E, I>
 where
     D: Future<Item = (), Error = download::DownloadError>,
+    C: Future<Item = (), Error = copy::CopyError>,
     E: Future<Item = (), Error = extract::ExtractError>,
     I: Future<Item = (), Error = import::ImportError>,
 {
+    /// Future to download new dump
     download: D,
+    /// Future to backup previous dump
+    copy: C,
+    /// Future to extract new dump
     extract: E,
+    /// Future to import changes in new dump
     import: I,
+    /// Task state
     state: DumpImportState,
 }
 
-impl<D, E, I> DumpImportTask<D, E, I>
+impl<D, C, E, I> DumpImportTask<D, C, E, I>
 where
     D: Future<Item = (), Error = download::DownloadError>,
+    C: Future<Item = (), Error = copy::CopyError>,
     E: Future<Item = (), Error = extract::ExtractError>,
     I: Future<Item = (), Error = import::ImportError>,
 {
@@ -67,6 +83,27 @@ where
             Ok(v) => {
                 if let Async::Ready(_) = v {
                     trace!("downloaded anidb dump");
+                }
+
+                Ok(v)
+            }
+        }
+    }
+
+    fn poll_copy(&mut self) -> Result<Async<()>, ()> {
+        match self.copy.poll() {
+            Err(e) => {
+                if e.kind() == std::io::ErrorKind::NotFound {
+                    info!("no dump to backup before import");
+                    return Ok(Async::Ready(()));
+                }
+
+                error!("failed to backup old dump, will not continue: {}", e);
+                Err(())
+            }
+            Ok(v) => {
+                if let Async::Ready(_) = v {
+                    trace!("backed up old dump");
                 }
 
                 Ok(v)
@@ -107,9 +144,10 @@ where
     }
 }
 
-impl<D, E, I> Future for DumpImportTask<D, E, I>
+impl<D, C, E, I> Future for DumpImportTask<D, C, E, I>
 where
     D: Future<Item = (), Error = download::DownloadError>,
+    C: Future<Item = (), Error = copy::CopyError>,
     E: Future<Item = (), Error = extract::ExtractError>,
     I: Future<Item = (), Error = import::ImportError>,
 {
@@ -123,6 +161,10 @@ where
             match self.state {
                 Downloading => {
                     try_ready!(self.poll_download());
+                    self.state = Copying;
+                }
+                Copying => {
+                    try_ready!(self.poll_copy());
                     self.state = Extracting;
                 }
                 Extracting => {
@@ -143,6 +185,8 @@ where
 enum DumpImportState {
     /// Downloading dump from AniDB
     Downloading,
+    /// Backing up old dump
+    Copying,
     /// Extracting dump archive
     Extracting,
     /// Importing dump entities to DB
