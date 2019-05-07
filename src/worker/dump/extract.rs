@@ -128,6 +128,7 @@ impl<S: AsyncRead, D: AsyncWrite> Future for AsyncReadWrite<S, D> {
 
                         if n == 0 {
                             self.state = if self.readed == 0 { Flushing } else { Writing };
+                            self.written = 0;
                             continue 'g;
                         }
                     }
@@ -152,6 +153,46 @@ impl<S: AsyncRead, D: AsyncWrite> Future for AsyncReadWrite<S, D> {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests_gz {
+    use super::*;
+    use flate2::write::GzEncoder;
+    use flate2::Compression;
+    use std::fs::File;
+    use std::io::prelude::*;
+
+    #[test]
+    fn test_extraction() -> Result<(), std::io::Error> {
+        let src = tempfile::Builder::new().tempfile()?;
+        let dst = tempfile::Builder::new().tempfile()?;
+        let data = b"Hello world! Where are you? What are you doing?".to_vec();
+
+        compress_data(data.clone(), src.path())?;
+
+        let fut = extractor(src.path().to_path_buf(), dst.path().to_path_buf(), 32);
+        tokio::run(fut.map_err(|e| panic!("unexpected error on extract: {}", e)));
+
+        let mut got = vec![];
+        File::open(dst.path()).and_then(|mut f| f.read_to_end(&mut got))?;
+
+        assert_eq!(data, got);
+
+        Ok(())
+    }
+
+    fn compress_data<B, P>(mut data: B, path: P) -> Result<(), std::io::Error>
+    where
+        B: AsMut<[u8]>,
+        P: AsRef<Path>,
+    {
+        let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
+        encoder.write_all(data.as_mut())?;
+
+        let mut gz = encoder.finish()?;
+        File::create(path).and_then(|mut f| f.write_all(&mut gz))
     }
 }
 
