@@ -25,36 +25,40 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs::{self, File};
     use std::io::{Read, Write};
-    use std::path::PathBuf;
 
     #[test]
-    fn test_copy() {
-        let (src_path, dst_path) = create_file_paths("rw");
+    fn test_copy() -> Result<(), std::io::Error> {
+        let mut src = tempfile::Builder::new().tempfile()?;
+        let mut dst = tempfile::Builder::new().tempfile()?;
         let content = b"Hello there".to_vec();
 
-        File::create(&src_path)
-            .and_then(|mut f| f.write_all(&content))
-            .expect("failed to write test data");
+        src.write_all(&mut content.clone())?;
 
-        let fut =
-            copier(src_path, dst_path.clone()).map_err(|e| panic!("failed to copy data: {}", e));
+        let fut = copier(src.path().to_owned(), dst.path().to_owned())
+            .map_err(|e| panic!("failed to copy data: {}", e));
 
         tokio::run(fut);
 
-        let mut written_content = vec![];
-        File::open(dst_path)
-            .and_then(|mut f| f.read_to_end(&mut written_content))
-            .expect("failed to read data from copied file");
+        let mut got = vec![];
+        dst.read_to_end(&mut got)?;
 
-        assert_eq!(content, written_content);
+        assert_eq!(content, got);
+
+        Ok(())
     }
 
     #[test]
-    fn test_no_copy_needed() {
-        let (src_path, dst_path) = create_file_paths("no");
+    fn test_no_copy_needed() -> Result<(), std::io::Error> {
+        let src = tempfile::Builder::new().tempfile()?;
+        let dst = tempfile::Builder::new().tempfile()?;
+
+        let src_path = src.path().to_owned();
+        let dst_path = dst.path().to_path_buf();
         let fut = copier(src_path.clone(), dst_path.clone());
+
+        drop(src);
+        drop(dst);
 
         tokio::run(futures::future::lazy(move || {
             fut.then(|res| {
@@ -69,23 +73,7 @@ mod tests {
 
         assert!(!src_path.exists(), "no files should be created");
         assert!(!dst_path.exists(), "no files should be created");
-    }
 
-    fn create_file_paths(suffix: &str) -> (PathBuf, PathBuf) {
-        let mut src_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        src_path.push(format!("resources/tests/copy_me{}", suffix));
-
-        let mut dst_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        dst_path.push(format!("resources/tests/copy_into_me{}", suffix));
-
-        if src_path.exists() {
-            fs::remove_file(&src_path).expect("failed to clean tests dir");
-        }
-
-        if dst_path.exists() {
-            fs::remove_file(&dst_path).expect("failed to clean tests dir");
-        }
-
-        (src_path, dst_path)
+        Ok(())
     }
 }

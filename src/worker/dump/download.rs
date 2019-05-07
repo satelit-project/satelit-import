@@ -147,18 +147,11 @@ impl From<std::io::Error> for DownloadError {
 mod tests {
     use super::*;
     use futures::stream::{self, IterOk};
-    use std::fs::{self, File};
-    use std::path::PathBuf;
     use tokio::prelude::*;
 
     #[test]
-    fn test_download() {
-        let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        path.push("resources/tests/downloaded");
-
-        if path.exists() {
-            fs::remove_file(&path).expect("failed to clean test data");
-        }
+    fn test_download() -> Result<(), std::io::Error> {
+        let mut dst = tempfile::Builder::new().tempfile()?;
 
         let chunks = vec![
             Chunk([1, 2]),
@@ -172,7 +165,7 @@ mod tests {
             content: chunks.clone(),
         };
 
-        let fut = DumpDownloader::new(downloader, "", path.clone());
+        let fut = DumpDownloader::new(downloader, "", dst.path().to_path_buf());
         tokio::run(
             fut.download()
                 .map_err(|e| panic!("failed to save data: {}", e)),
@@ -182,12 +175,11 @@ mod tests {
         let mut got = vec![];
 
         chunks.iter().for_each(|c| expected.extend(c.0.iter()));
-
-        File::open(path)
-            .and_then(|mut f| f.read_to_end(&mut got))
-            .expect("failed to read downloaded file");
+        dst.read_to_end(&mut got)?;
 
         assert_eq!(expected, got);
+
+        Ok(())
     }
 
     #[derive(Clone)]
