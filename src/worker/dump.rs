@@ -35,8 +35,8 @@ pub fn new_task() -> impl Future<Item = (), Error = ()> {
     let import = import::tracking_importer(
         settings.import().old_dump_path(),
         settings.import().dump_path(),
-        crate::db::connection_pool(),
         settings.import().reimport_track_path(),
+        crate::db::connection_pool(),
     );
 
     DumpImportTask {

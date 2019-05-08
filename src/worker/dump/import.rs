@@ -34,19 +34,19 @@ where
 }
 
 /// Creates AniDB dump importer configured with global app settings and ability to keep track of
-/// anime entities that may be failed to import. Entity id's are stored at `reimport_path`.
+/// failed-to-import anime entities. Entity id's are stored at `reimport_path`.
 ///
-/// This future does it's best to keep track of not imported entities and will try to import them
-/// again at next invocation but due to possible I/O errors some entities may be still lost.
+/// This future does it's best to keep track of failed-to-imported entities and will try to import them
+/// again at next invocation, but due to possible I/O errors some entities may be lost.
 /// Moreover, it doesn't keep track of entities that should be removed but failed to do so. That
-/// means that DB will have "dead" entities that will fail to update on scraping phase. It's
-/// advised to do full DB update from times to times to import lost entities and remove "dead"
+/// means that DB may have "dead" entities (i.e. not in AniDB db anymore). It's
+/// advised to do full DB update from times to times to import lost and remove "dead"
 /// entities
 pub fn tracking_importer<P, C>(
     old_dump_path: P,
     dump_path: P,
-    connection_pool: C,
     reimport_path: P,
+    connection_pool: C,
 ) -> impl Future<Item = (), Error = ImportError>
 where
     P: AsRef<Path> + Clone + Send + 'static,
@@ -56,8 +56,8 @@ where
     let schedules = schedules::Schedules::new(connection_pool);
     let scheduler = AniDbImportScheduler::new(schedules);
 
-    // TODO: hard to understand what's going on, should be refactored
-    // open file with not imported ids
+    // TODO: omg, please refactor
+    // open file with failed-to-import ids
     fs::File::open(reimport_path.clone())
         .and_then(|f| {
             // read them line-by-line and put to HashSet
@@ -67,7 +67,7 @@ where
                     set.insert(id);
                 }
 
-                Result::<HashSet<i32>, std::io::Error>::Ok(set)
+                Result::<_, std::io::Error>::Ok(set)
             })
         })
         .then(move |reimport| {
@@ -80,10 +80,10 @@ where
         })
         .and_then(|result| {
             match result {
-                // if we successfully read the reimport file, now we got an updated HashSet of
-                // failed to import ids, so we can rewrite the reimport file writing ids line-ny-line
+                // if we successfully read the reimport file, then now we have an updated HashSet of
+                // failed-to-import ids, so we can rewrite the file with new content
                 Some(failed) => {
-                    // the last `map_err` will not be ever executed but it needed to pass type checking
+                    // the last `map_err` will never be executed but it needed to pass type checking
                     let fut = fs::File::create(reimport_path)
                         .and_then(|f| {
                             let writer = FramedWrite::new(f, LinesCodec::new());
@@ -98,10 +98,7 @@ where
                     Either::A(fut)
                 }
                 // if not then don't do anything
-                None => {
-                    let res = futures::future::result(Ok(()));
-                    Either::B(res)
-                }
+                None => Either::B(futures::finished(())),
             }
         })
 }
