@@ -76,6 +76,7 @@ pub struct Import {
     download_path: String,
     old_dump_path: String,
     dump_path: String,
+    reimport_track_path: String,
     chunk_size: usize,
 }
 
@@ -98,6 +99,11 @@ impl Import {
     /// Returns path to dump to be imported
     pub fn dump_path(&self) -> &str {
         &self.dump_path
+    }
+
+    /// Returns path to file with failed to import anime id's
+    pub fn reimport_track_path(&self) -> &str {
+        &self.reimport_track_path
     }
 
     /// Size of read buffer for gzip extraction

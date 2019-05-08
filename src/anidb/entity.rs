@@ -1,4 +1,5 @@
 /// Anime entity
+#[derive(Debug, Clone)]
 pub struct Anime {
     /// ID of the anime in AniDB database
     pub id: i32,
@@ -19,6 +20,7 @@ impl Anime {
 }
 
 /// Non-canonical title for an anime entity
+#[derive(Debug, Clone)]
 pub struct TitleVariation {
     pub title: String,
     pub lang: String,
@@ -31,7 +33,7 @@ impl TitleVariation {
     }
 }
 
-#[derive(PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum TitleKind {
     /// Canonical title
     Main,
