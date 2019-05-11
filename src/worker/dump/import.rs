@@ -422,7 +422,7 @@ impl<P: ConnectionPool + Send> ImportScheduler for AniDbImportScheduler<P> {
 }
 
 #[cfg(test)]
-mod tests {
+mod tests_notrack {
     use super::super::test_utils::import::*;
     use super::*;
     use std::sync::{Arc, Mutex};
@@ -431,18 +431,13 @@ mod tests {
     fn test_import_no_diff() {
         let provider = FakeProvider {
             old: vec![],
-            new: vec![
-                Anime::new(1, "1".to_owned(), vec![]),
-                Anime::new(2, "2".to_owned(), vec![]),
-                Anime::new(3, "3".to_owned(), vec![]),
-                Anime::new(4, "4".to_owned(), vec![]),
-                Anime::new(5, "5".to_owned(), vec![]),
-            ],
+            new: gen_anime([1, 2, 3, 4, 5]),
         };
 
         let scheduler = FakeScheduler {
             added: Arc::new(Mutex::new(vec![])),
             removed: Arc::new(Mutex::new(vec![])),
+            skip_add: Arc::new(None),
         };
 
         let importer = DumpImporter::new(provider.clone(), scheduler.clone(), Some(HashSet::new()));
@@ -459,23 +454,14 @@ mod tests {
     #[test]
     fn test_import_diff_add() {
         let provider = FakeProvider {
-            old: vec![
-                Anime::new(1, "1".to_owned(), vec![]),
-                Anime::new(3, "3".to_owned(), vec![]),
-                Anime::new(5, "5".to_owned(), vec![]),
-            ],
-            new: vec![
-                Anime::new(1, "1".to_owned(), vec![]),
-                Anime::new(2, "2".to_owned(), vec![]),
-                Anime::new(3, "3".to_owned(), vec![]),
-                Anime::new(4, "4".to_owned(), vec![]),
-                Anime::new(5, "5".to_owned(), vec![]),
-            ],
+            old: gen_anime([1, 3, 5]),
+            new: gen_anime([1, 2, 3, 4, 5]),
         };
 
         let scheduler = FakeScheduler {
             added: Arc::new(Mutex::new(vec![])),
             removed: Arc::new(Mutex::new(vec![])),
+            skip_add: Arc::new(None),
         };
 
         let importer = DumpImporter::new(provider.clone(), scheduler.clone(), Some(HashSet::new()));
@@ -486,32 +472,20 @@ mod tests {
         );
 
         assert!(scheduler.removed.lock().unwrap().is_empty());
-        assert_eq!(
-            *scheduler.added.lock().unwrap(),
-            vec![provider.new[1].clone(), provider.new[3].clone()]
-        );
+        assert_eq!(*scheduler.added.lock().unwrap(), gen_anime([2, 4]));
     }
 
     #[test]
     fn test_import_diff_remove() {
         let provider = FakeProvider {
-            old: vec![
-                Anime::new(1, "1".to_owned(), vec![]),
-                Anime::new(2, "2".to_owned(), vec![]),
-                Anime::new(3, "3".to_owned(), vec![]),
-                Anime::new(4, "4".to_owned(), vec![]),
-                Anime::new(5, "5".to_owned(), vec![]),
-            ],
-            new: vec![
-                Anime::new(1, "1".to_owned(), vec![]),
-                Anime::new(3, "3".to_owned(), vec![]),
-                Anime::new(5, "5".to_owned(), vec![]),
-            ],
+            old: gen_anime([1, 2, 3, 4, 5]),
+            new: gen_anime([1, 3, 5]),
         };
 
         let scheduler = FakeScheduler {
             added: Arc::new(Mutex::new(vec![])),
             removed: Arc::new(Mutex::new(vec![])),
+            skip_add: Arc::new(None),
         };
 
         let importer = DumpImporter::new(provider.clone(), scheduler.clone(), Some(HashSet::new()));
@@ -522,31 +496,20 @@ mod tests {
         );
 
         assert!(scheduler.added.lock().unwrap().is_empty());
-        assert_eq!(
-            *scheduler.removed.lock().unwrap(),
-            vec![provider.old[1].clone(), provider.old[3].clone()]
-        );
+        assert_eq!(*scheduler.removed.lock().unwrap(), gen_anime([2, 4]));
     }
 
     #[test]
     fn test_import_diff_add_remove() {
         let provider = FakeProvider {
-            old: vec![
-                Anime::new(1, "1".to_owned(), vec![]),
-                Anime::new(3, "3".to_owned(), vec![]),
-                Anime::new(5, "5".to_owned(), vec![]),
-            ],
-            new: vec![
-                Anime::new(2, "2".to_owned(), vec![]),
-                Anime::new(4, "4".to_owned(), vec![]),
-                Anime::new(5, "5".to_owned(), vec![]),
-                Anime::new(7, "7".to_owned(), vec![]),
-            ],
+            old: gen_anime([1, 3, 5]),
+            new: gen_anime([2, 4, 5, 7]),
         };
 
         let scheduler = FakeScheduler {
             added: Arc::new(Mutex::new(vec![])),
             removed: Arc::new(Mutex::new(vec![])),
+            skip_add: Arc::new(None),
         };
 
         let importer = DumpImporter::new(provider.clone(), scheduler.clone(), Some(HashSet::new()));
@@ -556,18 +519,21 @@ mod tests {
                 .and_then(|_| Ok(())),
         );
 
-        assert_eq!(
-            *scheduler.removed.lock().unwrap(),
-            vec![provider.old[0].clone(), provider.old[1].clone()]
-        );
+        assert_eq!(*scheduler.removed.lock().unwrap(), gen_anime([1, 3]));
+        assert_eq!(*scheduler.added.lock().unwrap(), gen_anime([2, 4, 7]));
+    }
+}
 
-        assert_eq!(
-            *scheduler.added.lock().unwrap(),
-            vec![
-                provider.new[0].clone(),
-                provider.new[1].clone(),
-                provider.new[3].clone()
-            ]
-        );
+#[cfg(test)]
+mod tests_track {
+    use super::super::test_utils::import::*;
+    use super::*;
+    use std::sync::{Arc, Mutex};
+
+    #[test]
+    fn test_no_reimport() -> Result<(), std::io::Error> {
+        let track_file = tempfile::Builder::new().tempfile()?;
+
+        Ok(())
     }
 }

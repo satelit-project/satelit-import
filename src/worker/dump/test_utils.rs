@@ -3,8 +3,19 @@
 pub(crate) mod import {
     use crate::anidb::*;
     use crate::worker::dump::import::*;
+    use std::collections::HashSet;
     use std::sync::{Arc, Mutex};
     use std::vec::IntoIter;
+
+    pub(crate) fn gen_anime<R: AsRef<[i32]>>(ids: R) -> Vec<Anime> {
+        let mut anime = vec![];
+
+        for id in ids.as_ref() {
+            anime.push(Anime::new(*id, (*id).to_string(), vec![]));
+        }
+
+        anime
+    }
 
     #[derive(Clone)]
     pub struct FakeProvider {
@@ -29,12 +40,22 @@ pub(crate) mod import {
     pub struct FakeScheduler {
         pub added: Arc<Mutex<Vec<Anime>>>,
         pub removed: Arc<Mutex<Vec<Anime>>>,
+        pub skip_add: Arc<Option<HashSet<i32>>>,
     }
 
     impl ImportScheduler for FakeScheduler {
         type Error = ImportError;
 
         fn add_title(&mut self, anime: &Anime) -> Result<(), Self::Error> {
+            let should_skip = self
+                .skip_add
+                .map(|set| set.contains(&anime.id))
+                .unwrap_or(false);
+
+            if should_skip {
+                return Err(ImportError::InternalError("skipping".to_owned()));
+            }
+
             let mut added = self.added.lock().unwrap();
             added.push(anime.clone());
             Ok(())
