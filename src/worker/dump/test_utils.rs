@@ -47,8 +47,9 @@ pub(crate) mod import {
         type Error = ImportError;
 
         fn add_title(&mut self, anime: &Anime) -> Result<(), Self::Error> {
-            let should_skip = self
-                .skip_add
+            let skip_add = self.skip_add.as_ref();
+            let should_skip = skip_add
+                .as_ref()
                 .map(|set| set.contains(&anime.id))
                 .unwrap_or(false);
 

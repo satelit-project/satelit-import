@@ -528,11 +528,115 @@ mod tests_notrack {
 mod tests_track {
     use super::super::test_utils::import::*;
     use super::*;
+    use std::io::{Read, Seek, SeekFrom, Write};
+    use std::iter::FromIterator as _;
     use std::sync::{Arc, Mutex};
 
     #[test]
     fn test_no_reimport() -> Result<(), std::io::Error> {
-        let track_file = tempfile::Builder::new().tempfile()?;
+        let mut track_file = tempfile::Builder::new().tempfile()?;
+
+        let provider = FakeProvider {
+            old: gen_anime([1, 3, 5]),
+            new: gen_anime([2, 4, 5, 7]),
+        };
+
+        let scheduler = FakeScheduler {
+            added: Arc::new(Mutex::new(vec![])),
+            removed: Arc::new(Mutex::new(vec![])),
+            skip_add: Arc::new(None),
+        };
+
+        let importer = track_importer(track_file.path().to_owned(), move |reimport| {
+            DumpImporter::new(provider, scheduler, reimport)
+        })
+        .map_err(|e| panic!("unexpected error: {}", e));
+
+        tokio::run(importer);
+
+        let mut track_content = vec![];
+        track_file.read_to_end(&mut track_content)?;
+
+        assert!(track_content.is_empty());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_write_reimport() -> Result<(), std::io::Error> {
+        let mut track_file = tempfile::Builder::new().tempfile()?;
+        let skip = vec![2, 5];
+
+        let provider = FakeProvider {
+            old: vec![],
+            new: gen_anime([1, 2, 3, 4, 5]),
+        };
+
+        let scheduler = FakeScheduler {
+            added: Arc::new(Mutex::new(vec![])),
+            removed: Arc::new(Mutex::new(vec![])),
+            skip_add: Arc::new(Some(HashSet::from_iter(skip.clone()))),
+        };
+
+        let s_clone = scheduler.clone();
+        let importer = track_importer(track_file.path().to_owned(), move |reimport| {
+            DumpImporter::new(provider, s_clone, reimport)
+        })
+        .map_err(|e| panic!("unexpected error: {}", e));
+
+        tokio::run(importer);
+
+        assert_eq!(*scheduler.added.lock().unwrap(), gen_anime([1, 3, 4]));
+
+        let mut track_content = String::new();
+        track_file.read_to_string(&mut track_content)?;
+
+        let mut skipped: Vec<i32> = track_content.lines().map(|l| l.parse().unwrap()).collect();
+        skipped.sort();
+        assert_eq!(skipped, skip);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_read_reimport() -> Result<(), std::io::Error> {
+        let reimport = vec![2, 5];
+        let mut track_file = tempfile::Builder::new().tempfile()?;
+
+        reimport.iter().for_each(|id| {
+            let mut str = id.to_string();
+            str.push_str("\n");
+
+            track_file.write_all(&str.as_bytes()).unwrap();
+        });
+
+        let provider = FakeProvider {
+            old: gen_anime(reimport.clone()),
+            new: gen_anime([1, 2, 3, 4, 5]),
+        };
+
+        let scheduler = FakeScheduler {
+            added: Arc::new(Mutex::new(vec![])),
+            removed: Arc::new(Mutex::new(vec![])),
+            skip_add: Arc::new(None),
+        };
+
+        let p_clone = provider.clone();
+        let s_clone = scheduler.clone();
+        let importer = track_importer(track_file.path().to_owned(), move |reimport| {
+            DumpImporter::new(p_clone, s_clone, reimport)
+        })
+        .map_err(|e| panic!("unexpected error: {}", e));
+
+        tokio::run(importer);
+
+        assert_eq!(*scheduler.added.lock().unwrap(), provider.new);
+
+        let mut track_content = vec![];
+        track_file.seek(SeekFrom::Start(0))?;
+        track_file.read_to_end(&mut track_content)?;
+
+        assert!(track_content.is_empty());
 
         Ok(())
     }
