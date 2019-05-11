@@ -428,11 +428,134 @@ mod tests {
         };
 
         let scheduler = FakeScheduler {
-            added: vec![],
-            removed: vec![],
+            added: Arc::new(Mutex::new(vec![])),
+            removed: Arc::new(Mutex::new(vec![])),
         };
 
-        let importer = DumpImporter::new(provider.clone(), scheduler.clone(), HashSet::new());
+        let importer = DumpImporter::new(provider.clone(), scheduler.clone(), Some(HashSet::new()));
+        tokio::run(
+            importer
+                .map_err(|e| panic!("unexpected err: {}", e))
+                .and_then(|_| Ok(())),
+        );
+
+        assert!(scheduler.removed.lock().unwrap().is_empty());
+        assert_eq!(*scheduler.added.lock().unwrap(), provider.new);
+    }
+
+    #[test]
+    fn test_import_diff_add() {
+        let provider = FakeProvider {
+            old: vec![
+                Anime::new(1, "1".to_owned(), vec![]),
+                Anime::new(3, "3".to_owned(), vec![]),
+                Anime::new(5, "5".to_owned(), vec![]),
+            ],
+            new: vec![
+                Anime::new(1, "1".to_owned(), vec![]),
+                Anime::new(2, "2".to_owned(), vec![]),
+                Anime::new(3, "3".to_owned(), vec![]),
+                Anime::new(4, "4".to_owned(), vec![]),
+                Anime::new(5, "5".to_owned(), vec![]),
+            ],
+        };
+
+        let scheduler = FakeScheduler {
+            added: Arc::new(Mutex::new(vec![])),
+            removed: Arc::new(Mutex::new(vec![])),
+        };
+
+        let importer = DumpImporter::new(provider.clone(), scheduler.clone(), Some(HashSet::new()));
+        tokio::run(
+            importer
+                .map_err(|e| panic!("unexpected err: {}", e))
+                .and_then(|_| Ok(())),
+        );
+
+        assert!(scheduler.removed.lock().unwrap().is_empty());
+        assert_eq!(
+            *scheduler.added.lock().unwrap(),
+            vec![provider.new[1].clone(), provider.new[3].clone()]
+        );
+    }
+
+    #[test]
+    fn test_import_diff_remove() {
+        let provider = FakeProvider {
+            old: vec![
+                Anime::new(1, "1".to_owned(), vec![]),
+                Anime::new(2, "2".to_owned(), vec![]),
+                Anime::new(3, "3".to_owned(), vec![]),
+                Anime::new(4, "4".to_owned(), vec![]),
+                Anime::new(5, "5".to_owned(), vec![]),
+            ],
+            new: vec![
+                Anime::new(1, "1".to_owned(), vec![]),
+                Anime::new(3, "3".to_owned(), vec![]),
+                Anime::new(5, "5".to_owned(), vec![]),
+            ],
+        };
+
+        let scheduler = FakeScheduler {
+            added: Arc::new(Mutex::new(vec![])),
+            removed: Arc::new(Mutex::new(vec![])),
+        };
+
+        let importer = DumpImporter::new(provider.clone(), scheduler.clone(), Some(HashSet::new()));
+        tokio::run(
+            importer
+                .map_err(|e| panic!("unexpected err: {}", e))
+                .and_then(|_| Ok(())),
+        );
+
+        assert!(scheduler.added.lock().unwrap().is_empty());
+        assert_eq!(
+            *scheduler.removed.lock().unwrap(),
+            vec![provider.old[1].clone(), provider.old[3].clone()]
+        );
+    }
+
+    #[test]
+    fn test_import_diff_add_remove() {
+        let provider = FakeProvider {
+            old: vec![
+                Anime::new(1, "1".to_owned(), vec![]),
+                Anime::new(3, "3".to_owned(), vec![]),
+                Anime::new(5, "5".to_owned(), vec![]),
+            ],
+            new: vec![
+                Anime::new(2, "2".to_owned(), vec![]),
+                Anime::new(4, "4".to_owned(), vec![]),
+                Anime::new(5, "5".to_owned(), vec![]),
+                Anime::new(7, "7".to_owned(), vec![]),
+            ],
+        };
+
+        let scheduler = FakeScheduler {
+            added: Arc::new(Mutex::new(vec![])),
+            removed: Arc::new(Mutex::new(vec![])),
+        };
+
+        let importer = DumpImporter::new(provider.clone(), scheduler.clone(), Some(HashSet::new()));
+        tokio::run(
+            importer
+                .map_err(|e| panic!("unexpected err: {}", e))
+                .and_then(|_| Ok(())),
+        );
+
+        assert_eq!(
+            *scheduler.removed.lock().unwrap(),
+            vec![provider.old[0].clone(), provider.old[1].clone()]
+        );
+
+        assert_eq!(
+            *scheduler.added.lock().unwrap(),
+            vec![
+                provider.new[0].clone(),
+                provider.new[1].clone(),
+                provider.new[3].clone()
+            ]
+        );
     }
 
     #[derive(Clone)]
