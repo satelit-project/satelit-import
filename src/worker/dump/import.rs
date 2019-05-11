@@ -56,7 +56,21 @@ where
     let schedules = schedules::Schedules::new(connection_pool);
     let scheduler = AniDbImportScheduler::new(schedules);
 
-    // TODO: omg, please refactor
+    track_importer(reimport_path, move |reimport| {
+        DumpImporter::new(provider, scheduler, reimport)
+    })
+}
+
+// TODO: omg, please refactor
+fn track_importer<P, B, F>(
+    reimport_path: P,
+    builder: B,
+) -> impl Future<Item = (), Error = ImportError>
+where
+    P: AsRef<Path> + Clone + Send + 'static,
+    B: FnOnce(Option<HashSet<i32>>) -> F,
+    F: Future<Item = Option<HashSet<i32>>, Error = ImportError>,
+{
     // open file with failed-to-import ids
     fs::File::open(reimport_path.clone())
         .and_then(|f| {
@@ -76,7 +90,7 @@ where
                 .map_err(|e| warn!("Failed to load id's to reimport: {}", e))
                 .ok();
 
-            DumpImporter::new(provider, scheduler, reimport)
+            builder(reimport)
         })
         .and_then(|result| {
             match result {
