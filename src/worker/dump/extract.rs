@@ -199,8 +199,8 @@ mod tests_gz {
 #[cfg(test)]
 mod tests_rw {
     use super::*;
+    use super::super::test_utils::extract::*;
     use std::io::{Read, Seek, SeekFrom, Write};
-    use std::ops::Deref;
 
     /// Tests the case when data can be read into buffer all at once
     #[test]
@@ -255,66 +255,5 @@ mod tests_rw {
         tmp_dst.read_to_end(&mut got)?;
 
         Ok((T::from(expected), T::from(got)))
-    }
-
-    // String helpers
-
-    #[derive(Debug)]
-    struct StringMut(String);
-
-    trait ToMut {
-        fn to_mut(&self) -> StringMut;
-    }
-
-    // String helpers implementations
-
-    impl ToMut for String {
-        fn to_mut(&self) -> StringMut {
-            StringMut(self.clone())
-        }
-    }
-
-    impl ToMut for str {
-        fn to_mut(&self) -> StringMut {
-            StringMut(self.to_owned())
-        }
-    }
-
-    impl AsMut<[u8]> for StringMut {
-        fn as_mut(&mut self) -> &mut [u8] {
-            unsafe { self.0.as_bytes_mut() }
-        }
-    }
-
-    impl From<Vec<u8>> for StringMut {
-        fn from(bytes: Vec<u8>) -> Self {
-            unsafe { StringMut(String::from_utf8_unchecked(bytes)) }
-        }
-    }
-
-    impl Deref for StringMut {
-        type Target = str;
-
-        fn deref(&self) -> &Self::Target {
-            &self.0
-        }
-    }
-
-    impl std::cmp::PartialEq for StringMut {
-        fn eq(&self, other: &StringMut) -> bool {
-            self.0 == other.0
-        }
-    }
-
-    impl std::cmp::PartialEq<String> for StringMut {
-        fn eq(&self, other: &String) -> bool {
-            &self.0 == other
-        }
-    }
-
-    impl std::cmp::PartialEq<&str> for StringMut {
-        fn eq(&self, other: &&str) -> bool {
-            &self.0 == other
-        }
     }
 }

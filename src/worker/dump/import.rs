@@ -409,10 +409,9 @@ impl<P: ConnectionPool + Send> ImportScheduler for AniDbImportScheduler<P> {
 
 #[cfg(test)]
 mod tests {
+    use super::super::test_utils::import::*;
     use super::*;
-    use crate::anidb::Anime;
     use std::sync::{Arc, Mutex};
-    use std::vec::IntoIter;
 
     #[test]
     fn test_import_no_diff() {
@@ -556,46 +555,5 @@ mod tests {
                 provider.new[3].clone()
             ]
         );
-    }
-
-    #[derive(Clone)]
-    struct FakeProvider {
-        old: Vec<Anime>,
-        new: Vec<Anime>,
-    }
-
-    impl AnimeProvider for FakeProvider {
-        type Iterator = IntoIter<Anime>;
-        type Error = XmlError;
-
-        fn old_anime_titles(&self) -> Result<Self::Iterator, Self::Error> {
-            Ok(self.old.clone().into_iter())
-        }
-
-        fn new_anime_titles(&self) -> Result<Self::Iterator, Self::Error> {
-            Ok(self.new.clone().into_iter())
-        }
-    }
-
-    #[derive(Clone)]
-    struct FakeScheduler {
-        added: Arc<Mutex<Vec<Anime>>>,
-        removed: Arc<Mutex<Vec<Anime>>>,
-    }
-
-    impl ImportScheduler for FakeScheduler {
-        type Error = ImportError;
-
-        fn add_title(&mut self, anime: &Anime) -> Result<(), Self::Error> {
-            let mut added = self.added.lock().unwrap();
-            added.push(anime.clone());
-            Ok(())
-        }
-
-        fn remove_title(&mut self, anime: &Anime) -> Result<(), Self::Error> {
-            let mut removed = self.removed.lock().unwrap();
-            removed.push(anime.clone());
-            Ok(())
-        }
     }
 }

@@ -3,6 +3,8 @@ pub mod download;
 pub mod extract;
 pub mod import;
 
+mod test_utils;
+
 pub use copy::copier;
 pub use download::downloader;
 pub use extract::extractor;

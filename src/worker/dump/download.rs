@@ -146,7 +146,7 @@ impl From<std::io::Error> for DownloadError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use futures::stream::{self, IterOk};
+    use super::super::test_utils::download::*;
     use tokio::prelude::*;
 
     #[test]
@@ -180,27 +180,5 @@ mod tests {
         assert_eq!(expected, got);
 
         Ok(())
-    }
-
-    #[derive(Clone)]
-    struct Chunk([u8; 2]);
-
-    impl AsRef<[u8]> for Chunk {
-        fn as_ref(&self) -> &[u8] {
-            &self.0
-        }
-    }
-
-    struct FakeDownloader {
-        content: Vec<Chunk>,
-    }
-
-    impl FileDownload for FakeDownloader {
-        type Chunk = Chunk;
-        type Bytes = IterOk<std::vec::IntoIter<Chunk>, DownloadError>;
-
-        fn download(&self, _url: &str) -> Self::Bytes {
-            stream::iter_ok(self.content.clone().into_iter())
-        }
     }
 }
