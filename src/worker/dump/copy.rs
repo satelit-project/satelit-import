@@ -25,7 +25,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::{Read, Write};
+    use std::io::{ErrorKind, Read, Write};
+    use std::path::PathBuf;
 
     #[test]
     fn test_copy() -> Result<(), std::io::Error> {
@@ -75,5 +76,24 @@ mod tests {
         assert!(!dst_path.exists(), "no files should be created");
 
         Ok(())
+    }
+
+    #[test]
+    fn test_no_src() {
+        let mut src = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        src.push("file_not_exists.txt");
+
+        let fut = copier(src.clone(), src.clone()).then(|result| {
+            match result {
+                Ok(_) => panic!("future shouldn't succeed"),
+                Err(e) => assert_eq!(e.kind(), ErrorKind::NotFound),
+            }
+
+            Ok(())
+        });
+
+        tokio::run(fut);
+
+        assert!(!src.exists());
     }
 }
