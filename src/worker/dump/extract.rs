@@ -14,7 +14,7 @@ pub fn extractor<P>(
     src_path: P,
     dst_path: P,
     chunk_size: usize,
-) -> impl Future<Item = (), Error = ExtractError>
+) -> impl Future<Item = (), Error = ExtractError> + Send
 where
     P: AsRef<Path> + Clone + Send + 'static,
 {
@@ -198,8 +198,8 @@ mod tests_gz {
 
 #[cfg(test)]
 mod tests_rw {
-    use super::*;
     use super::super::test_utils::extract::*;
+    use super::*;
     use std::io::{Read, Seek, SeekFrom, Write};
 
     /// Tests the case when data can be read into buffer all at once

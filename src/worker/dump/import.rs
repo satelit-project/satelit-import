@@ -21,7 +21,7 @@ pub fn importer<P, C>(
     old_dump_path: P,
     dump_path: P,
     connection_pool: C,
-) -> impl Future<Item = (), Error = ImportError>
+) -> impl Future<Item = (), Error = ImportError> + Send
 where
     P: AsRef<Path> + Clone + Send + 'static,
     C: ConnectionPool + Send,
@@ -47,7 +47,7 @@ pub fn tracking_importer<P, C>(
     dump_path: P,
     reimport_path: P,
     connection_pool: C,
-) -> impl Future<Item = (), Error = ImportError>
+) -> impl Future<Item = (), Error = ImportError> + Send
 where
     P: AsRef<Path> + Clone + Send + 'static,
     C: ConnectionPool + Send,
@@ -65,11 +65,11 @@ where
 fn track_importer<P, B, F>(
     reimport_path: P,
     builder: B,
-) -> impl Future<Item = (), Error = ImportError>
+) -> impl Future<Item = (), Error = ImportError> + Send
 where
     P: AsRef<Path> + Clone + Send + 'static,
-    B: FnOnce(Option<HashSet<i32>>) -> F,
-    F: Future<Item = Option<HashSet<i32>>, Error = ImportError>,
+    B: FnOnce(Option<HashSet<i32>>) -> F + Send,
+    F: Future<Item = Option<HashSet<i32>>, Error = ImportError> + Send,
 {
     // open file with failed-to-import ids
     fs::File::open(reimport_path.clone())

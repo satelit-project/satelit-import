@@ -8,7 +8,7 @@ use std::path::Path;
 pub type CopyError = std::io::Error;
 
 /// Creates a future that copies file at `src` to `dst`
-pub fn copier<P>(src: P, dst: P) -> impl Future<Item = (), Error = CopyError>
+pub fn copier<P>(src: P, dst: P) -> impl Future<Item = (), Error = CopyError> + Send
 where
     P: AsRef<Path> + Send + Clone + 'static,
 {

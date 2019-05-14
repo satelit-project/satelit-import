@@ -15,7 +15,7 @@ use futures::try_ready;
 use log::{error, info, trace};
 
 /// Creates new task configured with global app settings
-pub fn new_task() -> impl Future<Item = (), Error = ()> {
+pub fn new_task() -> impl Future<Item = (), Error = ()> + Send {
     let settings = crate::settings::shared();
 
     let download = download::downloader(
@@ -47,10 +47,10 @@ pub fn new_task() -> impl Future<Item = (), Error = ()> {
 /// Task to download and import AniDB dump
 pub struct DumpImportTask<D, C, E, I>
 where
-    D: Future<Item = (), Error = download::DownloadError>,
-    C: Future<Item = (), Error = copy::CopyError>,
-    E: Future<Item = (), Error = extract::ExtractError>,
-    I: Future<Item = (), Error = import::ImportError>,
+    D: Future<Item = (), Error = download::DownloadError> + Send,
+    C: Future<Item = (), Error = copy::CopyError> + Send,
+    E: Future<Item = (), Error = extract::ExtractError> + Send,
+    I: Future<Item = (), Error = import::ImportError> + Send,
 {
     /// Future to download new dump
     download: D,
@@ -66,10 +66,10 @@ where
 
 impl<D, C, E, I> DumpImportTask<D, C, E, I>
 where
-    D: Future<Item = (), Error = download::DownloadError>,
-    C: Future<Item = (), Error = copy::CopyError>,
-    E: Future<Item = (), Error = extract::ExtractError>,
-    I: Future<Item = (), Error = import::ImportError>,
+    D: Future<Item = (), Error = download::DownloadError> + Send,
+    C: Future<Item = (), Error = copy::CopyError> + Send,
+    E: Future<Item = (), Error = extract::ExtractError> + Send,
+    I: Future<Item = (), Error = import::ImportError> + Send,
 {
     pub fn new(download: D, copy: C, extract: E, import: I) -> Self {
         DumpImportTask {
@@ -153,10 +153,10 @@ where
 
 impl<D, C, E, I> Future for DumpImportTask<D, C, E, I>
 where
-    D: Future<Item = (), Error = download::DownloadError>,
-    C: Future<Item = (), Error = copy::CopyError>,
-    E: Future<Item = (), Error = extract::ExtractError>,
-    I: Future<Item = (), Error = import::ImportError>,
+    D: Future<Item = (), Error = download::DownloadError> + Send,
+    C: Future<Item = (), Error = copy::CopyError> + Send,
+    E: Future<Item = (), Error = extract::ExtractError> + Send,
+    I: Future<Item = (), Error = import::ImportError> + Send,
 {
     type Item = ();
     type Error = ();

@@ -9,9 +9,12 @@ use std::path::Path;
 use std::time::Duration;
 
 /// Creates downloader with configuration from global app settings
-pub fn downloader<U, P>(dump_url: U, dest_path: P) -> impl Future<Item = (), Error = DownloadError>
+pub fn downloader<U, P>(
+    dump_url: U,
+    dest_path: P,
+) -> impl Future<Item = (), Error = DownloadError> + Send
 where
-    U: AsRef<str>,
+    U: AsRef<str> + Send,
     P: AsRef<Path> + Clone + Send + 'static,
 {
     const USER_AGENT: &str =
@@ -33,7 +36,12 @@ where
 }
 
 /// AniDB dump downloader
-pub struct DumpDownloader<D: FileDownload, U: AsRef<str>, P: AsRef<Path> + Clone + Send + 'static> {
+pub struct DumpDownloader<D, U, P>
+where
+    D: FileDownload,
+    U: AsRef<str>,
+    P: AsRef<Path> + Clone + Send + 'static,
+{
     /// Files downloading client
     downloader: D,
     /// URL where dump is hosted
@@ -42,8 +50,11 @@ pub struct DumpDownloader<D: FileDownload, U: AsRef<str>, P: AsRef<Path> + Clone
     dest_path: P,
 }
 
-impl<D: FileDownload, U: AsRef<str>, P: AsRef<Path> + Clone + Send + 'static>
-    DumpDownloader<D, U, P>
+impl<D, U, P> DumpDownloader<D, U, P>
+where
+    D: FileDownload,
+    U: AsRef<str>,
+    P: AsRef<Path> + Clone + Send + 'static,
 {
     /// Creates new instance
     pub fn new(downloader: D, dump_url: U, dest_path: P) -> Self {
@@ -71,7 +82,7 @@ impl<D: FileDownload, U: AsRef<str>, P: AsRef<Path> + Clone + Send + 'static>
 }
 
 /// Asynchronous file downloading client
-pub trait FileDownload {
+pub trait FileDownload: Send {
     /// Type of chunks of data stream
     type Chunk: AsRef<[u8]>;
     /// Stream of data chunks
@@ -83,7 +94,7 @@ pub trait FileDownload {
 
 impl FileDownload for Client {
     type Chunk = reqwest::r#async::Chunk;
-    type Bytes = Box<dyn Stream<Item = Self::Chunk, Error = DownloadError>>;
+    type Bytes = Box<dyn Stream<Item = Self::Chunk, Error = DownloadError> + Send>;
 
     fn download(&self, url: &str) -> Self::Bytes {
         let bytes = self
@@ -145,8 +156,8 @@ impl From<std::io::Error> for DownloadError {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::test_utils::download::*;
+    use super::*;
     use tokio::prelude::*;
 
     #[test]
