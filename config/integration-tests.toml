@@ -2,7 +2,7 @@
 path = "resources/tests/tmp/anime.sqlite"
 
 [import]
-dump_url = "localhost:8080/static"
+dump_url = "http://localhost:8080/static"
 download_path = "resources/tests/tmp/dump.gz"
 old_dump_path = "resources/tests/tmp/old.xml"
 dump_path = "resources/tests/tmp/new.xml"
