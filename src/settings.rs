@@ -1,4 +1,4 @@
-use config::{Config, ConfigError, File};
+use config::{Config, ConfigError, File, Source};
 use serde::Deserialize;
 
 use std::sync::Once;
@@ -11,11 +11,28 @@ pub fn shared() -> &'static Settings {
 
     unsafe {
         ONCE.call_once(|| {
-            let settings = Settings::new().expect("failed to read settings");
+            let settings = Settings::new(Profile::Default).expect("failed to read settings");
             SHARED = Box::into_raw(Box::new(settings));
         });
 
         &*SHARED
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Profile {
+    Default,
+    IntegrationTests,
+}
+
+impl Profile {
+    fn files(&self) -> &[&str] {
+        use Profile::*;
+
+        match *self {
+            Default => &["default"],
+            IntegrationTests => &["default", "integration-tests"],
+        }
     }
 }
 
@@ -37,9 +54,16 @@ impl Settings {
         &self.import
     }
 
-    fn new() -> Result<Self, ConfigError> {
+    pub fn new(profile: Profile) -> Result<Self, ConfigError> {
         let mut s = Config::new();
-        s.merge(File::with_name("config/default"))?;
+
+        for &file in profile.files() {
+            s.merge(File::with_name(&format!("config/{}", file)))?;
+        }
+
+        let ss = s.collect()?;
+        let v = ss.get("db").unwrap();
+
         s.try_into()
     }
 }
@@ -49,7 +73,7 @@ impl Settings {
 pub struct Db {
     path: String,
     max_connections: u32,
-    connection_timeout: Duration,
+    connection_timeout: u64,
 }
 
 impl Db {
@@ -65,7 +89,7 @@ impl Db {
 
     /// Returns timeout for a db connection
     pub fn connection_timeout(&self) -> Duration {
-        self.connection_timeout
+        Duration::new(self.connection_timeout, 0)
     }
 }
 

@@ -1,12 +1,12 @@
 [db]
 path = "db/anime.sqlite"
-max-connections = 8
-connection-timeout = 15
+max_connections = 8
+connection_timeout = 15
 
 [import]
-dump-url = "http://anidb.net/api/anime-titles.xml.gz"
-download-path = "db/anidb-dump/dump.gz"
-old-dump-path = "db/anidb-dump/old.xml"
-dump-path = "db/anidb-dump/new.xml"
-reimport-track-path = "db/anidb-dump/reimport.txt"
-chunk-size = 2048
+dump_url = "http://anidb.net/api/anime-titles.xml.gz"
+download_path = "db/anidb-dump/dump.gz"
+old_dump_path = "db/anidb-dump/old.xml"
+dump_path = "db/anidb-dump/new.xml"
+reimport_track_path = "db/anidb-dump/reimport.txt"
+chunk_size = 2048
