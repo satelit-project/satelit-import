@@ -23,7 +23,9 @@ pub fn connection_pool() -> impl ConnectionPool {
 
     unsafe {
         ONCE.call_once(|| {
-            let pool = new_r2d2_sqlite_pool().expect("failed to initialize db connection pool");
+            let settings = settings::shared();
+            let pool = new_r2d2_sqlite_pool(settings.db())
+                .expect("failed to initialize db connection pool");
             SHARED = Box::into_raw(Box::new(pool))
         });
 
@@ -34,13 +36,12 @@ pub fn connection_pool() -> impl ConnectionPool {
 /// Creates new connection pool with global settings
 ///
 /// There are should be only one connection pool per app
-pub fn new_connection_pool() -> Result<impl ConnectionPool, PoolError> {
-    new_r2d2_sqlite_pool()
+pub fn new_connection_pool(settings: &settings::Db) -> Result<impl ConnectionPool, PoolError> {
+    new_r2d2_sqlite_pool(settings)
 }
 
 /// Creates new connection pool with global settings
-fn new_r2d2_sqlite_pool() -> Result<SqlitePool, PoolError> {
-    let settings = settings::shared().db();
+fn new_r2d2_sqlite_pool(settings: &settings::Db) -> Result<SqlitePool, PoolError> {
     let manager = r2d2::ConnectionManager::<SqliteConnection>::new(settings.path());
     let pool = r2d2::Pool::builder()
         .max_size(settings.max_connections())

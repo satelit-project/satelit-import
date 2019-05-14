@@ -41,13 +41,7 @@ pub fn new_task() -> impl Future<Item = (), Error = ()> {
         crate::db::connection_pool(),
     );
 
-    DumpImportTask {
-        download,
-        copy,
-        extract,
-        import,
-        state: DumpImportState::Downloading,
-    }
+    DumpImportTask::new(download, copy, extract, import)
 }
 
 /// Task to download and import AniDB dump
@@ -77,6 +71,16 @@ where
     E: Future<Item = (), Error = extract::ExtractError>,
     I: Future<Item = (), Error = import::ImportError>,
 {
+    pub fn new(download: D, copy: C, extract: E, import: I) -> Self {
+        DumpImportTask {
+            download,
+            copy,
+            extract,
+            import,
+            state: DumpImportState::Downloading,
+        }
+    }
+
     fn poll_download(&mut self) -> Result<Async<()>, ()> {
         match self.download.poll() {
             Err(e) => {
