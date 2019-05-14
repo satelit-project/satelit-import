@@ -61,9 +61,6 @@ impl Settings {
             s.merge(File::with_name(&format!("config/{}", file)))?;
         }
 
-        let ss = s.collect()?;
-        let v = ss.get("db").unwrap();
-
         s.try_into()
     }
 }
