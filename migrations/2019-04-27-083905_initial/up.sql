@@ -34,7 +34,7 @@ create trigger schedules_updated_at_trigger
 begin
     update schedules
     set updated_at = current_timestamp
-    where id = old.id;
+    where schedules.id = old.id;
 end;
 
 /* Tasks table */
@@ -83,7 +83,7 @@ create trigger scheduled_tasks_anime_set_processing_state
 begin
     update schedules
     set state = 1
-    where id = schedule_id;
+    where schedules.id = new.schedule_id;
 end;
 
 -- set `state` to 'Finished' when task is deleted
@@ -93,5 +93,5 @@ create trigger scheduled_tasks_anime_set_finished_state
 begin
     update schedules
     set state = 2
-    where id = old.schedule_id;
+    where schedules.id = old.schedule_id;
 end;

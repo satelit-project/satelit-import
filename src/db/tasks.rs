@@ -16,8 +16,8 @@ impl<P: ConnectionPool> Tasks<P> {
         Self { pool }
     }
 
-    /// Inserts new task into DB
-    pub fn insert(&self, task: &Task) -> Result<(), QueryError> {
+    /// Registers new task in DB
+    pub fn register(&self, task: &Task) -> Result<(), QueryError> {
         use self::tasks::dsl::*;
 
         let conn = self.connection()?;

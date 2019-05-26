@@ -1,4 +1,4 @@
-use config::{Config, ConfigError, File, Source};
+use config::{Config, ConfigError, File};
 use serde::Deserialize;
 
 use std::sync::Once;
