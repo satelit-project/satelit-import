@@ -13,6 +13,7 @@ pub struct Schedule {
     pub has_air_date: bool,
     pub has_type: bool,
     pub has_mal_id: bool,
+    pub has_ann_id: bool,
     pub has_tags: bool,
     pub has_episode_count: bool,
     pub has_episodes: bool,
