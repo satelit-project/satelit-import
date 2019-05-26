@@ -61,12 +61,12 @@ create table scheduled_tasks
 
     task_id     text    not null
         constraint scheduled_tasks_tasks_id_fk
-            references tasks(id)
+            references tasks (id)
             on delete cascade,
 
     schedule_id integer not null
         constraint scheduled_tasks_schedules_id_fk
-            references schedules(id)
+            references schedules (id)
             on delete cascade
 );
 

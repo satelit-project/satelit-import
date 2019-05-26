@@ -1,5 +1,6 @@
 mod convert;
 pub mod entity;
+pub mod scheduled_tasks;
 pub mod schedules;
 pub mod schema;
 pub mod tasks;
@@ -107,7 +108,7 @@ impl std::error::Error for QueryError {}
 /// ## Note
 ///
 /// `pool.clone()` should be used to pass connection pool around
-pub trait ConnectionPool: Clone {
+pub trait ConnectionPool: Clone + Send + Sync {
     type Connection: diesel::Connection<
         Backend = diesel::sqlite::Sqlite,
         TransactionManager = diesel::connection::AnsiTransactionManager,

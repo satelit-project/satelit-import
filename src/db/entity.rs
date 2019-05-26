@@ -1,5 +1,6 @@
 use diesel::sql_types::Integer;
 
+use super::schema::scheduled_tasks;
 use super::schema::schedules;
 use super::schema::tasks;
 
@@ -70,7 +71,14 @@ pub struct Task {
     pub source: ExternalSource,
 }
 
-#[derive(Queryable)]
+impl Task {
+    pub fn new(id: String, source: ExternalSource) -> Self {
+        Self { id, source }
+    }
+}
+
+#[derive(Queryable, QueryableByName)]
+#[table_name = "scheduled_tasks"]
 pub struct ScheduledTask {
     pub id: i32,
     pub task_id: String,
