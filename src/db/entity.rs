@@ -1,6 +1,7 @@
 use diesel::sql_types::Integer;
 
 use super::schema::schedules;
+use super::schema::tasks;
 
 /// Represents scheduled anidb item import
 #[derive(Queryable)]
@@ -53,4 +54,25 @@ impl NewSchedule {
     pub fn new(anidb_id: i32) -> Self {
         NewSchedule { anidb_id }
     }
+}
+
+#[sql_type = "Integer"]
+#[derive(Debug, Clone, Copy, PartialEq, FromSqlRow, AsExpression)]
+pub enum ExternalSource {
+    AniDB = 0,
+    MAL = 1,
+    ANN = 2,
+}
+
+#[derive(Queryable, Insertable)]
+pub struct Task {
+    pub id: String,
+    pub source: ExternalSource,
+}
+
+#[derive(Queryable)]
+pub struct ScheduledTask {
+    pub id: i32,
+    pub task_id: String,
+    pub schedule_id: i32,
 }

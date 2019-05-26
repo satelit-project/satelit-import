@@ -60,3 +60,30 @@ impl FromSql<Integer, Sqlite> for SchedulePriority {
         }
     }
 }
+
+// Conversion from ExternalSource
+impl ToSql<Integer, Sqlite> for ExternalSource {
+    fn to_sql<W: Write>(
+        &self,
+        out: &mut diesel::serialize::Output<'_, W, Sqlite>,
+    ) -> diesel::serialize::Result {
+        ToSql::<Integer, Sqlite>::to_sql(&(*self as i32), out)
+    }
+}
+
+// Conversion to ExternalSource
+impl FromSql<Integer, Sqlite> for ExternalSource {
+    fn from_sql(
+        bytes: Option<&<Sqlite as Backend>::RawValue>,
+    ) -> diesel::deserialize::Result<Self> {
+        use ExternalSource::*;
+
+        let value: i32 = FromSql::<Integer, Sqlite>::from_sql(bytes)?;
+        match value {
+            0 => Ok(AniDB),
+            1 => Ok(MAL),
+            2 => Ok(ANN),
+            _ => Err(format!("Unrecognized ExternalSource raw value: {}", value).into()),
+        }
+    }
+}

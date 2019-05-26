@@ -1,4 +1,4 @@
-use super::{ConnectionPool, QueryError, Table};
+use super::{ConnectionPool, PoolError, Table};
 
 /// Entity that represents *schedule* table in db
 #[derive(Clone)]
@@ -14,11 +14,8 @@ impl<P: ConnectionPool> Schedules<P> {
 }
 
 impl<P: ConnectionPool> Table<P> for Schedules<P> {
-    fn execute<O, F>(&self, f: F) -> Result<O, QueryError>
-    where
-        F: Fn(&P::Connection) -> Result<O, QueryError>,
-    {
-        f(&self.pool.get()?)
+    fn connection(&self) -> Result<<P as ConnectionPool>::Connection, PoolError> {
+        self.pool.get()
     }
 }
 

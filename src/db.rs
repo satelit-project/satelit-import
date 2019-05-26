@@ -2,6 +2,7 @@ mod convert;
 pub mod entity;
 pub mod schedules;
 pub mod schema;
+pub mod tasks;
 
 pub use diesel::r2d2::PoolError;
 pub use diesel::result::Error as UnderlyingError;
@@ -53,12 +54,18 @@ fn new_r2d2_sqlite_pool(settings: &settings::Db) -> Result<SqlitePool, PoolError
 
 /// Represents a db table which can be queried
 pub trait Table<P: ConnectionPool> {
+    /// Returns a connection that should be used for DB access
+    fn connection(&self) -> Result<P::Connection, PoolError>;
+
     /// Provides you with db connection to perform table query
     ///
     /// * f – closure to where db connection will be passes
     fn execute<O, F>(&self, f: F) -> Result<O, QueryError>
     where
-        F: Fn(&P::Connection) -> Result<O, QueryError>;
+        F: Fn(&P::Connection) -> Result<O, QueryError>,
+    {
+        f(&self.connection()?)
+    }
 }
 
 /// Represents an error that may happen on querying db
