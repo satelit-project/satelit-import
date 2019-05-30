@@ -50,6 +50,15 @@ impl<P: ConnectionPool> ScheduledTasks<P> {
 
         Ok(result)
     }
+
+    pub fn complete_for_schedule(&self, schedule_id: i32) -> Result<(), QueryError> {
+        use self::scheduled_tasks::dsl::*;
+
+        let conn = self.connection()?;
+        diesel::delete(scheduled_tasks.filter(schedule_id.eq(schedule_id))).execute(&conn)?;
+
+        Ok(())
+    }
 }
 
 impl<P: ConnectionPool> Table<P> for ScheduledTasks<P> {

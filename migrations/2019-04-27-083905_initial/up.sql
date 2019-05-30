@@ -6,25 +6,27 @@ create table schedules
         constraint schedules_pk
             primary key autoincrement,
 
-    anidb_id          integer not null,
+    source_id         integer not null,
+    source            integer not null,
     state             integer default 0 not null,
     priority          integer default 1000 not null,
-    has_poster        integer default 0 not null,
-    has_air_date      integer default 0 not null,
-    has_type          integer default 0 not null,
-    has_mal_id        integer default 0 not null,
-    has_ann_id        integer default 0 not null,
-    has_tags          integer default 0 not null,
-    has_episode_count integer default 0 not null,
-    has_episodes      integer default 0 not null,
-    has_rating        integer default 0 not null,
-    has_description   integer default 0 not null,
+    has_poster        boolean default false not null,
+    has_air_date      boolean default false not null,
+    has_type          boolean default false not null,
+    has_anidb_id      boolean default false not null,
+    has_mal_id        boolean default false not null,
+    has_ann_id        boolean default false not null,
+    has_tags          boolean default false not null,
+    has_episode_count boolean default false not null,
+    has_episodes      boolean default false not null,
+    has_rating        boolean default false not null,
+    has_description   boolean default false not null,
     created_at        double  default current_timestamp not null,
     updated_at        double  default current_timestamp not null
 );
 
-create unique index schedules_anidb_id_uindex
-    on schedules (anidb_id);
+create unique index schedules_source_id_source_uindex
+    on schedules (source_id, source);
 
 -- update `update_at` field every time when row is changed
 create trigger schedules_updated_at_trigger

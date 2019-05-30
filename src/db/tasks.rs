@@ -25,6 +25,15 @@ impl<P: ConnectionPool> Tasks<P> {
 
         Ok(())
     }
+
+    pub fn for_id(&self, task_id: &str) -> Result<Task, QueryError> {
+        use self::tasks::dsl::*;
+
+        let conn = self.connection()?;
+        let result = tasks.find(task_id).get_result::<Task>(&conn)?;
+
+        Ok(result)
+    }
 }
 
 impl<P: ConnectionPool> Table<P> for Tasks<P> {

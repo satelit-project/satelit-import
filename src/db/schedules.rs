@@ -1,4 +1,7 @@
-use super::{ConnectionPool, PoolError, Table};
+use diesel::prelude::*;
+
+use super::entity::{Schedule, SourceSchedule, UpdatedSchedule};
+use super::{ConnectionPool, PoolError, QueryError, Table};
 
 /// Entity that represents *schedule* table in db
 #[derive(Clone)]
@@ -11,40 +14,35 @@ impl<P: ConnectionPool> Schedules<P> {
     pub fn new(pool: P) -> Self {
         Schedules { pool }
     }
+
+    pub fn create_from_source(&self, src: &SourceSchedule) -> Result<(), QueryError> {
+        use crate::db::schema::schedules::dsl::*;
+
+        let conn = self.connection()?;
+        diesel::insert_into(schedules).values(src).execute(&conn)?;
+
+        Ok(())
+    }
+
+    pub fn delete_from_source(&self, src: &SourceSchedule) -> Result<(), QueryError> {
+        use crate::db::schema::schedules::dsl::*;
+
+        let conn = self.connection()?;
+        let target = schedules
+            .filter(source_id.eq(src.source_id))
+            .filter(source.eq(src.source));
+        diesel::delete(target).execute(&conn)?;
+
+        Ok(())
+    }
+
+    pub fn update(&self, update: &UpdatedSchedule) -> Result<(), QueryError> {
+        Ok(())
+    }
 }
 
 impl<P: ConnectionPool> Table<P> for Schedules<P> {
     fn connection(&self) -> Result<<P as ConnectionPool>::Connection, PoolError> {
         self.pool.get()
     }
-}
-
-#[macro_export]
-macro_rules! schedules_insert {
-    ( $sched:expr, $value:expr ) => {{
-        use crate::db::schema::schedules::dsl::*;
-        use diesel::prelude::*;
-
-        $sched.execute(|conn| {
-            diesel::insert_into(schedules)
-                .values($value)
-                .execute(conn)?;
-
-            Ok(())
-        })
-    }};
-}
-
-#[macro_export]
-macro_rules! schedules_delete {
-    ( $sched:expr, anidb_id($id:expr) ) => {{
-        use crate::db::schema::schedules::dsl::*;
-        use diesel::prelude::*;
-
-        $sched.execute(|conn| {
-            diesel::delete(schedules.filter(anidb_id.eq($id))).execute(conn)?;
-
-            Ok(())
-        })
-    }};
 }

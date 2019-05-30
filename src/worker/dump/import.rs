@@ -12,7 +12,8 @@ use std::fmt;
 use std::path::Path;
 
 use crate::anidb::{AniDb, Anime, XmlError};
-use crate::db::{entity::NewSchedule, schedules, ConnectionPool, QueryError, Table};
+use crate::db::entity::{ExternalSource, SourceSchedule};
+use crate::db::{schedules, ConnectionPool, QueryError};
 
 /// Creates AniDB dump importer configured with global app settings
 ///
@@ -408,16 +409,13 @@ impl<P: ConnectionPool + Send> ImportScheduler for AniDbImportScheduler<P> {
     type Error = QueryError;
 
     fn add_title(&mut self, anime: &Anime) -> Result<(), Self::Error> {
-        use crate::schedules_insert;
-
-        let schedule = NewSchedule::new(anime.id);
-        schedules_insert!(self.schedules, &schedule)
+        let schedule = SourceSchedule::new(anime.id, ExternalSource::AniDB);
+        self.schedules.create_from_source(&schedule)
     }
 
     fn remove_title(&mut self, anime: &Anime) -> Result<(), Self::Error> {
-        use crate::schedules_delete;
-
-        schedules_delete!(self.schedules, anidb_id(anime.id))
+        let schedule = SourceSchedule::new(anime.id, ExternalSource::AniDB);
+        self.schedules.delete_from_source(&schedule)
     }
 }
 
