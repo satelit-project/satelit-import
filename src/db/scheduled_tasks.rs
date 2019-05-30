@@ -1,7 +1,7 @@
 use diesel::prelude::*;
 
-use super::entity::{ScheduledTask, Task};
-use super::schema::scheduled_tasks;
+use super::entity::{Schedule, ScheduledTask, Task};
+use super::schema::{scheduled_tasks, schedules};
 use super::{ConnectionPool, PoolError, QueryError, Table};
 
 /// Represents *scheduled_tasks* table that contains mapping between a task and schedule
@@ -40,13 +40,14 @@ impl<P: ConnectionPool> ScheduledTasks<P> {
     }
 
     /// Returns all scheduled tasks associated with `task`
-    pub fn for_task(&self, task: &Task) -> Result<Vec<ScheduledTask>, QueryError> {
+    pub fn for_task(&self, task: &Task) -> Result<Vec<(ScheduledTask, Schedule)>, QueryError> {
         use self::scheduled_tasks::dsl::*;
 
         let conn = self.connection()?;
         let result = scheduled_tasks
             .filter(task_id.eq(&task.id))
-            .load::<ScheduledTask>(&conn)?;
+            .inner_join(self::schedules::table)
+            .load::<(ScheduledTask, Schedule)>(&conn)?;
 
         Ok(result)
     }

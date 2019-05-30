@@ -39,8 +39,4 @@ table! {
 joinable!(scheduled_tasks -> schedules (schedule_id));
 joinable!(scheduled_tasks -> tasks (task_id));
 
-allow_tables_to_appear_in_same_query!(
-    scheduled_tasks,
-    schedules,
-    tasks,
-);
+allow_tables_to_appear_in_same_query!(scheduled_tasks, schedules, tasks,);

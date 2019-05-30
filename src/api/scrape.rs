@@ -3,23 +3,31 @@ use actix_web::dev::{AppService, HttpServiceFactory};
 use actix_web::error::BlockingError;
 use actix_web::{web, web::Data, HttpResponse};
 use futures::Future;
-use log::error;
+use log::{error, info};
 
-use crate::db::entity::{ExternalSource, Task};
+use crate::db::entity::{ExternalSource, SchedulePriority, Task, UpdatedSchedule};
 use crate::db::scheduled_tasks::ScheduledTasks;
+use crate::db::schedules::Schedules;
 use crate::db::tasks::Tasks;
 use crate::db::{ConnectionPool, QueryError};
 use crate::proto::scrape::{anime, task};
 
+/// Service for scrape tasks manipulation
 pub struct TasksService<P: ConnectionPool + 'static> {
     tasks: Tasks<P>,
+    schedules: Schedules<P>,
     scheduled_tasks: ScheduledTasks<P>,
 }
 
 impl<P: ConnectionPool + 'static> TasksService<P> {
-    pub fn new(tasks: Tasks<P>, scheduled_tasks: ScheduledTasks<P>) -> Self {
+    pub fn new(
+        tasks: Tasks<P>,
+        schedules: Schedules<P>,
+        scheduled_tasks: ScheduledTasks<P>,
+    ) -> Self {
         Self {
             tasks,
+            schedules,
             scheduled_tasks,
         }
     }
@@ -29,13 +37,18 @@ impl<P: ConnectionPool + 'static> HttpServiceFactory for TasksService<P> {
     fn register(self, config: &mut AppService) {
         let service = web::scope("/task")
             .data(Data::new(self.tasks))
+            .data(Data::new(self.schedules))
             .data(Data::new(self.scheduled_tasks))
-            .service(web::resource("/").route(web::post().to_async(create_task::<P>)));
+            .service(web::resource("/").route(web::post().to_async(create_task::<P>)))
+            .service(
+                web::resource("/{task_id}/yield").route(web::post().to_async(task_yield::<P>)),
+            );
 
         service.register(config);
     }
 }
 
+/// Registers new scrape task in DB and returns
 fn create_task<P: ConnectionPool + 'static>(
     tasks: Data<Tasks<P>>,
     scheduled_tasks: Data<ScheduledTasks<P>>,
@@ -46,63 +59,158 @@ fn create_task<P: ConnectionPool + 'static>(
 
         tasks.register(&task)?;
         let scheduled = scheduled_tasks.for_task(&task)?;
-        let ids = scheduled.iter().map(|s| s.schedule_id);
+        let mut anime_ids = vec![];
+        let mut schedule_ids = vec![];
+
+        for (_, schedule) in scheduled {
+            anime_ids.push(schedule.source_id);
+            schedule_ids.push(schedule.id);
+        }
 
         Ok(task::Task {
             id: task.id,
             source: task.source as i32,
-            anime_ids: ids.collect(),
+            schedule_ids,
+            anime_ids,
         })
     })
     .then(
         |res: Result<task::Task, BlockingError<QueryError>>| match res {
             Ok(task) => HttpResponse::Ok().protobuf(task),
             Err(e) => {
-                error!("Failed to create new scrape task: {}", e);
-                Ok(HttpResponse::InternalServerError().into()) // TODO: error proto
+                error!("failed to create new scrape task: {}", e);
+                Ok(HttpResponse::InternalServerError().into())
             }
         },
     )
 }
 
-//fn task_yield<P: ConnectionPool + 'static>(
-//    proto: ProtoBuf<task::TaskYield>,
-//    tasks: Data<Tasks<P>>,
-//    scheduled_tasks: Data<ScheduledTasks<P>>,
-//) -> impl Future<Item = HttpResponse, Error = actix_web::Error> {
-//    web::block(move || {
-//        // TODO: pass parsed stuff to main service
-//
-//        let task = tasks.for_id(&proto.task_id)?;
-//        let mut not_found = vec![];
-//
-//        for anime in proto.anime {
-//            if let Some(source) = anime.source {
-//
-//            }
-//
-//            if let Some(id) = anime.id_for_source(task.source) {
-//                scheduled_tasks.complete(id)?;
-//            } else {
-//                not_found.push(anime);
-//            }
-//        }
-//    })
-//}
+/// Represents result of the `/yield` response
+enum TaskYieldResult {
+    /// Anime entity is missed
+    AnimeMissed,
 
-//impl anime::Anime {
-//    fn id_for_source(&self, source: ExternalSource) -> Option<i32> {
-//        use task::task::Source::*;
-//
-//        let my_sources = self.source?;
-//        let id = match source {
-//            Anidb => my_sources.anidb_id,
-//        };
-//
-//        if id == 0 {
-//            None
-//        } else {
-//            Some(id)
-//        }
-//    }
-//}
+    /// Request successful
+    Ok,
+}
+
+/// Updates associated `Schedule` with new scraped anime data and pushes changes to main service
+fn task_yield<P: ConnectionPool + 'static>(
+    proto: ProtoBuf<task::TaskYield>,
+    schedules: Data<Schedules<P>>,
+    scheduled_tasks: Data<ScheduledTasks<P>>,
+) -> impl Future<Item = HttpResponse, Error = actix_web::Error> {
+    web::block(move || {
+        // TODO: pass parsed stuff to main service
+
+        let anime = match proto.anime {
+            Some(ref a) => a,
+            None => {
+                info!(
+                    "received 'TaskYield' without anime entity, 'task_id': {}, 'schedule_id': {}",
+                    proto.task_id, proto.schedule_id
+                );
+
+                return Ok(TaskYieldResult::AnimeMissed);
+            }
+        };
+
+        let update = update_for_anime(anime);
+        schedules.update_for_id(proto.schedule_id, &update)?;
+        scheduled_tasks.complete_for_schedule(&proto.task_id, proto.schedule_id)?;
+
+        Ok(TaskYieldResult::Ok)
+    })
+    .then(
+        |result: Result<TaskYieldResult, BlockingError<QueryError>>| {
+            let result = match result {
+                Ok(v) => v,
+                Err(e) => {
+                    error!("failed to update yielded entity: {}", e);
+                    return Ok(HttpResponse::InternalServerError().into());
+                }
+            };
+
+            match result {
+                TaskYieldResult::Ok => Ok(HttpResponse::Ok().into()),
+                TaskYieldResult::AnimeMissed => Ok(HttpResponse::BadRequest().into()),
+            }
+        },
+    )
+}
+
+// Helpers
+
+fn update_for_anime(anime: &anime::Anime) -> UpdatedSchedule {
+    use anime::anime::Type as AnimeType;
+    use anime::episode::Type as EpisodeType;
+
+    let mut schedule = UpdatedSchedule::default();
+    schedule.has_poster = !anime.poster_url.is_empty();
+    schedule.has_air_date = anime.start_date != 0.0 && anime.end_date != 0.0;
+
+    let anime_type = AnimeType::from_i32(anime.r#type).unwrap_or(AnimeType::Unknown);
+    schedule.has_type = anime_type != AnimeType::Unknown;
+
+    schedule.has_anidb_id = anime.source.as_ref().map_or(false, |s| s.anidb_id != 0);
+    schedule.has_mal_id = anime.source.as_ref().map_or(false, |s| s.mal_id != 0);
+    schedule.has_ann_id = anime.source.as_ref().map_or(false, |s| s.ann_id != 0);
+    schedule.has_tags = !anime.tags.is_empty();
+    schedule.has_episode_count = anime.episodes_count != 0;
+
+    let unknown_eps_count = anime
+        .episodes
+        .iter()
+        .filter(|&e| {
+            let ep_type = EpisodeType::from_i32(e.r#type).unwrap_or(EpisodeType::Unknown);
+            ep_type == EpisodeType::Unknown
+                || e.air_date == 0.0
+                || e.duration == 0.0
+                || e.name.is_empty()
+        })
+        .count();
+    schedule.has_all_episodes = unknown_eps_count == 0 && anime.episodes.len() != 0;
+
+    schedule.has_rating = anime.rating != 0.0;
+    schedule.has_description = !anime.description.is_empty();
+
+    schedule.priority = priority_for_schedule(&schedule);
+
+    schedule
+}
+
+fn priority_for_schedule(schedule: &UpdatedSchedule) -> SchedulePriority {
+    if !schedule.has_air_date {
+        return SchedulePriority::NeedAiringDetails;
+    }
+
+    if !schedule.has_type || !schedule.has_episode_count {
+        return SchedulePriority::NeedAiringDetails;
+    }
+
+    if !schedule.has_tags {
+        return SchedulePriority::NeedTags;
+    }
+
+    if !schedule.has_description {
+        return SchedulePriority::NeedDescription;
+    }
+
+    if !schedule.has_poster {
+        return SchedulePriority::NeedPoster;
+    }
+
+    if !schedule.has_all_episodes {
+        return SchedulePriority::NeedEpisodes;
+    }
+
+    if !schedule.has_rating {
+        return SchedulePriority::NeedRating;
+    }
+
+    if !schedule.has_anidb_id || !schedule.has_mal_id || !schedule.has_ann_id {
+        return SchedulePriority::NeedExternalSources;
+    }
+
+    SchedulePriority::Idle
+}

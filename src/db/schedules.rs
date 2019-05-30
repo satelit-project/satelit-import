@@ -1,6 +1,6 @@
 use diesel::prelude::*;
 
-use super::entity::{Schedule, SourceSchedule, UpdatedSchedule};
+use super::entity::{SourceSchedule, UpdatedSchedule};
 use super::{ConnectionPool, PoolError, QueryError, Table};
 
 /// Entity that represents *schedule* table in db
