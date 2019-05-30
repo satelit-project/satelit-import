@@ -29,8 +29,8 @@ pub struct TaskYield {
     #[prost(sint32, tag="2")]
     pub schedule_id: i32,
     /// Parsed anime entity
-    #[prost(message, repeated, tag="3")]
-    pub anime: ::std::vec::Vec<super::anime::Anime>,
+    #[prost(message, optional, tag="3")]
+    pub anime: ::std::option::Option<super::anime::Anime>,
 }
 /// Signals that a task has been finished
 #[derive(Clone, PartialEq, ::prost::Message)]

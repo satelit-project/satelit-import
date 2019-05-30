@@ -18,7 +18,7 @@ create table schedules
     has_ann_id        boolean default false not null,
     has_tags          boolean default false not null,
     has_episode_count boolean default false not null,
-    has_episodes      boolean default false not null,
+    has_all_episodes  boolean default false not null,
     has_rating        boolean default false not null,
     has_description   boolean default false not null,
     created_at        double  default current_timestamp not null,

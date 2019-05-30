@@ -21,7 +21,7 @@ table! {
         has_ann_id -> Bool,
         has_tags -> Bool,
         has_episode_count -> Bool,
-        has_episodes -> Bool,
+        has_all_episodes -> Bool,
         has_rating -> Bool,
         has_description -> Bool,
         created_at -> Double,

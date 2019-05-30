@@ -36,7 +36,17 @@ impl<P: ConnectionPool> Schedules<P> {
         Ok(())
     }
 
-    pub fn update(&self, update: &UpdatedSchedule) -> Result<(), QueryError> {
+    pub fn update_for_id(
+        &self,
+        schedule_id: i32,
+        updated: &UpdatedSchedule,
+    ) -> Result<(), QueryError> {
+        use crate::db::schema::schedules::dsl::*;
+
+        let conn = self.connection()?;
+        let target = schedules.find(schedule_id);
+        diesel::update(target).set(updated).execute(&conn)?;
+
         Ok(())
     }
 }

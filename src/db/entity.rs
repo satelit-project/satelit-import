@@ -20,7 +20,7 @@ pub struct Schedule {
     pub has_ann_id: bool,
     pub has_tags: bool,
     pub has_episode_count: bool,
-    pub has_episodes: bool,
+    pub has_all_episodes: bool,
     pub has_rating: bool,
     pub has_description: bool,
     pub created_at: f64,
@@ -42,6 +42,27 @@ pub enum ScheduleState {
 pub enum SchedulePriority {
     /// Lowest priority meaning that the item should be scraped if no more work is available
     Idle = 0,
+
+    /// External sources like AniDB or MAL are missing
+    NeedExternalSources = 500,
+
+    /// Rating is missing
+    NeedRating = 700,
+
+    /// Episodes are missing
+    NeedEpisodes = 750,
+
+    /// Poster is missing
+    NeedPoster = 800,
+
+    /// Description is missing
+    NeedDescription = 850,
+
+    /// Tags are missing
+    NeedTags = 900,
+
+    /// Air date, type or episodes count is missing
+    NeedAiringDetails = 950,
 
     /// Newly added item that should be scraped asap
     New = 1_000,
@@ -88,9 +109,28 @@ pub struct UpdatedSchedule {
     pub has_ann_id: bool,
     pub has_tags: bool,
     pub has_episode_count: bool,
-    pub has_episodes: bool,
+    pub has_all_episodes: bool,
     pub has_rating: bool,
     pub has_description: bool,
+}
+
+impl Default for UpdatedSchedule {
+    fn default() -> Self {
+        Self {
+            priority: SchedulePriority::Idle,
+            has_poster: false,
+            has_air_date: false,
+            has_type: false,
+            has_anidb_id: false,
+            has_mal_id: false,
+            has_ann_id: false,
+            has_tags: false,
+            has_episode_count: false,
+            has_all_episodes: false,
+            has_rating: false,
+            has_description: false,
+        }
+    }
 }
 
 #[sql_type = "Integer"]

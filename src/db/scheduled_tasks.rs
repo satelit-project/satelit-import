@@ -32,7 +32,7 @@ impl<P: ConnectionPool> ScheduledTasks<P> {
         "#;
 
         diesel::sql_query(sql)
-            .bind::<diesel::sql_types::Text, _>(task.id.clone())
+            .bind::<diesel::sql_types::Text, _>(&task.id)
             .bind::<diesel::sql_types::Integer, _>(count)
             .execute(&conn)?;
 
@@ -51,11 +51,14 @@ impl<P: ConnectionPool> ScheduledTasks<P> {
         Ok(result)
     }
 
-    pub fn complete_for_schedule(&self, schedule_id: i32) -> Result<(), QueryError> {
-        use self::scheduled_tasks::dsl::*;
+    pub fn complete_for_schedule(&self, task_id: &str, schedule_id: i32) -> Result<(), QueryError> {
+        use self::scheduled_tasks::dsl;
 
         let conn = self.connection()?;
-        diesel::delete(scheduled_tasks.filter(schedule_id.eq(schedule_id))).execute(&conn)?;
+        let target = dsl::scheduled_tasks
+            .filter(dsl::task_id.eq(task_id))
+            .filter(dsl::schedule_id.eq(schedule_id));
+        diesel::delete(target).execute(&conn)?;
 
         Ok(())
     }
