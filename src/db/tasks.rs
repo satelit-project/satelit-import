@@ -26,6 +26,7 @@ impl<P: ConnectionPool> Tasks<P> {
         Ok(())
     }
 
+    /// Returns a task for specified task `id`
     pub fn for_id(&self, task_id: &str) -> Result<Task, QueryError> {
         use self::tasks::dsl::*;
 
@@ -33,6 +34,16 @@ impl<P: ConnectionPool> Tasks<P> {
         let result = tasks.find(task_id).get_result::<Task>(&conn)?;
 
         Ok(result)
+    }
+
+    /// Removes specified task's `id` and marks associated schedules entities as finished processing  
+    pub fn remove(&self, task_id: &str) -> Result<(), QueryError> {
+        use self::tasks::dsl::*;
+
+        let conn = self.connection()?;
+        diesel::delete(tasks.filter(id.eq(task_id))).execute(conn)?;
+
+        Ok(())
     }
 }
 

@@ -40,8 +40,9 @@ impl<P: ConnectionPool + 'static> HttpServiceFactory for TasksService<P> {
             .data(Data::new(self.schedules))
             .data(Data::new(self.scheduled_tasks))
             .service(web::resource("/").route(web::post().to_async(create_task::<P>)))
+            .service(web::resource("/{task_id}/yield").route(web::post().to_async(task_yield::<P>)))
             .service(
-                web::resource("/{task_id}/yield").route(web::post().to_async(task_yield::<P>)),
+                web::resource("/{task_id}/finish").route(web::post().to_async(task_finish::<P>)),
             );
 
         service.register(config);
@@ -137,6 +138,19 @@ fn task_yield<P: ConnectionPool + 'static>(
             }
         },
     )
+}
+
+fn task_finish<P: ConnectionPool + 'static>(
+    proto: ProtoBuf<task::TaskFinish>,
+    tasks: Data<Tasks<P>>,
+) -> impl Future<Item = HttpResponse, Error = actix_web::Error> {
+    web::block(move || tasks.remove(&proto.task_id)).then(|result| match result {
+        Ok(()) => Ok(HttpResponse::Ok().into()),
+        Err(e) => {
+            error!("failed to finish task: {}", e);
+            Ok(HttpResponse::InternalServerError().into())
+        }
+    })
 }
 
 // Helpers
