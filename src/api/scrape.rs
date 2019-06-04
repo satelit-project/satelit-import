@@ -49,7 +49,7 @@ impl<P: ConnectionPool + 'static> HttpServiceFactory for TasksService<P> {
     }
 }
 
-/// Registers new scrape task in DB and returns
+/// Registers new scrape task and returns schedules ID's that should be scraped
 fn create_task<P: ConnectionPool + 'static>(
     tasks: Data<Tasks<P>>,
     scheduled_tasks: Data<ScheduledTasks<P>>,
@@ -59,6 +59,7 @@ fn create_task<P: ConnectionPool + 'static>(
         let task = Task::new(id, ExternalSource::AniDB);
 
         tasks.register(&task)?;
+        scheduled_tasks.create(&task, 10)?; // TODO: should be parameter
         let scheduled = scheduled_tasks.for_task(&task)?;
         let mut anime_ids = vec![];
         let mut schedule_ids = vec![];
@@ -140,6 +141,8 @@ fn task_yield<P: ConnectionPool + 'static>(
     )
 }
 
+/// Removes all scheduled tasks associated with provided task
+/// and updates schedules to be in Finished state
 fn task_finish<P: ConnectionPool + 'static>(
     proto: ProtoBuf<task::TaskFinish>,
     tasks: Data<Tasks<P>>,
