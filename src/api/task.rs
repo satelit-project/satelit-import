@@ -35,7 +35,7 @@ impl<P: ConnectionPool + 'static> TasksService<P> {
 
 impl<P: ConnectionPool + 'static> HttpServiceFactory for TasksService<P> {
     fn register(self, config: &mut AppService) {
-        let service = web::scope("/scraper/task")
+        let service = web::scope("/task")
             .data(Data::new(self.tasks))
             .data(Data::new(self.schedules))
             .data(Data::new(self.scheduled_tasks))

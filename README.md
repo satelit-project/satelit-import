@@ -6,3 +6,4 @@ TODO:
 - integration tests for dump import/reimport (don't be lazy)
 - Daily job to finish 'dead' import tasks
 - brotli compression
+- services should return responses with proper errors
