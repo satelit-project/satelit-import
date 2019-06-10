@@ -41,7 +41,7 @@ impl<P: ConnectionPool> Tasks<P> {
         use self::tasks::dsl::*;
 
         let conn = self.connection()?;
-        diesel::delete(tasks.filter(id.eq(task_id))).execute(conn)?;
+        diesel::delete(tasks.filter(id.eq(task_id))).execute(&conn)?;
 
         Ok(())
     }
