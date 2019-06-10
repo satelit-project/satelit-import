@@ -10,9 +10,9 @@ use crate::db::scheduled_tasks::ScheduledTasks;
 use crate::db::schedules::Schedules;
 use crate::db::tasks::Tasks;
 use crate::db::{ConnectionPool, QueryError};
-use crate::proto::scrape::{anime, task};
+use crate::proto::scraper::{anime, task};
 
-/// Service for scrape tasks manipulation
+/// Service for scraper's tasks manipulation
 pub struct TasksService<P: ConnectionPool + 'static> {
     tasks: Tasks<P>,
     schedules: Schedules<P>,
@@ -35,7 +35,7 @@ impl<P: ConnectionPool + 'static> TasksService<P> {
 
 impl<P: ConnectionPool + 'static> HttpServiceFactory for TasksService<P> {
     fn register(self, config: &mut AppService) {
-        let service = web::scope("/task")
+        let service = web::scope("/scraper/task")
             .data(Data::new(self.tasks))
             .data(Data::new(self.schedules))
             .data(Data::new(self.scheduled_tasks))
