@@ -20,7 +20,7 @@ pub fn importer<P, C>(
     dump_path: P,
     reimport_ids: HashSet<i32>,
     connection_pool: C,
-) -> impl Future<Item = (), Error = ImportError> + Send
+) -> impl Future<Item = HashSet<i32>, Error = ImportError> + Send
 where
     P: AsRef<Path> + Clone + Send + 'static,
     C: ConnectionPool + Send,
@@ -29,7 +29,7 @@ where
     let schedules = schedules::Schedules::new(connection_pool);
     let scheduler = AniDbImportScheduler::new(schedules);
 
-    DumpImporter::new(provider, scheduler).and_then(|_| Ok(()))
+    DumpImporter::new(provider, scheduler)
 }
 
 /// Performs anime import from AniDB dump asynchronously
@@ -432,7 +432,11 @@ mod tests {
     #[test]
     fn test_does_reimport() -> Result<(), std::io::Error> {
         let reimport = vec![2, 5];
-        let provider = FakeProvider::new(gen_anime(reimport.clone()), gen_anime([1, 2, 3, 4, 5]));
+        let provider = FakeProvider::new_reimporting(
+            gen_anime(reimport.clone()),
+            gen_anime([1, 2, 3, 4, 5]),
+            HashSet::from_iter(reimport.clone()),
+        );
         let scheduler = FakeScheduler::empty();
 
         let importer = DumpImporter::new(provider.clone(), scheduler.clone()).then(|res| {

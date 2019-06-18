@@ -14,8 +14,13 @@ use futures::prelude::*;
 use futures::try_ready;
 use log::{error, info, trace};
 
+use std::collections::HashSet;
+use std::error::Error;
+
 /// Creates new task configured with global app settings
-pub fn new_task() -> impl Future<Item = (), Error = ()> + Send {
+pub fn new_task(
+    reimport_ids: HashSet<i32>,
+) -> impl Future<Item = HashSet<i32>, Error = Box<dyn Error + 'static>> + Send {
     let settings = crate::settings::shared();
 
     let download = download::downloader(
@@ -34,10 +39,10 @@ pub fn new_task() -> impl Future<Item = (), Error = ()> + Send {
         settings.import().chunk_size(),
     );
 
-    let import = import::tracking_importer(
+    let import = import::importer(
         settings.import().old_dump_path(),
         settings.import().dump_path(),
-        settings.import().reimport_track_path(),
+        reimport_ids,
         crate::db::connection_pool(),
     );
 
@@ -45,13 +50,7 @@ pub fn new_task() -> impl Future<Item = (), Error = ()> + Send {
 }
 
 /// Task to download and import AniDB dump
-pub struct DumpImportTask<D, C, E, I>
-where
-    D: Future<Item = (), Error = download::DownloadError> + Send,
-    C: Future<Item = (), Error = copy::CopyError> + Send,
-    E: Future<Item = (), Error = extract::ExtractError> + Send,
-    I: Future<Item = (), Error = import::ImportError> + Send,
-{
+pub struct DumpImportTask<D, C, E, I> {
     /// Future to download new dump
     download: D,
     /// Future to backup previous dump
@@ -69,7 +68,7 @@ where
     D: Future<Item = (), Error = download::DownloadError> + Send,
     C: Future<Item = (), Error = copy::CopyError> + Send,
     E: Future<Item = (), Error = extract::ExtractError> + Send,
-    I: Future<Item = (), Error = import::ImportError> + Send,
+    I: Future<Item = HashSet<i32>, Error = import::ImportError> + Send,
 {
     pub fn new(download: D, copy: C, extract: E, import: I) -> Self {
         DumpImportTask {
@@ -81,11 +80,11 @@ where
         }
     }
 
-    fn poll_download(&mut self) -> Result<Async<()>, ()> {
+    fn poll_download(&mut self) -> Result<Async<()>, download::DownloadError> {
         match self.download.poll() {
             Err(e) => {
                 error!("failed to download anidb dump: {}", e);
-                Err(())
+                Err(e)
             }
             Ok(v) => {
                 if let Async::Ready(_) = v {
@@ -97,7 +96,7 @@ where
         }
     }
 
-    fn poll_copy(&mut self) -> Result<Async<()>, ()> {
+    fn poll_copy(&mut self) -> Result<Async<()>, copy::CopyError> {
         match self.copy.poll() {
             Err(e) => {
                 if e.kind() == std::io::ErrorKind::NotFound {
@@ -106,7 +105,7 @@ where
                 }
 
                 error!("failed to backup old dump, will not continue: {}", e);
-                Err(())
+                Err(e)
             }
             Ok(v) => {
                 if let Async::Ready(_) = v {
@@ -118,11 +117,11 @@ where
         }
     }
 
-    fn poll_extract(&mut self) -> Result<Async<()>, ()> {
+    fn poll_extract(&mut self) -> Result<Async<()>, extract::ExtractError> {
         match self.extract.poll() {
             Err(e) => {
                 error!("failed to extract anidb dump: {}", e);
-                Err(())
+                Err(e)
             }
             Ok(v) => {
                 if let Async::Ready(_) = v {
@@ -134,11 +133,11 @@ where
         }
     }
 
-    fn poll_import(&mut self) -> Result<Async<()>, ()> {
+    fn poll_import(&mut self) -> Result<Async<HashSet<i32>>, import::ImportError> {
         match self.import.poll() {
             Err(e) => {
                 error!("failed to import anidb dump: {}", e);
-                Err(())
+                Err(e)
             }
             Ok(v) => {
                 if let Async::Ready(_) = v {
@@ -156,10 +155,10 @@ where
     D: Future<Item = (), Error = download::DownloadError> + Send,
     C: Future<Item = (), Error = copy::CopyError> + Send,
     E: Future<Item = (), Error = extract::ExtractError> + Send,
-    I: Future<Item = (), Error = import::ImportError> + Send,
+    I: Future<Item = HashSet<i32>, Error = import::ImportError> + Send,
 {
-    type Item = ();
-    type Error = ();
+    type Item = HashSet<i32>;
+    type Error = Box<dyn Error>;
 
     fn poll(&mut self) -> Result<Async<Self::Item>, Self::Error> {
         use DumpImportState::*;
@@ -179,8 +178,8 @@ where
                     self.state = Importing;
                 }
                 Importing => {
-                    try_ready!(self.poll_import());
-                    return Ok(Async::Ready(()));
+                    let skipped = try_ready!(self.poll_import());
+                    return Ok(Async::Ready(skipped));
                 }
             }
         }
