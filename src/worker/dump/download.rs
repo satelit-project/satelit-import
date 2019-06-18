@@ -157,6 +157,7 @@ impl From<std::io::Error> for DownloadError {
 #[cfg(test)]
 mod tests {
     use super::super::test_utils::download::*;
+    use super::super::test_utils::tokio_run_aborting;
     use super::*;
     use tokio::prelude::*;
 
@@ -177,7 +178,7 @@ mod tests {
         };
 
         let fut = DumpDownloader::new(downloader, "", dst.path().to_path_buf());
-        tokio::run(
+        tokio_run_aborting(
             fut.download()
                 .map_err(|e| panic!("failed to save data: {}", e)),
         );

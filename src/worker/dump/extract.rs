@@ -158,6 +158,7 @@ impl<S: AsyncRead, D: AsyncWrite> Future for AsyncReadWrite<S, D> {
 
 #[cfg(test)]
 mod tests_gz {
+    use super::super::test_utils::tokio_run_aborting;
     use super::*;
     use flate2::write::GzEncoder;
     use flate2::Compression;
@@ -173,7 +174,7 @@ mod tests_gz {
         compress_data(data.clone(), src.path())?;
 
         let fut = extractor(src.path().to_path_buf(), dst.path().to_path_buf(), 32);
-        tokio::run(fut.map_err(|e| panic!("unexpected error on extract: {}", e)));
+        tokio_run_aborting(fut.map_err(|e| panic!("unexpected error on extract: {}", e)));
 
         let mut got = vec![];
         File::open(dst.path()).and_then(|mut f| f.read_to_end(&mut got))?;
@@ -199,6 +200,7 @@ mod tests_gz {
 #[cfg(test)]
 mod tests_rw {
     use super::super::test_utils::extract::*;
+    use super::super::test_utils::tokio_run_aborting;
     use super::*;
     use std::io::{Read, Seek, SeekFrom, Write};
 
@@ -246,7 +248,7 @@ mod tests_rw {
             .and_then(move |(src, dst)| AsyncReadWrite::new(src, dst, chunk_size))
             .map_err(|e| panic!(format!("{}", e)));
 
-        tokio::run(task);
+        tokio_run_aborting(task);
 
         let mut expected = vec![];
         tmp_src.read_to_end(&mut expected)?;

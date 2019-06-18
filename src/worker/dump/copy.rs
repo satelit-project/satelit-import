@@ -24,6 +24,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    use super::super::test_utils::tokio_run_aborting;
     use super::*;
     use std::io::{ErrorKind, Read, Write};
     use std::path::PathBuf;
@@ -39,7 +40,7 @@ mod tests {
         let fut = copier(src.path().to_owned(), dst.path().to_owned())
             .map_err(|e| panic!("failed to copy data: {}", e));
 
-        tokio::run(fut);
+        tokio_run_aborting(fut);
 
         let mut got = vec![];
         dst.read_to_end(&mut got)?;
@@ -61,7 +62,7 @@ mod tests {
         drop(src);
         drop(dst);
 
-        tokio::run(futures::future::lazy(move || {
+        tokio_run_aborting(futures::future::lazy(move || {
             fut.then(|res| {
                 match res {
                     Ok(_) => panic!("expected to receive NotFound error"),
@@ -92,7 +93,7 @@ mod tests {
             Ok(())
         });
 
-        tokio::run(fut);
+        tokio_run_aborting(fut);
 
         assert!(!src.exists());
     }

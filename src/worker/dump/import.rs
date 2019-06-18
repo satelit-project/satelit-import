@@ -341,6 +341,7 @@ impl<P: ConnectionPool + Send> ImportScheduler for AniDbImportScheduler<P> {
 #[cfg(test)]
 mod tests {
     use super::super::test_utils::import::*;
+    use super::super::test_utils::tokio_run_aborting;
     use super::*;
     use std::iter::FromIterator as _;
 
@@ -350,7 +351,7 @@ mod tests {
         let scheduler = FakeScheduler::empty();
 
         let importer = DumpImporter::new(provider.clone(), scheduler.clone());
-        tokio::run(
+        tokio_run_aborting(
             importer
                 .map_err(|e| panic!("unexpected err: {}", e))
                 .and_then(|_| Ok(())),
@@ -366,7 +367,7 @@ mod tests {
         let scheduler = FakeScheduler::empty();
 
         let importer = DumpImporter::new(provider.clone(), scheduler.clone());
-        tokio::run(
+        tokio_run_aborting(
             importer
                 .map_err(|e| panic!("unexpected err: {}", e))
                 .and_then(|_| Ok(())),
@@ -382,7 +383,7 @@ mod tests {
         let scheduler = FakeScheduler::empty();
 
         let importer = DumpImporter::new(provider.clone(), scheduler.clone());
-        tokio::run(
+        tokio_run_aborting(
             importer
                 .map_err(|e| panic!("unexpected err: {}", e))
                 .and_then(|_| Ok(())),
@@ -398,7 +399,7 @@ mod tests {
         let scheduler = FakeScheduler::empty();
 
         let importer = DumpImporter::new(provider.clone(), scheduler.clone());
-        tokio::run(
+        tokio_run_aborting(
             importer
                 .map_err(|e| panic!("unexpected err: {}", e))
                 .and_then(|_| Ok(())),
@@ -423,7 +424,7 @@ mod tests {
             Ok(())
         });
 
-        tokio::run(importer);
+        tokio_run_aborting(importer);
         assert_eq!(*scheduler.added.lock().unwrap(), gen_anime([1, 3, 4]));
 
         Ok(())
@@ -448,7 +449,7 @@ mod tests {
             Ok(())
         });
 
-        tokio::run(importer);
+        tokio_run_aborting(importer);
         assert_eq!(*scheduler.added.lock().unwrap(), provider.new);
 
         Ok(())
