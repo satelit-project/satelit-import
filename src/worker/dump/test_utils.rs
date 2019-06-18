@@ -104,10 +104,7 @@ pub(crate) mod import {
         type Error = ImportError;
 
         fn add_title(&mut self, anime: &Anime) -> Result<(), Self::Error> {
-            let skip_add = self.skip_add.as_ref();
-            let should_skip = self.skip_add.contains(&anime.id);
-
-            if should_skip {
+            if self.skip_add.contains(&anime.id) {
                 return Err(ImportError::InternalError("skipping".to_owned()));
             }
 

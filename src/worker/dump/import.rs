@@ -441,7 +441,7 @@ mod tests {
 
         let importer = DumpImporter::new(provider.clone(), scheduler.clone()).then(|res| {
             match res {
-                Ok(skipped) => assert_eq!(skipped, HashSet::from_iter(reimport)),
+                Ok(skipped) => assert!(skipped.is_empty()),
                 Err(e) => panic!("unexpected error: {}", e),
             }
 
