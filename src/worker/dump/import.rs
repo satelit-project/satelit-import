@@ -1,9 +1,6 @@
-use futures::future::Either;
 use futures::prelude::*;
 use futures::try_ready;
 use log::{trace, warn};
-use tokio::codec::{FramedRead, FramedWrite, LinesCodec};
-use tokio::fs;
 use tokio_threadpool::{blocking, BlockingError};
 
 use std::cmp::Ordering;
@@ -21,101 +18,18 @@ use crate::db::{schedules, ConnectionPool, QueryError};
 pub fn importer<P, C>(
     old_dump_path: P,
     dump_path: P,
+    reimport_ids: HashSet<i32>,
     connection_pool: C,
 ) -> impl Future<Item = (), Error = ImportError> + Send
 where
     P: AsRef<Path> + Clone + Send + 'static,
     C: ConnectionPool + Send,
 {
-    let provider = AniDbAnimeProvider::new(old_dump_path, dump_path);
+    let provider = AniDbAnimeProvider::new(old_dump_path, dump_path, reimport_ids);
     let schedules = schedules::Schedules::new(connection_pool);
     let scheduler = AniDbImportScheduler::new(schedules);
 
-    DumpImporter::new(provider, scheduler, None).and_then(|_| Ok(()))
-}
-
-/// Creates AniDB dump importer configured with global app settings and ability to keep track of
-/// failed-to-import anime entities. Entity id's are stored at `reimport_path`.
-///
-/// This future does it's best to keep track of failed-to-imported entities and will try to import them
-/// again at next invocation, but due to possible I/O errors some entities may be lost.
-/// Moreover, it doesn't keep track of entities that should be removed but failed to do so. That
-/// means that DB may have "dead" entities (i.e. not in AniDB db anymore). It's
-/// advised to do full DB update from times to times to import lost and remove "dead"
-/// entities
-pub fn tracking_importer<P, C>(
-    old_dump_path: P,
-    dump_path: P,
-    reimport_path: P,
-    connection_pool: C,
-) -> impl Future<Item = (), Error = ImportError> + Send
-where
-    P: AsRef<Path> + Clone + Send + 'static,
-    C: ConnectionPool + Send,
-{
-    let provider = AniDbAnimeProvider::new(old_dump_path, dump_path);
-    let schedules = schedules::Schedules::new(connection_pool);
-    let scheduler = AniDbImportScheduler::new(schedules);
-
-    track_importer(reimport_path, move |reimport| {
-        DumpImporter::new(provider, scheduler, reimport)
-    })
-}
-
-// TODO: omg, please refactor
-fn track_importer<P, B, F>(
-    reimport_path: P,
-    builder: B,
-) -> impl Future<Item = (), Error = ImportError> + Send
-where
-    P: AsRef<Path> + Clone + Send + 'static,
-    B: FnOnce(Option<HashSet<i32>>) -> F + Send,
-    F: Future<Item = Option<HashSet<i32>>, Error = ImportError> + Send,
-{
-    // open file with failed-to-import ids
-    fs::File::open(reimport_path.clone())
-        .and_then(|f| {
-            // read them line-by-line and put to HashSet
-            let reader = FramedRead::new(f, LinesCodec::new());
-            reader.fold(HashSet::new(), |mut set, line| {
-                if let Ok(id) = line.parse() {
-                    set.insert(id);
-                }
-
-                Result::<_, std::io::Error>::Ok(set)
-            })
-        })
-        .then(move |reimport| {
-            // if we got an I/O error, transform result to None and log error
-            let reimport = reimport
-                .map_err(|e| warn!("Failed to load id's to reimport: {}", e))
-                .ok();
-
-            builder(reimport)
-        })
-        .and_then(|result| {
-            match result {
-                // if we successfully read the reimport file, then now we have an updated HashSet of
-                // failed-to-import ids, so we can rewrite the file with new content
-                Some(failed) => {
-                    // the last `map_err` will never be executed but it needed to pass type checking
-                    let fut = fs::File::create(reimport_path)
-                        .and_then(|f| {
-                            let writer = FramedWrite::new(f, LinesCodec::new());
-                            writer.send_all(futures::stream::iter_ok::<_, std::io::Error>(
-                                failed.into_iter().map(|id| format!("{}", id)),
-                            ))
-                        })
-                        .map_err(|e| warn!("Failed to write reimport data: {}", e))
-                        .then(|_| Result::<_, std::io::Error>::Ok(()))
-                        .map_err(|_| ImportError::InternalError("".to_owned()));
-
-                    Either::A(fut)
-                }
-                // if not then don't do anything
-                None => Either::B(futures::finished(())),
-            }
-        })
+    DumpImporter::new(provider, scheduler).and_then(|_| Ok(()))
 }
 
 /// Performs anime import from AniDB dump asynchronously
@@ -136,8 +50,8 @@ where
     P: AnimeProvider<Iterator = I>,
     S: ImportScheduler,
 {
-    pub fn new(provider: P, scheduler: S, reimport: Option<HashSet<i32>>) -> Self {
-        let importer = AnimeImporter::new(provider, scheduler, reimport);
+    pub fn new(provider: P, scheduler: S) -> Self {
+        let importer = AnimeImporter::new(provider, scheduler);
         DumpImporter(importer)
     }
 }
@@ -148,7 +62,7 @@ where
     P: AnimeProvider<Iterator = I>,
     S: ImportScheduler,
 {
-    type Item = Option<HashSet<i32>>;
+    type Item = HashSet<i32>;
     type Error = ImportError;
 
     fn poll(&mut self) -> Result<Async<Self::Item>, Self::Error> {
@@ -179,8 +93,8 @@ where
     /// Scheduler for importing changes to db
     scheduler: S,
 
-    /// Anime id's that should be re-imported
-    reimport: Option<HashSet<i32>>,
+    /// Anime IDs that has not been imported
+    skipped_ids: HashSet<i32>,
 }
 
 impl<P, S> AnimeImporter<P, S>
@@ -189,11 +103,11 @@ where
     S: ImportScheduler,
 {
     /// Creates new instance with provided parameters
-    pub fn new(provider: P, scheduler: S, reimport: Option<HashSet<i32>>) -> Self {
+    pub fn new(provider: P, scheduler: S) -> Self {
         AnimeImporter {
             provider,
             scheduler,
-            reimport,
+            skipped_ids: HashSet::new(),
         }
     }
 
@@ -202,11 +116,11 @@ where
     ///
     /// ## Returns
     /// ID's of anime entries that should be imported but has been skipped because of an scheduler
-    /// error (like failed to write to db)
+    /// error (like failed to write to db) or error in case if import failed to start
     ///
     /// ## Note
     /// This method will block current thread until import is done
-    pub fn begin(&mut self) -> Result<Option<HashSet<i32>>, ImportError> {
+    pub fn begin(&mut self) -> Result<HashSet<i32>, ImportError> {
         let mut iter_old = match self.provider.old_anime_titles() {
             Ok(iter) => iter,
             Err(e) => return Err(e.into()),
@@ -241,12 +155,7 @@ where
                         new = iter_new.next();
                     }
                     Ordering::Equal => {
-                        if self
-                            .reimport
-                            .as_ref()
-                            .map(|v| v.contains(&n.id))
-                            .unwrap_or(false)
-                        {
+                        if self.provider.should_reimport(n.id) {
                             self.add_title(n)
                         }
 
@@ -257,18 +166,18 @@ where
             }
         }
 
-        Ok(self.reimport.clone())
+        Ok(self.skipped_ids.clone())
     }
 
     fn add_title(&mut self, anime: &Anime) {
         match self.scheduler.add_title(anime) {
             Err(e) => {
                 warn!("adding schedule failed for id:{}: {}", anime.id, e);
-                self.reimport.as_mut().map(|v| v.insert(anime.id));
+                self.skipped_ids.insert(anime.id);
             }
             Ok(()) => {
                 trace!("added new schedule for id:{}", anime.id);
-                self.reimport.as_mut().map(|v| v.remove(&anime.id));
+                self.skipped_ids.remove(&anime.id);
             }
         }
     }
@@ -346,6 +255,9 @@ pub trait AnimeProvider: Clone + Send {
     ///
     /// If non-empty iterator is returned from `old_anime_titles` then only diff will be processes
     fn new_anime_titles(&self) -> Result<Self::Iterator, Self::Error>;
+
+    /// Returns `true` if anime title with provided `id` should be imported again
+    fn should_reimport(&self, id: i32) -> bool;
 }
 
 /// Data source for anime entities from AniDB dumps
@@ -353,6 +265,7 @@ pub trait AnimeProvider: Clone + Send {
 pub struct AniDbAnimeProvider<P: AsRef<Path> + Clone + Send> {
     old_dump_path: P,
     new_dump_path: P,
+    reimport_ids: HashSet<i32>,
 }
 
 impl<P: AsRef<Path> + Clone + Send> AniDbAnimeProvider<P> {
@@ -360,10 +273,12 @@ impl<P: AsRef<Path> + Clone + Send> AniDbAnimeProvider<P> {
     ///
     /// * `old_dump_path` – path to previously imported dump
     /// * `new_dump_path` - path to dump that should be imported
-    pub fn new(old_dump_path: P, new_dump_path: P) -> Self {
+    /// * `reimport_ids` – IDs of anime titles that should be imported again
+    pub fn new(old_dump_path: P, new_dump_path: P, reimport_ids: HashSet<i32>) -> Self {
         AniDbAnimeProvider {
             old_dump_path,
             new_dump_path,
+            reimport_ids,
         }
     }
 }
@@ -378,6 +293,10 @@ impl<P: AsRef<Path> + Clone + Send> AnimeProvider for AniDbAnimeProvider<P> {
 
     fn new_anime_titles(&self) -> Result<Self::Iterator, Self::Error> {
         AniDb::new(self.new_dump_path.as_ref())
+    }
+
+    fn should_reimport(&self, id: i32) -> bool {
+        self.reimport_ids.contains(&id)
     }
 }
 
@@ -420,25 +339,17 @@ impl<P: ConnectionPool + Send> ImportScheduler for AniDbImportScheduler<P> {
 }
 
 #[cfg(test)]
-mod tests_notrack {
+mod tests {
     use super::super::test_utils::import::*;
     use super::*;
-    use std::sync::{Arc, Mutex};
+    use std::iter::FromIterator as _;
 
     #[test]
     fn test_import_no_diff() {
-        let provider = FakeProvider {
-            old: vec![],
-            new: gen_anime([1, 2, 3, 4, 5]),
-        };
+        let provider = FakeProvider::new(vec![], gen_anime([1, 2, 3, 4, 5]));
+        let scheduler = FakeScheduler::empty();
 
-        let scheduler = FakeScheduler {
-            added: Arc::new(Mutex::new(vec![])),
-            removed: Arc::new(Mutex::new(vec![])),
-            skip_add: Arc::new(None),
-        };
-
-        let importer = DumpImporter::new(provider.clone(), scheduler.clone(), Some(HashSet::new()));
+        let importer = DumpImporter::new(provider.clone(), scheduler.clone());
         tokio::run(
             importer
                 .map_err(|e| panic!("unexpected err: {}", e))
@@ -451,18 +362,10 @@ mod tests_notrack {
 
     #[test]
     fn test_import_diff_add() {
-        let provider = FakeProvider {
-            old: gen_anime([1, 3, 5]),
-            new: gen_anime([1, 2, 3, 4, 5]),
-        };
+        let provider = FakeProvider::new(gen_anime([1, 3, 5]), gen_anime([1, 2, 3, 4, 5]));
+        let scheduler = FakeScheduler::empty();
 
-        let scheduler = FakeScheduler {
-            added: Arc::new(Mutex::new(vec![])),
-            removed: Arc::new(Mutex::new(vec![])),
-            skip_add: Arc::new(None),
-        };
-
-        let importer = DumpImporter::new(provider.clone(), scheduler.clone(), Some(HashSet::new()));
+        let importer = DumpImporter::new(provider.clone(), scheduler.clone());
         tokio::run(
             importer
                 .map_err(|e| panic!("unexpected err: {}", e))
@@ -475,18 +378,10 @@ mod tests_notrack {
 
     #[test]
     fn test_import_diff_remove() {
-        let provider = FakeProvider {
-            old: gen_anime([1, 2, 3, 4, 5]),
-            new: gen_anime([1, 3, 5]),
-        };
+        let provider = FakeProvider::new(gen_anime([1, 2, 3, 4, 5]), gen_anime([1, 3, 5]));
+        let scheduler = FakeScheduler::empty();
 
-        let scheduler = FakeScheduler {
-            added: Arc::new(Mutex::new(vec![])),
-            removed: Arc::new(Mutex::new(vec![])),
-            skip_add: Arc::new(None),
-        };
-
-        let importer = DumpImporter::new(provider.clone(), scheduler.clone(), Some(HashSet::new()));
+        let importer = DumpImporter::new(provider.clone(), scheduler.clone());
         tokio::run(
             importer
                 .map_err(|e| panic!("unexpected err: {}", e))
@@ -499,18 +394,10 @@ mod tests_notrack {
 
     #[test]
     fn test_import_diff_add_remove() {
-        let provider = FakeProvider {
-            old: gen_anime([1, 3, 5]),
-            new: gen_anime([2, 4, 5, 7]),
-        };
+        let provider = FakeProvider::new(gen_anime([1, 3, 5]), gen_anime([2, 4, 5, 7]));
+        let scheduler = FakeScheduler::empty();
 
-        let scheduler = FakeScheduler {
-            added: Arc::new(Mutex::new(vec![])),
-            removed: Arc::new(Mutex::new(vec![])),
-            skip_add: Arc::new(None),
-        };
-
-        let importer = DumpImporter::new(provider.clone(), scheduler.clone(), Some(HashSet::new()));
+        let importer = DumpImporter::new(provider.clone(), scheduler.clone());
         tokio::run(
             importer
                 .map_err(|e| panic!("unexpected err: {}", e))
@@ -520,121 +407,45 @@ mod tests_notrack {
         assert_eq!(*scheduler.removed.lock().unwrap(), gen_anime([1, 3]));
         assert_eq!(*scheduler.added.lock().unwrap(), gen_anime([2, 4, 7]));
     }
-}
-
-#[cfg(test)]
-mod tests_track {
-    use super::super::test_utils::import::*;
-    use super::*;
-    use std::io::{Read, Seek, SeekFrom, Write};
-    use std::iter::FromIterator as _;
-    use std::sync::{Arc, Mutex};
 
     #[test]
-    fn test_no_reimport() -> Result<(), std::io::Error> {
-        let mut track_file = tempfile::Builder::new().tempfile()?;
-
-        let provider = FakeProvider {
-            old: gen_anime([1, 3, 5]),
-            new: gen_anime([2, 4, 5, 7]),
-        };
-
-        let scheduler = FakeScheduler {
-            added: Arc::new(Mutex::new(vec![])),
-            removed: Arc::new(Mutex::new(vec![])),
-            skip_add: Arc::new(None),
-        };
-
-        let importer = track_importer(track_file.path().to_owned(), move |reimport| {
-            DumpImporter::new(provider, scheduler, reimport)
-        })
-        .map_err(|e| panic!("unexpected error: {}", e));
-
-        tokio::run(importer);
-
-        let mut track_content = vec![];
-        track_file.read_to_end(&mut track_content)?;
-
-        assert!(track_content.is_empty());
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_write_reimport() -> Result<(), std::io::Error> {
-        let mut track_file = tempfile::Builder::new().tempfile()?;
+    fn test_generates_skip_ids() -> Result<(), std::io::Error> {
         let skip = vec![2, 5];
+        let provider = FakeProvider::new(vec![], gen_anime([1, 2, 3, 4, 5]));
+        let scheduler = FakeScheduler::empty_skipping(HashSet::from_iter(skip.clone()));
 
-        let provider = FakeProvider {
-            old: vec![],
-            new: gen_anime([1, 2, 3, 4, 5]),
-        };
+        let importer = DumpImporter::new(provider, scheduler.clone()).then(|res| {
+            match res {
+                Ok(skipped) => assert_eq!(skipped, HashSet::from_iter(skip)),
+                Err(e) => panic!("unexpected error: {}", e),
+            }
 
-        let scheduler = FakeScheduler {
-            added: Arc::new(Mutex::new(vec![])),
-            removed: Arc::new(Mutex::new(vec![])),
-            skip_add: Arc::new(Some(HashSet::from_iter(skip.clone()))),
-        };
-
-        let s_clone = scheduler.clone();
-        let importer = track_importer(track_file.path().to_owned(), move |reimport| {
-            DumpImporter::new(provider, s_clone, reimport)
-        })
-        .map_err(|e| panic!("unexpected error: {}", e));
-
-        tokio::run(importer);
-
-        assert_eq!(*scheduler.added.lock().unwrap(), gen_anime([1, 3, 4]));
-
-        let mut track_content = String::new();
-        track_file.read_to_string(&mut track_content)?;
-
-        let mut skipped: Vec<i32> = track_content.lines().map(|l| l.parse().unwrap()).collect();
-        skipped.sort();
-        assert_eq!(skipped, skip);
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_read_reimport() -> Result<(), std::io::Error> {
-        let reimport = vec![2, 5];
-        let mut track_file = tempfile::Builder::new().tempfile()?;
-
-        reimport.iter().for_each(|id| {
-            let mut str = id.to_string();
-            str.push_str("\n");
-
-            track_file.write_all(&str.as_bytes()).unwrap();
+            Ok(())
         });
 
-        let provider = FakeProvider {
-            old: gen_anime(reimport.clone()),
-            new: gen_anime([1, 2, 3, 4, 5]),
-        };
+        tokio::run(importer);
+        assert_eq!(*scheduler.added.lock().unwrap(), gen_anime([1, 3, 4]));
 
-        let scheduler = FakeScheduler {
-            added: Arc::new(Mutex::new(vec![])),
-            removed: Arc::new(Mutex::new(vec![])),
-            skip_add: Arc::new(None),
-        };
+        Ok(())
+    }
 
-        let p_clone = provider.clone();
-        let s_clone = scheduler.clone();
-        let importer = track_importer(track_file.path().to_owned(), move |reimport| {
-            DumpImporter::new(p_clone, s_clone, reimport)
-        })
-        .map_err(|e| panic!("unexpected error: {}", e));
+    #[test]
+    fn test_does_reimport() -> Result<(), std::io::Error> {
+        let reimport = vec![2, 5];
+        let provider = FakeProvider::new(gen_anime(reimport.clone()), gen_anime([1, 2, 3, 4, 5]));
+        let scheduler = FakeScheduler::empty();
+
+        let importer = DumpImporter::new(provider.clone(), scheduler.clone()).then(|res| {
+            match res {
+                Ok(skipped) => assert_eq!(skipped, HashSet::from_iter(reimport)),
+                Err(e) => panic!("unexpected error: {}", e),
+            }
+
+            Ok(())
+        });
 
         tokio::run(importer);
-
         assert_eq!(*scheduler.added.lock().unwrap(), provider.new);
-
-        let mut track_content = vec![];
-        track_file.seek(SeekFrom::Start(0))?;
-        track_file.read_to_end(&mut track_content)?;
-
-        assert!(track_content.is_empty());
 
         Ok(())
     }

@@ -7,8 +7,11 @@ pub struct ImportIntent {
     /// Represents an external DB from where anime titles index should be imported
     #[prost(enumeration="import_intent::Source", tag="2")]
     pub source: i32,
+    /// Identifiers of anime titles that should be re-imported
+    #[prost(sint32, repeated, tag="3")]
+    pub reimport_ids: ::std::vec::Vec<i32>,
     /// URL to send request with import result
-    #[prost(string, tag="3")]
+    #[prost(string, tag="4")]
     pub callback_url: std::string::String,
 }
 pub mod import_intent {
@@ -27,7 +30,10 @@ pub struct ImportIntentResult {
     /// If import succeeded then `true`, `false` otherwise
     #[prost(bool, tag="2")]
     pub succeeded: bool,
+    /// IDs of anime titles that was not imported
+    #[prost(sint32, repeated, tag="3")]
+    pub failed_ids: ::std::vec::Vec<i32>,
     /// Description of the error if import failed
-    #[prost(string, tag="3")]
+    #[prost(string, tag="4")]
     pub error_description: std::string::String,
 }

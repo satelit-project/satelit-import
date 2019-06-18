@@ -26,7 +26,7 @@ fn begin_import(
     use futures::future::ok as fut_ok;
     use intent::import_intent::Source as IntentSource;
 
-    let source = match IntentSource::from_i32(proto.source) {
+    let _source = match IntentSource::from_i32(proto.source) {
         Some(s) => s,
         None => {
             info!(
