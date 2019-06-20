@@ -10,6 +10,7 @@ pub use copy::copier;
 pub use download::downloader;
 pub use extract::extractor;
 pub use import::importer;
+pub use respond::responder;
 
 use futures::prelude::*;
 use futures::try_ready;
@@ -17,41 +18,117 @@ use log::{error, info, trace};
 
 use std::collections::HashSet;
 use std::error::Error;
+use std::iter::FromIterator;
+use std::path::Path;
 
-/// Creates new task configured with global app settings
-pub fn new_task(
-    reimport_ids: HashSet<i32>,
-) -> impl Future<Item = HashSet<i32>, Error = DumpImportError> + Send {
+use crate::db::ConnectionPool;
+use crate::proto::scheduler::intent::ImportIntent;
+use crate::worker::Worker;
+
+/// Creates new worker for importing AniDB dump configured with global app settings
+pub fn worker(intent: ImportIntent) -> impl Worker {
     let settings = crate::settings::shared();
 
-    let download = download::downloader(
+    DumpImportWorker::new(
+        intent,
         settings.import().dump_url(),
         settings.import().download_path(),
-    );
-
-    let copy = copy::copier(
         settings.import().dump_path(),
-        settings.import().old_dump_path(),
-    );
-
-    let extract = extract::extractor(
-        settings.import().download_path(),
-        settings.import().dump_path(),
-        settings.import().chunk_size(),
-    );
-
-    let import = import::importer(
-        settings.import().old_dump_path(),
-        settings.import().dump_path(),
-        reimport_ids,
+        settings.import().dump_backup_path(),
         crate::db::connection_pool(),
-    );
-
-    DumpImportTask::new(download, copy, extract, import)
+    )
 }
 
-/// Task to download and import AniDB dump
-pub struct DumpImportTask<D, C, E, I> {
+/// A worker that processes `ImportIntent`
+///
+/// It will download latest AniDB dump, make a backup of the previous dump, import new anime titles
+/// and send import result to specified by `ImportIntent` destination
+pub struct DumpImportWorker<U, S, P> {
+    /// Import intent that describes the task
+    intent: ImportIntent,
+
+    /// URL of AniDB dump to download
+    dump_url: U,
+
+    /// Where to download AniDB dump archive
+    download_path: S,
+
+    /// Path for the extracted AniDB dump
+    dump_path: S,
+
+    /// Path where to copy previous AniDB dump
+    backup_path: S,
+
+    /// DB connection pool to import new entities
+    connection_pool: P,
+}
+
+impl<U, S, P> DumpImportWorker<U, S, P> {
+    pub fn new(
+        intent: ImportIntent,
+        dump_url: U,
+        download_path: S,
+        dump_path: S,
+        backup_path: S,
+        connection_pool: P,
+    ) -> Self {
+        Self {
+            intent,
+            dump_url,
+            download_path,
+            dump_path,
+            backup_path,
+            connection_pool,
+        }
+    }
+}
+
+impl<U, S, P> Worker for DumpImportWorker<U, S, P>
+where
+    U: AsRef<str> + Clone + Send + 'static,
+    S: AsRef<Path> + Clone + Send + 'static,
+    P: ConnectionPool + 'static,
+{
+    fn task(self) -> Box<Future<Item = (), Error = ()>> {
+        let download = download::downloader(self.dump_url, self.download_path.clone());
+
+        let copy = copy::copier(self.dump_path.clone(), self.backup_path.clone());
+
+        let extract = extract::extractor(self.download_path, self.dump_path.clone());
+
+        let import = import::importer(
+            self.backup_path,
+            self.dump_path,
+            HashSet::from_iter(self.intent.reimport_ids.iter().cloned()),
+            self.connection_pool,
+        );
+
+        let intent = self.intent;
+        let fut = DumpImporter::new(download, copy, extract, import)
+            .then(move |result| {
+                if let Err(ref e) = result {
+                    error!("import failed: {}", e);
+                }
+
+                responder(result, intent)
+            })
+            .then(|result| match result {
+                Ok(_) => {
+                    info!("import worker finished successfully");
+                    futures::finished(())
+                }
+                Err(e) => {
+                    error!("import worker failed: {}", e);
+                    futures::failed(())
+                }
+            });
+
+        Box::new(fut)
+    }
+}
+
+/// Future to download and import AniDB dump
+pub struct DumpImporter<D, C, E, I> {
     /// Future to download new dump
     download: D,
     /// Future to backup previous dump
@@ -64,7 +141,7 @@ pub struct DumpImportTask<D, C, E, I> {
     state: DumpImportState,
 }
 
-impl<D, C, E, I> DumpImportTask<D, C, E, I>
+impl<D, C, E, I> DumpImporter<D, C, E, I>
 where
     D: Future<Item = (), Error = download::DownloadError> + Send,
     C: Future<Item = (), Error = copy::CopyError> + Send,
@@ -72,7 +149,7 @@ where
     I: Future<Item = HashSet<i32>, Error = import::ImportError> + Send,
 {
     pub fn new(download: D, copy: C, extract: E, import: I) -> Self {
-        DumpImportTask {
+        DumpImporter {
             download,
             copy,
             extract,
@@ -151,7 +228,7 @@ where
     }
 }
 
-impl<D, C, E, I> Future for DumpImportTask<D, C, E, I>
+impl<D, C, E, I> Future for DumpImporter<D, C, E, I>
 where
     D: Future<Item = (), Error = download::DownloadError> + Send,
     C: Future<Item = (), Error = copy::CopyError> + Send,

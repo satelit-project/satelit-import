@@ -36,12 +36,7 @@ where
 }
 
 /// AniDB dump downloader
-pub struct DumpDownloader<D, U, P>
-where
-    D: FileDownload,
-    U: AsRef<str>,
-    P: AsRef<Path> + Clone + Send + 'static,
-{
+pub struct DumpDownloader<D, U, P> {
     /// Files downloading client
     downloader: D,
     /// URL where dump is hosted

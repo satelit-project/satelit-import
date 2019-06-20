@@ -46,7 +46,7 @@ fn make_import_task(bundle: DumpBundle) -> impl Future<Item = (), Error = ()> + 
         pool,
     );
 
-    worker::dump::DumpImportTask::new(download, copy, extract, import)
+    worker::dump::DumpImporter::new(download, copy, extract, import)
 }
 
 #[derive(Debug, Clone, Copy)]

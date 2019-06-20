@@ -10,21 +10,16 @@ use std::path::Path;
 pub type ExtractError = std::io::Error;
 
 /// Creates gzip extractor configured with global app settings
-pub fn extractor<P>(
-    src_path: P,
-    dst_path: P,
-    chunk_size: usize,
-) -> impl Future<Item = (), Error = ExtractError> + Send
+pub fn extractor<P>(src_path: P, dst_path: P) -> impl Future<Item = (), Error = ExtractError> + Send
 where
     P: AsRef<Path> + Clone + Send + 'static,
 {
-    let mut extractor = GzipExtractor::new(src_path, dst_path);
-    extractor.set_chunk_size(chunk_size);
+    let extractor = GzipExtractor::new(src_path, dst_path);
     extractor.extract()
 }
 
 /// Asynchronously extracts single file from gzip archive
-pub struct GzipExtractor<P: AsRef<Path> + Clone + Send + 'static> {
+pub struct GzipExtractor<P> {
     /// Path to gzip archive
     src_path: P,
     /// Path to a file where archive should be extracted

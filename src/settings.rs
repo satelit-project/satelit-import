@@ -95,7 +95,7 @@ impl Db {
 pub struct Import {
     dump_url: String,
     download_path: String,
-    old_dump_path: String,
+    dump_backup_path: String,
     dump_path: String,
     reimport_track_path: String,
     chunk_size: usize,
@@ -112,9 +112,9 @@ impl Import {
         &self.download_path
     }
 
-    /// Return path to latest imported dump
-    pub fn old_dump_path(&self) -> &str {
-        &self.old_dump_path
+    /// Return path to backed up dump
+    pub fn dump_backup_path(&self) -> &str {
+        &self.dump_backup_path
     }
 
     /// Returns path to dump to be imported

@@ -16,7 +16,7 @@ use crate::db::{schedules, ConnectionPool, QueryError};
 ///
 /// Returned future will block your current task until it's ready
 pub fn importer<P, C>(
-    old_dump_path: P,
+    dump_backup_path: P,
     dump_path: P,
     reimport_ids: HashSet<i32>,
     connection_pool: C,
@@ -25,7 +25,7 @@ where
     P: AsRef<Path> + Clone + Send + 'static,
     C: ConnectionPool + Send,
 {
-    let provider = AniDbAnimeProvider::new(old_dump_path, dump_path, reimport_ids);
+    let provider = AniDbAnimeProvider::new(dump_backup_path, dump_path, reimport_ids);
     let schedules = schedules::Schedules::new(connection_pool);
     let scheduler = AniDbImportScheduler::new(schedules);
 

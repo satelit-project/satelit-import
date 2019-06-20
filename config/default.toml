@@ -6,7 +6,7 @@ connection_timeout = 15
 [import]
 dump_url = "http://anidb.net/api/anime-titles.xml.gz"
 download_path = "db/anidb-dump/dump.gz"
-old_dump_path = "db/anidb-dump/old.xml"
+dump_backup_path = "db/anidb-dump/old.xml"
 dump_path = "db/anidb-dump/new.xml"
 reimport_track_path = "db/anidb-dump/reimport.txt"
 chunk_size = 2048

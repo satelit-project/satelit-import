@@ -1,8 +1,7 @@
 use futures::future::err;
 use futures::prelude::*;
-use log::{error, info};
 use prost::Message;
-use reqwest::r#async::Client;
+use reqwest::r#async::{Client, ClientBuilder};
 
 pub use prost::EncodeError as ProtoEncodeError;
 pub use reqwest::Error as ReqwestError;
@@ -10,13 +9,27 @@ pub use reqwest::Error as ReqwestError;
 use std::collections::HashSet;
 use std::error::Error;
 use std::fmt;
+use std::time::Duration;
 
 use super::DumpImportError;
 use crate::proto::scheduler::intent::*;
-use crate::worker::Worker;
+
+pub fn responder(
+    import_result: Result<HashSet<i32>, DumpImportError>,
+    intent: ImportIntent,
+) -> impl Future<Item = (), Error = ProtoSenderError> {
+    let client = ClientBuilder::new()
+        .gzip(true)
+        .connect_timeout(Duration::new(60, 0))
+        .build();
+
+    futures::future::result(client)
+        .from_err()
+        .and_then(|client| ImportResponder::new(import_result, intent, client).respond())
+}
 
 /// A struct that sends request to `ImportIntent` callback url with import task result
-pub struct ImportResponder<S: ProtoSender> {
+pub struct ImportResponder<S> {
     /// Import task result
     import_result: Result<HashSet<i32>, DumpImportError>,
 
@@ -40,10 +53,9 @@ impl<S: ProtoSender> ImportResponder<S> {
             proto_sender,
         }
     }
-}
 
-impl<S: ProtoSender> Worker for ImportResponder<S> {
-    fn task(self) -> Box<Future<Item = (), Error = ()>> {
+    /// Sends response to `ImportIntent` with import result
+    pub fn respond(self) -> impl Future<Item = (), Error = ProtoSenderError> {
         let ImportIntent {
             id, callback_url, ..
         } = self.intent;
@@ -63,23 +75,7 @@ impl<S: ProtoSender> Worker for ImportResponder<S> {
             },
         };
 
-        Box::new(
-            self.proto_sender
-                .send_proto(response, &callback_url)
-                .then(|r| match r {
-                    Ok(()) => {
-                        info!("ImportResponder: successfully sent intent result response");
-                        Ok(())
-                    }
-                    Err(e) => {
-                        error!(
-                            "ImportResponder: failed to send intent result response: {}",
-                            e
-                        );
-                        Err(())
-                    }
-                }),
-        )
+        self.proto_sender.send_proto(response, &callback_url)
     }
 }
 
