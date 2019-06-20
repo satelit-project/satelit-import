@@ -32,7 +32,7 @@ pub struct ImportIntentResult {
     pub succeeded: bool,
     /// IDs of anime titles that was not imported
     #[prost(sint32, repeated, tag="3")]
-    pub failed_ids: ::std::vec::Vec<i32>,
+    pub skipped_ids: ::std::vec::Vec<i32>,
     /// Description of the error if import failed
     #[prost(string, tag="4")]
     pub error_description: std::string::String,

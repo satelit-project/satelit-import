@@ -1,6 +1,6 @@
 use futures::prelude::*;
 use futures::try_ready;
-use log::{trace, warn};
+use log::{info, warn};
 use tokio_threadpool::{blocking, BlockingError};
 
 use std::cmp::Ordering;
@@ -176,7 +176,7 @@ where
                 self.skipped_ids.insert(anime.id);
             }
             Ok(()) => {
-                trace!("added new schedule for id:{}", anime.id);
+                info!("added new schedule for id:{}", anime.id);
                 self.skipped_ids.remove(&anime.id);
             }
         }
@@ -188,7 +188,7 @@ where
                 warn!("removing schedule failed for id:{}: {}", anime.id, e);
             }
             Ok(()) => {
-                trace!("removed old schedule for id:{}", anime.id);
+                info!("removed old schedule for id:{}", anime.id);
             }
         }
     }
