@@ -10,7 +10,13 @@ use crate::worker::{self, dump};
 
 use std::error::Error;
 
-pub struct ImportService {}
+pub struct ImportService;
+
+impl ImportService {
+    pub fn new() -> Self {
+        Self
+    }
+}
 
 impl HttpServiceFactory for ImportService {
     fn register(self, config: &mut AppService) {
