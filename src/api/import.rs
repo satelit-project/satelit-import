@@ -1,23 +1,20 @@
 use actix_protobuf::ProtoBuf;
 use actix_web::dev::{AppService, HttpServiceFactory};
-use actix_web::web::{self, Data};
+use actix_web::web;
 use actix_web::HttpResponse;
 use futures::prelude::*;
-use log::info;
-
-use std::sync::mpsc::Sender;
+use log::{error, info};
 
 use crate::proto::scheduler::intent::{self, ImportIntent};
-use crate::worker::Worker;
+use crate::worker::{self, dump};
 
-pub struct ImportService {
-    worker_sender: Sender<Box<dyn Worker>>,
-}
+use std::error::Error;
+
+pub struct ImportService {}
 
 impl HttpServiceFactory for ImportService {
     fn register(self, config: &mut AppService) {
         let service = web::scope("/import")
-            .data(Data::new(self.worker_sender))
             .service(web::resource("/").route(web::post()).to_async(begin_import));
         service.register(config);
     }
@@ -25,9 +22,7 @@ impl HttpServiceFactory for ImportService {
 
 fn begin_import(
     proto: ProtoBuf<ImportIntent>,
-    sender: Data<Sender<Box<dyn Worker>>>,
 ) -> impl Future<Item = HttpResponse, Error = actix_web::Error> {
-    use futures::future::ok as fut_ok;
     use intent::import_intent::Source as IntentSource;
 
     let _source = match IntentSource::from_i32(proto.source) {
@@ -37,13 +32,21 @@ fn begin_import(
                 "received 'ImportIntent' with unsupported source type: {}",
                 proto.source
             );
-            return fut_ok(HttpResponse::BadRequest().into());
+            return futures::finished(HttpResponse::BadRequest().into());
         }
     };
 
     let ProtoBuf(intent) = proto;
-    begin_anidb_import(intent, sender.clone());
-    fut_ok(HttpResponse::Ok().into())
+    match begin_anidb_import(intent) {
+        Ok(()) => futures::finished(HttpResponse::Ok().into()),
+        Err(e) => {
+            error!("failed to spawn worker: {}", e);
+            futures::finished(HttpResponse::InternalServerError().into())
+        }
+    }
 }
 
-fn begin_anidb_import(intent: ImportIntent, sender: Data<Sender<Box<dyn Worker>>>) {}
+fn begin_anidb_import(intent: ImportIntent) -> Result<(), impl Error> {
+    let importer = dump::worker(intent);
+    worker::spawn_worker(importer)
+}

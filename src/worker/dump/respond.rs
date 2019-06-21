@@ -17,7 +17,7 @@ use crate::proto::scheduler::intent::*;
 pub fn responder(
     import_result: Result<HashSet<i32>, DumpImportError>,
     intent: ImportIntent,
-) -> impl Future<Item = (), Error = ProtoSenderError> {
+) -> impl Future<Item = (), Error = ProtoSenderError> + Send {
     let client = ClientBuilder::new()
         .gzip(true)
         .connect_timeout(Duration::new(60, 0))
@@ -86,7 +86,7 @@ pub trait ProtoSender: Send + 'static {
         &self,
         message: M,
         url: &str,
-    ) -> Box<dyn Future<Item = (), Error = ProtoSenderError>>;
+    ) -> Box<dyn Future<Item = (), Error = ProtoSenderError> + Send>;
 }
 
 impl ProtoSender for Client {
@@ -94,7 +94,7 @@ impl ProtoSender for Client {
         &self,
         message: M,
         url: &str,
-    ) -> Box<Future<Item = (), Error = ProtoSenderError>> {
+    ) -> Box<dyn Future<Item = (), Error = ProtoSenderError> + Send + 'static> {
         let mut buf = Vec::new();
         match message.encode(&mut buf) {
             Err(e) => return Box::new(err(e.into())),
@@ -119,7 +119,7 @@ pub enum ProtoSenderError {
     EncodingError(ProtoEncodeError),
 
     /// HTTP request error
-    RequestError(Box<dyn Error + 'static>),
+    RequestError(Box<dyn Error + Send + 'static>),
 }
 
 impl fmt::Display for ProtoSenderError {

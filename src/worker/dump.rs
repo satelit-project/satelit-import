@@ -89,13 +89,10 @@ where
     S: AsRef<Path> + Clone + Send + 'static,
     P: ConnectionPool + 'static,
 {
-    fn task(self) -> Box<Future<Item = (), Error = ()>> {
+    fn task(self: Box<Self>) -> Box<dyn Future<Item = (), Error = ()> + Send + 'static> {
         let download = download::downloader(self.dump_url, self.download_path.clone());
-
         let copy = copy::copier(self.dump_path.clone(), self.backup_path.clone());
-
         let extract = extract::extractor(self.download_path, self.dump_path.clone());
-
         let import = import::importer(
             self.backup_path,
             self.dump_path,
