@@ -2,6 +2,7 @@ use actix_protobuf::ProtoBuf;
 use actix_web::{middleware, post, HttpResponse, HttpServer};
 use clap::{crate_authors, crate_version};
 use clap::{App, Arg};
+use log::info;
 use prost::Message;
 use reqwest::{header, Client, Url};
 
@@ -156,7 +157,7 @@ fn start_server(port: String) -> JoinHandle<()> {
 
 #[post("/handle_intent")]
 fn handle_intent(proto: ProtoBuf<ImportIntentResult>) -> HttpResponse {
-    eprintln!("Received callback: {:#?}", proto);
+    info!("Received callback: {:#?}", proto);
     HttpResponse::Ok().into()
 }
 
