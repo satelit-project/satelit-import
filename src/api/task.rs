@@ -78,7 +78,7 @@ fn create_task<P: ConnectionPool + 'static>(
         |res: Result<task::Task, BlockingError<QueryError>>| match res {
             Ok(task) => HttpResponse::Ok().protobuf(task),
             Err(e) => {
-                error!("failed to create new scrape task: {}", e);
+                error!("Failed to create new scrape task: {}", e);
                 Ok(HttpResponse::InternalServerError().into())
             }
         },
@@ -107,7 +107,7 @@ fn task_yield<P: ConnectionPool + 'static>(
             Some(ref a) => a,
             None => {
                 info!(
-                    "received 'TaskYield' without anime entity, 'task_id': {}, 'schedule_id': {}",
+                    "Received 'TaskYield' without anime entity, 'task_id': {}, 'schedule_id': {}",
                     proto.task_id, proto.schedule_id
                 );
 
@@ -126,7 +126,7 @@ fn task_yield<P: ConnectionPool + 'static>(
             let result = match result {
                 Ok(v) => v,
                 Err(e) => {
-                    error!("failed to update yielded entity: {}", e);
+                    error!("Failed to update yielded entity: {}", e);
                     return Ok(HttpResponse::InternalServerError().into());
                 }
             };
@@ -148,7 +148,7 @@ fn task_finish<P: ConnectionPool + 'static>(
     web::block(move || tasks.remove(&proto.task_id)).then(|result| match result {
         Ok(()) => Ok(HttpResponse::Ok().into()),
         Err(e) => {
-            error!("failed to finish task: {}", e);
+            error!("Failed to finish task: {}", e);
             Ok(HttpResponse::InternalServerError().into())
         }
     })

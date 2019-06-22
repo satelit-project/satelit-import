@@ -104,8 +104,9 @@ impl ProtoSender for Client {
         let f = self
             .post(url)
             .body(buf)
+            .header(reqwest::header::CONTENT_TYPE, "application/protobuf")
             .send()
-            .and_then(|_| Ok(()))
+            .and_then(|response| response.error_for_status().map(|_| ()))
             .from_err();
 
         Box::new(f)

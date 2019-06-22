@@ -36,7 +36,7 @@ fn begin_import(
         Some(s) => s,
         None => {
             info!(
-                "received 'ImportIntent' with unsupported source type: {}",
+                "Received 'ImportIntent' with unsupported source type: {}",
                 proto.source
             );
             return futures::finished(HttpResponse::BadRequest().into());
@@ -47,13 +47,15 @@ fn begin_import(
     match begin_anidb_import(intent) {
         Ok(()) => futures::finished(HttpResponse::Ok().into()),
         Err(e) => {
-            error!("failed to spawn worker: {}", e);
+            error!("Failed to spawn worker: {}", e);
             futures::finished(HttpResponse::InternalServerError().into())
         }
     }
 }
 
 fn begin_anidb_import(intent: ImportIntent) -> Result<(), impl Error> {
+    info!("Starting AniDB import");
+
     let importer = dump::worker(intent);
     worker::spawn_worker(importer)
 }

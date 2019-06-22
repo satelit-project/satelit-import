@@ -102,20 +102,14 @@ where
 
         let intent = self.intent;
         let fut = DumpImporter::new(download, copy, extract, import)
-            .then(move |result| {
-                if let Err(ref e) = result {
-                    error!("import failed: {}", e);
-                }
-
-                responder(result, intent)
-            })
+            .then(move |result| responder(result, intent))
             .then(|result| match result {
                 Ok(_) => {
-                    info!("import worker finished successfully");
+                    info!("Import worker finished successfully");
                     futures::finished(())
                 }
                 Err(e) => {
-                    error!("import worker failed: {}", e);
+                    error!("Import worker failed: {}", e);
                     futures::failed(())
                 }
             });
