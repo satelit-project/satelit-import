@@ -1,44 +1,52 @@
 mod build;
 mod entity;
 
-use std::fs::File;
-use std::io::BufReader;
-use std::path::Path;
-use std::str::FromStr;
-
-use std::num::ParseIntError;
-use std::str::Utf8Error;
-
+use log::warn;
 use quick_xml::events::BytesStart;
 use quick_xml::events::BytesText;
 use quick_xml::events::Event;
+use quick_xml::Error as QXError;
 use quick_xml::Reader;
 
-use quick_xml::Error as QXError;
-
-use build::AnimeBuildError;
-use build::AnimeBuilder;
+use std::fs::File;
+use std::io::{BufRead, BufReader};
+use std::num::ParseIntError;
+use std::path::Path;
+use std::str::FromStr;
+use std::str::Utf8Error;
 
 pub use entity::Anime;
 pub use entity::TitleVariation;
 
+use build::AnimeBuildError;
+use build::AnimeBuilder;
+
 /// AniDB dumb parser
 pub struct AniDb {
-    reader: Reader<BufReader<File>>,
+    reader: Reader<Box<dyn BufRead>>,
     buffer: Vec<u8>,
 }
 
 impl AniDb {
     /// Returns parser for file at `path` or `XmlError` if file doesn't contain valid xml
     pub fn new(path: &Path) -> Result<Self, XmlError> {
-        let reader = Reader::from_file(path)?;
+        let file = File::open(path)?;
+        let reader: Box<dyn BufRead> = Box::new(BufReader::new(file));
+        let reader = Reader::from_reader(reader);
         let buffer = Vec::with_capacity(1024);
 
         Ok(AniDb { reader, buffer })
     }
+
+    /// Returns parser which will not parse anything
+    pub fn empty() -> Self {
+        AniDb {
+            reader: Reader::from_reader(Box::new(std::io::empty())),
+            buffer: vec![],
+        }
+    }
 }
 
-// TODO: add logging
 impl Iterator for AniDb {
     type Item = Anime;
 
@@ -49,25 +57,25 @@ impl Iterator for AniDb {
             match self.reader.read_event(&mut self.buffer) {
                 Ok(Event::Start(ref tag)) if tag.name() == b"anime" => {
                     if let Err(e) = builder.handle_id(&tag) {
-                        eprintln!("failed to parse title entry: {:?}", e);
+                        warn!("Failed to parse title entry: {:?}", e);
                         continue;
                     }
                 }
                 Ok(Event::Start(ref tag)) if tag.name() == b"title" => {
                     if let Err(e) = builder.handle_title_start(tag) {
-                        eprintln!("failed to parse title tag: {:?}", e);
+                        warn!("Failed to parse title tag: {:?}", e);
                         continue;
                     }
                 }
                 Ok(Event::Text(ref text)) if builder.is_building_title() => {
                     if let Err(e) = builder.handle_title(text) {
-                        eprintln!("failed to parse title: {:?}", e);
+                        warn!("Failed to parse title: {:?}", e);
                         continue;
                     }
                 }
                 Ok(Event::End(ref tag)) if tag.name() == b"title" => {
                     if let Err(e) = builder.handle_title_end() {
-                        eprintln!("failed to parse title tag: {:?}", e);
+                        warn!("Failed to parse title tag: {:?}", e);
                         continue;
                     }
                 }
@@ -75,6 +83,10 @@ impl Iterator for AniDb {
                     // if we started parsing anime title but can't build it
                     // we should move to next one
                     if builder.is_started() && !builder.is_complete() {
+                        warn!(
+                            "Unexpected state: not enough data for id: {:?}",
+                            builder.id()
+                        );
                         continue;
                     } else {
                         break;
@@ -116,6 +128,12 @@ impl From<QXError> for XmlError {
             QXError::Io(io_err) => XmlError::Io(io_err),
             _ => XmlError::InvalidXml(format!("{}", error)),
         }
+    }
+}
+
+impl From<std::io::Error> for XmlError {
+    fn from(e: std::io::Error) -> Self {
+        XmlError::Io(e)
     }
 }
 

@@ -1,6 +1,6 @@
 use futures::prelude::*;
 use futures::try_ready;
-use log::{info, warn};
+use log::{debug, warn};
 use tokio_threadpool::{blocking, BlockingError};
 
 use std::cmp::Ordering;
@@ -176,7 +176,7 @@ where
                 self.skipped_ids.insert(anime.id);
             }
             Ok(()) => {
-                info!("added new schedule for id:{}", anime.id);
+                debug!("added new schedule for id:{}", anime.id);
                 self.skipped_ids.remove(&anime.id);
             }
         }
@@ -188,7 +188,7 @@ where
                 warn!("removing schedule failed for id:{}: {}", anime.id, e);
             }
             Ok(()) => {
-                info!("removed old schedule for id:{}", anime.id);
+                debug!("removed old schedule for id:{}", anime.id);
             }
         }
     }
@@ -288,7 +288,13 @@ impl<P: AsRef<Path> + Clone + Send> AnimeProvider for AniDbAnimeProvider<P> {
     type Error = XmlError;
 
     fn old_anime_titles(&self) -> Result<Self::Iterator, Self::Error> {
-        AniDb::new(self.old_dump_path.as_ref())
+        match AniDb::new(self.old_dump_path.as_ref()) {
+            Ok(i) => Ok(i),
+            Err(XmlError::Io(ref e)) if e.kind() == std::io::ErrorKind::NotFound => {
+                Ok(AniDb::empty())
+            }
+            result => result,
+        }
     }
 
     fn new_anime_titles(&self) -> Result<Self::Iterator, Self::Error> {

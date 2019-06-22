@@ -46,6 +46,11 @@ impl AnimeBuilder {
         self.variation_builder.is_some()
     }
 
+    /// Returns `id` of current `Anime` instance
+    pub fn id(&self) -> Option<i32> {
+        self.id
+    }
+
     /// Sets `id` for current `Anime` instance
     pub fn set_id(&mut self, id: i32) {
         self.id = Some(id);

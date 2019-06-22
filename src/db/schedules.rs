@@ -19,7 +19,7 @@ impl<P: ConnectionPool> Schedules<P> {
         use crate::db::schema::schedules::dsl::*;
 
         let conn = self.connection()?;
-        diesel::insert_into(schedules).values(src).execute(&conn)?;
+        diesel::replace_into(schedules).values(src).execute(&conn)?;
 
         Ok(())
     }
