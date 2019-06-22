@@ -1,4 +1,4 @@
-use actix_web::{App, HttpServer};
+use actix_web::{middleware, App, HttpServer};
 use env_logger;
 
 use satelit_import::api::{import::ImportService, task::TasksService};
@@ -6,8 +6,7 @@ use satelit_import::db;
 use satelit_import::worker;
 
 fn main() -> std::io::Result<()> {
-    std::env::set_var("RUST_LOG", "main");
-    env_logger::init();
+    env_logger::init_from_env(env_logger::Env::new().filter("SATELIT_LOG"));
 
     worker::start_worker_thread();
 
@@ -24,7 +23,10 @@ fn main() -> std::io::Result<()> {
         let import_service = ImportService::new();
 
         // App
-        App::new().service(tasks_service).service(import_service)
+        App::new()
+            .wrap(middleware::Logger::default())
+            .service(tasks_service)
+            .service(import_service)
     });
 
     server.bind("127.0.0.1:8080")?.run()?;

@@ -35,15 +35,13 @@ impl<P: ConnectionPool + 'static> TasksService<P> {
 
 impl<P: ConnectionPool + 'static> HttpServiceFactory for TasksService<P> {
     fn register(self, config: &mut AppService) {
-        let service = web::scope("/task")
+        let service = web::scope("/task/")
             .data(Data::new(self.tasks))
             .data(Data::new(self.schedules))
             .data(Data::new(self.scheduled_tasks))
-            .service(web::resource("/").route(web::post().to_async(create_task::<P>)))
-            .service(web::resource("/{task_id}/yield").route(web::post().to_async(task_yield::<P>)))
-            .service(
-                web::resource("/{task_id}/finish").route(web::post().to_async(task_finish::<P>)),
-            );
+            .service(web::resource("/create").route(web::post().to_async(create_task::<P>)))
+            .service(web::resource("/yield").route(web::post().to_async(task_yield::<P>)))
+            .service(web::resource("/finish").route(web::post().to_async(task_finish::<P>)));
 
         service.register(config);
     }

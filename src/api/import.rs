@@ -21,7 +21,8 @@ impl ImportService {
 impl HttpServiceFactory for ImportService {
     fn register(self, config: &mut AppService) {
         let service = web::scope("/import")
-            .service(web::resource("/").route(web::post()).to_async(begin_import));
+            .service(web::resource("/intent").route(web::post().to_async(begin_import)));
+
         service.register(config);
     }
 }
