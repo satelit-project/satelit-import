@@ -13,19 +13,19 @@ use std::thread::{self, JoinHandle};
 use satelit_import::proto::scheduler::intent::{ImportIntent, ImportIntentResult};
 
 fn main() {
-    env_logger::init();
-    let port = option_env!("ACTIX_WEB_PORT").unwrap_or("8081").to_string();
+    env_logger::init_from_env(env_logger::Env::new().filter("SATELIT_LOG"));
 
     let app = build_app();
     let matches = app.get_matches();
 
+    let port = matches.value_of("port").unwrap();
     let base_url = matches.value_of("base-url").unwrap();
     let path = matches.value_of("path").unwrap_or("");
     let keys: Vec<&str> = matches.values_of("field").unwrap().collect();
     let values: Vec<&str> = matches.values_of("value").unwrap().collect();
 
-    let data = request_data_for_path(path, &port, &keys, &values);
-    let handle = start_server(port);
+    let data = request_data_for_path(path, port, &keys, &values);
+    let handle = start_server(port.to_string());
     send_data_request(base_url, path, data);
 
     handle.join().expect("Failed to join server thread");
@@ -36,6 +36,16 @@ fn build_app<'a, 'b>() -> App<'a, 'b> {
         .about("Interact with /import API")
         .author(crate_authors!())
         .version(crate_version!())
+        .after_help("NOTE: for every 'field' argument you must provide 'value' argument.")
+        .arg(
+            Arg::with_name("port")
+                .long("port")
+                .help("Port on 'localhost' where to listen for API callback")
+                .takes_value(true)
+                .number_of_values(1)
+                .default_value("8081")
+                .validator(validate_port),
+        )
         .arg(
             Arg::with_name("base-url")
                 .long("base-url")
@@ -68,6 +78,13 @@ fn build_app<'a, 'b>() -> App<'a, 'b> {
                 .number_of_values(1)
                 .multiple(true),
         )
+}
+
+fn validate_port(port: String) -> Result<(), String> {
+    match port.parse::<i32>() {
+        Ok(_) => Ok(()),
+        Err(_) => Err(format!("Port '{}' is not a number", port)),
+    }
 }
 
 fn validate_path(path: String) -> Result<(), String> {
