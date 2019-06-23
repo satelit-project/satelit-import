@@ -3,7 +3,7 @@ use actix_web::dev::{AppService, HttpServiceFactory};
 use actix_web::error::BlockingError;
 use actix_web::{web, web::Data, HttpResponse};
 use futures::Future;
-use log::{error, info};
+use log::{error, warn};
 
 use crate::db::entity::{ExternalSource, SchedulePriority, Task, UpdatedSchedule};
 use crate::db::scheduled_tasks::ScheduledTasks;
@@ -106,7 +106,7 @@ fn task_yield<P: ConnectionPool + 'static>(
         let anime = match proto.anime {
             Some(ref a) => a,
             None => {
-                info!(
+                warn!(
                     "Received 'TaskYield' without anime entity, 'task_id': {}, 'schedule_id': {}",
                     proto.task_id, proto.schedule_id
                 );

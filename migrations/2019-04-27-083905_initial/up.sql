@@ -88,12 +88,12 @@ begin
     where schedules.id = new.schedule_id;
 end;
 
--- set `state` to 'Finished' when task is deleted
+-- set `state` to 'Finished' or 'Pending' when task is deleted
 create trigger scheduled_tasks_anime_set_finished_state
     after delete
     on scheduled_tasks
 begin
     update schedules
-    set state = 2
+    set state = case when schedules.priority = 0 then 3 else 0 end
     where schedules.id = old.schedule_id;
 end;
