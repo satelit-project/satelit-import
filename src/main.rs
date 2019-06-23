@@ -6,7 +6,7 @@ use satelit_import::db;
 use satelit_import::worker;
 
 fn main() -> std::io::Result<()> {
-    env_logger::init_from_env(env_logger::Env::new().filter("SATELIT_LOG"));
+    env_logger::init_from_env(env_logger::Env::new().filter_or("SATELIT_LOG", "info"));
 
     worker::start_worker_thread();
 
