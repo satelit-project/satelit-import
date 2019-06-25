@@ -1,2 +1,4 @@
-pub mod scraper;
+#![allow(clippy::all)]
+
 pub mod scheduler;
+pub mod scraper;
