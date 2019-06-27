@@ -5,6 +5,7 @@ target
 ### Project
 db/*.sqlite
 db/anidb-dump/*.xml
+db/anidb-dump/*.gz
 
 ### CLion
 
