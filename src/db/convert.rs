@@ -26,12 +26,12 @@ impl FromSql<Integer, Sqlite> for ScheduleState {
         use ScheduleState::*;
 
         let value: i32 = FromSql::<Integer, Sqlite>::from_sql(bytes)?;
-        match value {
-            0 => Ok(Pending),
-            1 => Ok(Processing),
-            2 => Ok(Finished),
-            _ => Err(format!("Unrecognized ScheduleState raw value: {}", value).into()),
+        let range = (Pending as i32)..=(Finished as i32);
+        if range.contains(&value) {
+            unsafe { return Ok(std::mem::transmute(value)) }
         }
+
+        Err(format!("Unrecognized ScheduleState raw value: {}", value).into())
     }
 }
 
@@ -53,11 +53,12 @@ impl FromSql<Integer, Sqlite> for SchedulePriority {
         use SchedulePriority::*;
 
         let value: i32 = FromSql::<Integer, Sqlite>::from_sql(bytes)?;
-        match value {
-            0 => Ok(Idle),
-            1_000_000 => Ok(New),
-            _ => Err(format!("Unrecognized SchedulePriority raw value: {}", value).into()),
+        let range = (Idle as i32)..=(New as i32);
+        if range.contains(&value) {
+            unsafe { return Ok(std::mem::transmute(value)) }
         }
+
+        Err(format!("Unrecognized SchedulePriority raw value: {}", value).into())
     }
 }
 
@@ -79,11 +80,11 @@ impl FromSql<Integer, Sqlite> for ExternalSource {
         use ExternalSource::*;
 
         let value: i32 = FromSql::<Integer, Sqlite>::from_sql(bytes)?;
-        match value {
-            0 => Ok(AniDB),
-            1 => Ok(MAL),
-            2 => Ok(ANN),
-            _ => Err(format!("Unrecognized ExternalSource raw value: {}", value).into()),
+        let range = (AniDB as i32)..=(ANN as i32);
+        if range.contains(&value) {
+            unsafe { return Ok(std::mem::transmute(value)) }
         }
+
+        Err(format!("Unrecognized ExternalSource raw value: {}", value).into())
     }
 }

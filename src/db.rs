@@ -50,6 +50,9 @@ fn new_r2d2_sqlite_pool(settings: &settings::Db) -> Result<SqlitePool, PoolError
         .connection_timeout(settings.connection_timeout())
         .build(manager)?;
 
+    pool.get()?.execute("PRAGMA foreign_keys = ON")
+        .expect("Failed to enable foreign keys support");
+
     Ok(pool)
 }
 

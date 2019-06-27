@@ -29,6 +29,7 @@ pub struct Schedule {
 
 /// Represents state of a schedule
 #[sql_type = "Integer"]
+#[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, FromSqlRow, AsExpression)]
 pub enum ScheduleState {
     Pending = 0,
@@ -38,6 +39,7 @@ pub enum ScheduleState {
 
 /// Represents scraping priority of a schedule
 #[sql_type = "Integer"]
+#[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, FromSqlRow, AsExpression)]
 pub enum SchedulePriority {
     /// Lowest priority meaning that the item should be scraped if no more work is available
@@ -134,6 +136,7 @@ impl Default for UpdatedSchedule {
 }
 
 #[sql_type = "Integer"]
+#[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, FromSqlRow, AsExpression)]
 pub enum ExternalSource {
     AniDB = 0,
