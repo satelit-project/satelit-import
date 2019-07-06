@@ -20,7 +20,7 @@ fn main() -> std::io::Result<()> {
         let tasks_service = TasksService::new(tasks, schedules, scheduled_tasks);
 
         // ImportService
-        let import_service = ImportService::new();
+        let import_service = ImportService::default();
 
         // App
         App::new()

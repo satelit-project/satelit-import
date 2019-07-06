@@ -98,7 +98,7 @@ impl FileDownload for Client {
             .take(1)
             .map(|r| r.into_body())
             .flatten()
-            .map_err(|e| DownloadError::from(e));
+            .map_err(DownloadError::from);
 
         Box::new(bytes) // TODO: how to eliminate alloc?
     }

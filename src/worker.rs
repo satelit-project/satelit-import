@@ -7,6 +7,7 @@ use tokio::runtime;
 use std::sync::atomic::{AtomicPtr, Ordering};
 use std::sync::{mpsc, Mutex};
 use std::thread;
+use std::ptr;
 
 /// Represents a "worker" that may perform any task on background
 pub trait Worker: Send + 'static {
@@ -21,7 +22,7 @@ pub trait Worker: Send + 'static {
 /// This function must be called only once before running actix runtime. Once actix runtime is
 /// shutdown, the `shutdown_worker_thread` must be called before exiting the process.
 pub fn start_worker_thread() {
-    assert_eq!(WORKER_DATA.load(Ordering::SeqCst), 0 as *mut WorkerData);
+    assert_eq!(WORKER_DATA.load(Ordering::SeqCst), ptr::null_mut());
 
     let (tx, rx) = mpsc::channel::<Box<dyn Worker>>();
     let handle = thread::spawn(move || {
@@ -51,7 +52,7 @@ pub fn start_worker_thread() {
 /// must not be called before worker thread are started or after it has been shut down.
 pub fn spawn_worker<W: Worker>(worker: W) -> Result<(), impl std::error::Error> {
     let ptr = WORKER_DATA.load(Ordering::SeqCst);
-    assert_ne!(ptr, 0 as *mut WorkerData);
+    assert_ne!(ptr, ptr::null_mut());
 
     let boxed = Box::new(worker);
     let worker_data = unsafe { &*ptr };
@@ -66,10 +67,10 @@ pub fn spawn_worker<W: Worker>(worker: W) -> Result<(), impl std::error::Error> 
 /// it's not allowed to call `spawn_worker` until the worker thread is started again.
 pub fn shutdown_worker_thread() {
     let ptr = WORKER_DATA.load(Ordering::SeqCst);
-    assert_ne!(ptr, 0 as *mut WorkerData);
+    assert_ne!(ptr, ptr::null_mut());
 
     let worker_data = unsafe { Box::from_raw(ptr) };
-    WORKER_DATA.store(0 as *mut WorkerData, Ordering::SeqCst);
+    WORKER_DATA.store(ptr::null_mut(), Ordering::SeqCst);
 
     worker_data
         .handle

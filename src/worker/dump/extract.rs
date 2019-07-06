@@ -113,8 +113,8 @@ impl<S: AsyncRead, D: AsyncWrite> Future for AsyncReadWrite<S, D> {
 
         let buf = self.buf.as_mut_slice();
         'g: loop {
-            match &self.state {
-                &Reading => {
+            match self.state {
+                Reading => {
                     while self.readed < self.chunk_size {
                         let bs = &mut buf[self.readed..self.chunk_size];
                         let n = try_ready!(self.src.poll_read(bs));
@@ -131,7 +131,7 @@ impl<S: AsyncRead, D: AsyncWrite> Future for AsyncReadWrite<S, D> {
                     self.written = 0;
                     self.state = Writing;
                 }
-                &Writing => {
+                Writing => {
                     while self.written < self.readed {
                         let bs = &buf[self.written..self.readed];
                         let n = try_ready!(self.dst.poll_write(bs));
@@ -142,7 +142,7 @@ impl<S: AsyncRead, D: AsyncWrite> Future for AsyncReadWrite<S, D> {
                     self.readed = 0;
                     self.state = Reading;
                 }
-                &Flushing => {
+                Flushing => {
                     try_ready!(self.dst.poll_flush());
                     return Ok(Async::Ready(()));
                 }
@@ -168,7 +168,7 @@ mod tests_gz {
 
         compress_data(data.clone(), src.path())?;
 
-        let fut = extractor(src.path().to_path_buf(), dst.path().to_path_buf(), 32);
+        let fut = extractor(src.path().to_path_buf(), dst.path().to_path_buf());
         tokio_run_aborting(fut.map_err(|e| panic!("unexpected error on extract: {}", e)));
 
         let mut got = vec![];
@@ -187,8 +187,8 @@ mod tests_gz {
         let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
         encoder.write_all(data.as_mut())?;
 
-        let mut gz = encoder.finish()?;
-        File::create(path).and_then(|mut f| f.write_all(&mut gz))
+        let gz = encoder.finish()?;
+        File::create(path).and_then(|mut f| f.write_all(&gz))
     }
 }
 

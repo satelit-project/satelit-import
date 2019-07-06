@@ -35,7 +35,7 @@ mod tests {
         let mut dst = tempfile::Builder::new().tempfile()?;
         let content = b"Hello there".to_vec();
 
-        src.write_all(&mut content.clone())?;
+        src.write_all(&content.clone())?;
 
         let fut = copier(src.path().to_owned(), dst.path().to_owned())
             .map_err(|e| panic!("failed to copy data: {}", e));

@@ -135,10 +135,10 @@ where
         let mut new = iter_new.next();
 
         while old.is_some() || new.is_some() {
-            if old.is_none() & &new.is_some() {
+            if old.is_none() && new.is_some() {
                 self.add_title(new.as_ref().unwrap());
                 new = iter_new.next();
-            } else if old.is_some() & &new.is_none() {
+            } else if old.is_some() && new.is_none() {
                 self.remove_title(old.as_ref().unwrap());
                 old = iter_old.next();
             } else {

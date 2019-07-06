@@ -96,10 +96,9 @@ impl ProtoSender for Client {
         url: &str,
     ) -> Box<dyn Future<Item = (), Error = ProtoSenderError> + Send + 'static> {
         let mut buf = Vec::new();
-        match message.encode(&mut buf) {
-            Err(e) => return Box::new(err(e.into())),
-            _ => (),
-        };
+        if let Err(e) = message.encode(&mut buf) {
+            return Box::new(err(e.into()))
+        }
 
         let f = self
             .post(url)

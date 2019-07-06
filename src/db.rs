@@ -98,9 +98,9 @@ impl fmt::Display for QueryError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use QueryError::*;
 
-        match self {
-            &PoolFailed(ref e) => <PoolError as fmt::Display>::fmt(&e, f),
-            &QueryFailed(ref e) => <UnderlyingError as fmt::Display>::fmt(&e, f),
+        match *self {
+            PoolFailed(ref e) => <PoolError as fmt::Display>::fmt(&e, f),
+            QueryFailed(ref e) => <UnderlyingError as fmt::Display>::fmt(&e, f),
         }
     }
 }
