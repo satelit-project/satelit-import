@@ -22,7 +22,7 @@ use std::iter::FromIterator;
 use std::path::Path;
 
 use crate::db::ConnectionPool;
-use crate::proto::scheduler::intent::ImportIntent;
+use crate::proto::scheduler::ImportIntent;
 use crate::worker::Worker;
 
 /// Creates new worker for importing AniDB dump configured with global app settings

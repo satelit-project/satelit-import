@@ -5,7 +5,7 @@ use actix_web::HttpResponse;
 use futures::prelude::*;
 use log::{error, info};
 
-use crate::proto::scheduler::intent::{self, ImportIntent};
+use crate::proto::scheduler::{import_intent, ImportIntent};
 use crate::worker::{self, dump};
 
 use std::error::Error;
@@ -30,7 +30,7 @@ impl HttpServiceFactory for ImportService {
 fn begin_import(
     proto: ProtoBuf<ImportIntent>,
 ) -> impl Future<Item = HttpResponse, Error = actix_web::Error> {
-    use intent::import_intent::Source as IntentSource;
+    use import_intent::Source as IntentSource;
 
     let _source = match IntentSource::from_i32(proto.source) {
         Some(s) => s,

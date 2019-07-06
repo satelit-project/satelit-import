@@ -10,7 +10,7 @@ use crate::db::scheduled_tasks::ScheduledTasks;
 use crate::db::schedules::Schedules;
 use crate::db::tasks::Tasks;
 use crate::db::{ConnectionPool, QueryError};
-use crate::proto::scraper::{anime, task};
+use crate::proto::scraper::{self, anime, episode};
 
 /// Service for scraper's tasks manipulation
 pub struct TasksService<P: ConnectionPool + 'static> {
@@ -67,7 +67,7 @@ fn create_task<P: ConnectionPool + 'static>(
             schedule_ids.push(schedule.id);
         }
 
-        Ok(task::Task {
+        Ok(scraper::Task {
             id: task.id,
             source: task.source as i32,
             schedule_ids,
@@ -75,7 +75,7 @@ fn create_task<P: ConnectionPool + 'static>(
         })
     })
     .then(
-        |res: Result<task::Task, BlockingError<QueryError>>| match res {
+        |res: Result<scraper::Task, BlockingError<QueryError>>| match res {
             Ok(task) => HttpResponse::Ok().protobuf(task),
             Err(e) => {
                 error!("Failed to create new scrape task: {}", e);
@@ -96,7 +96,7 @@ enum TaskYieldResult {
 
 /// Updates associated `Schedule` with new scraped anime data and pushes changes to main service
 fn task_yield<P: ConnectionPool + 'static>(
-    proto: ProtoBuf<task::TaskYield>,
+    proto: ProtoBuf<scraper::TaskYield>,
     schedules: Data<Schedules<P>>,
     scheduled_tasks: Data<ScheduledTasks<P>>,
 ) -> impl Future<Item = HttpResponse, Error = actix_web::Error> {
@@ -142,7 +142,7 @@ fn task_yield<P: ConnectionPool + 'static>(
 /// Removes all scheduled tasks associated with provided task
 /// and updates schedules to be in Finished state
 fn task_finish<P: ConnectionPool + 'static>(
-    proto: ProtoBuf<task::TaskFinish>,
+    proto: ProtoBuf<scraper::TaskFinish>,
     tasks: Data<Tasks<P>>,
 ) -> impl Future<Item = HttpResponse, Error = actix_web::Error> {
     web::block(move || tasks.remove(&proto.task_id)).then(|result| match result {
@@ -156,9 +156,9 @@ fn task_finish<P: ConnectionPool + 'static>(
 
 // Helpers
 
-fn update_for_anime(anime: &anime::Anime) -> UpdatedSchedule {
-    use anime::anime::Type as AnimeType;
-    use anime::episode::Type as EpisodeType;
+fn update_for_anime(anime: &scraper::Anime) -> UpdatedSchedule {
+    use anime::Type as AnimeType;
+    use episode::Type as EpisodeType;
 
     let mut schedule = UpdatedSchedule::default();
     schedule.has_poster = !anime.poster_url.is_empty();
@@ -167,9 +167,19 @@ fn update_for_anime(anime: &anime::Anime) -> UpdatedSchedule {
     let anime_type = AnimeType::from_i32(anime.r#type).unwrap_or(AnimeType::Unknown);
     schedule.has_type = anime_type != AnimeType::Unknown;
 
-    schedule.has_anidb_id = anime.source.as_ref().map_or(false, |s| s.anidb_id != 0);
-    schedule.has_mal_id = anime.source.as_ref().map_or(false, |s| s.mal_id != 0);
-    schedule.has_ann_id = anime.source.as_ref().map_or(false, |s| s.ann_id != 0);
+    schedule.has_anidb_id = anime
+        .source
+        .as_ref()
+        .map_or(false, |s| !s.anidb_id.is_empty());
+    schedule.has_mal_id = anime
+        .source
+        .as_ref()
+        .map_or(false, |s| !s.mal_id.is_empty());
+    schedule.has_ann_id = anime
+        .source
+        .as_ref()
+        .map_or(false, |s| !s.ann_id.is_empty());
+
     schedule.has_tags = !anime.tags.is_empty();
     schedule.has_episode_count = anime.episodes_count != 0;
 
@@ -184,11 +194,10 @@ fn update_for_anime(anime: &anime::Anime) -> UpdatedSchedule {
                 || e.name.is_empty()
         })
         .count();
-    schedule.has_all_episodes = unknown_eps_count == 0 && anime.episodes.len() != 0;
 
+    schedule.has_all_episodes = unknown_eps_count == 0 && !anime.episodes.is_empty();
     schedule.has_rating = anime.rating != 0.0;
     schedule.has_description = !anime.description.is_empty();
-
     schedule.priority = priority_for_schedule(&schedule);
 
     schedule

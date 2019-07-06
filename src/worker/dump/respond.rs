@@ -12,7 +12,7 @@ use std::fmt;
 use std::time::Duration;
 
 use super::DumpImportError;
-use crate::proto::scheduler::intent::*;
+use crate::proto::scheduler::{ImportIntent, ImportIntentResult};
 
 pub fn responder(
     import_result: Result<HashSet<i32>, DumpImportError>,
