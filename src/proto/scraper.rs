@@ -14,8 +14,8 @@ pub struct Episode {
     #[prost(double, tag="4")]
     pub duration: f64,
     /// Timestamp of the episode air date (unix time)
-    #[prost(double, tag="5")]
-    pub air_date: f64,
+    #[prost(sint64, tag="5")]
+    pub air_date: i64,
 }
 pub mod episode {
     /// Type of an anime episode
@@ -49,11 +49,11 @@ pub struct Anime {
     #[prost(message, repeated, tag="6")]
     pub episodes: ::std::vec::Vec<Episode>,
     /// Timestamp of the anime start air date (unix)
-    #[prost(double, tag="7")]
-    pub start_date: f64,
+    #[prost(sint64, tag="7")]
+    pub start_date: i64,
     /// Timestamp of the anime end air date (unix)
-    #[prost(double, tag="8")]
-    pub end_date: f64,
+    #[prost(sint64, tag="8")]
+    pub end_date: i64,
     /// Anime tags (same as genre in some external sources)
     #[prost(message, repeated, tag="9")]
     pub tags: ::std::vec::Vec<anime::Tag>,
