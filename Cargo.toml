@@ -14,7 +14,7 @@ log = { version = "0.4.7", features = ["std"] }
 env_logger = "0.6.2"
 
 diesel = { version = "1.4.2", features = ["sqlite", "r2d2"] }
-serde = { version = "1.0.94", features = ["derive"] }
+serde = { version = "1.0.97", features = ["derive"] }
 
 reqwest = "0.9.15"
 futures = "0.1.26"
