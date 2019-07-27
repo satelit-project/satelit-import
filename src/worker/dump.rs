@@ -28,10 +28,11 @@ use crate::worker::Worker;
 /// Creates new worker for importing AniDB dump configured with global app settings
 pub fn worker(intent: ImportIntent) -> impl Worker {
     let settings = crate::settings::shared();
+    let dump_url = intent.dump_url.clone();
 
     DumpImportWorker::new(
         intent,
-        settings.import().dump_url(),
+        dump_url,
         settings.import().download_path(),
         settings.import().dump_path(),
         settings.import().dump_backup_path(),

@@ -31,7 +31,7 @@ impl<P> ScraperTasksService<P>
 where
     P: ConnectionPool + 'static,
 {
-    fn new(tasks: Tasks<P>, schedules: Schedules<P>, scheduled_tasks: ScheduledTasks<P>) -> Self {
+    pub fn new(tasks: Tasks<P>, schedules: Schedules<P>, scheduled_tasks: ScheduledTasks<P>) -> Self {
         let state = State {
             tasks,
             schedules,
@@ -48,9 +48,9 @@ impl<P> server::ScraperTasksService for ScraperTasksService<P>
 where
     P: ConnectionPool + 'static,
 {
-    type CreateTaskFuture = Box<dyn Future<Item = Response<scraper::Task>, Error = Status>>;
-    type YieldResultFuture = Box<dyn Future<Item = Response<()>, Error = Status>>;
-    type CompleteTaskFuture = Box<dyn Future<Item = Response<()>, Error = Status>>;
+    type CreateTaskFuture = Box<dyn Future<Item = Response<scraper::Task>, Error = Status> + Send>;
+    type YieldResultFuture = Box<dyn Future<Item = Response<()>, Error = Status> + Send>;
+    type CompleteTaskFuture = Box<dyn Future<Item = Response<()>, Error = Status> + Send>;
 
     fn create_task(&mut self, request: Request<scraper::TaskCreate>) -> Self::CreateTaskFuture {
         let state = self.state.clone();

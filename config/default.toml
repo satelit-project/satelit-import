@@ -7,3 +7,7 @@ connection_timeout = 15
 download_path = "db/anidb-dump/dump.gz"
 dump_backup_path = "db/anidb-dump/old.xml"
 dump_path = "db/anidb-dump/new.xml"
+
+[ports]
+import = 10601
+task = 10602

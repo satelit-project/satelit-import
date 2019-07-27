@@ -41,6 +41,7 @@ impl Profile {
 pub struct Settings {
     db: Db,
     import: Import,
+    ports: Ports,
 }
 
 impl Settings {
@@ -52,6 +53,11 @@ impl Settings {
     /// Returns dump import settings
     pub fn import(&self) -> &Import {
         &self.import
+    }
+
+    /// Returns gRPC services ports settings
+    pub fn ports(&self) -> &Ports {
+        &self.ports
     }
 
     pub fn new(profile: Profile) -> Result<Self, ConfigError> {
@@ -93,20 +99,12 @@ impl Db {
 /// Global anime import settings
 #[derive(Debug, Deserialize)]
 pub struct Import {
-    dump_url: String,
     download_path: String,
     dump_backup_path: String,
     dump_path: String,
-    reimport_track_path: String,
-    chunk_size: usize,
 }
 
 impl Import {
-    /// Returns URL to latest AniDB dump
-    pub fn dump_url(&self) -> &str {
-        &self.dump_url
-    }
-
     /// Path where new dumps will be downloaded
     pub fn download_path(&self) -> &str {
         &self.download_path
@@ -121,14 +119,23 @@ impl Import {
     pub fn dump_path(&self) -> &str {
         &self.dump_path
     }
+}
 
-    /// Returns path to file with failed to import anime id's
-    pub fn reimport_track_path(&self) -> &str {
-        &self.reimport_track_path
+/// gRPC services ports
+#[derive(Debug, Deserialize)]
+pub struct Ports {
+    import: i32,
+    task: i32,
+}
+
+impl Ports {
+    /// Port for `ImportService`
+    pub fn import(&self) -> i32 {
+        self.import
     }
 
-    /// Size of read buffer for gzip extraction
-    pub fn chunk_size(&self) -> usize {
-        self.chunk_size
+    /// Port for `ScraperTasksService`
+    pub fn task(&self) -> i32 {
+        self.task
     }
 }
