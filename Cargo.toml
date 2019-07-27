@@ -22,6 +22,7 @@ tokio = "0.1.22"
 tokio-threadpool = "0.1.15"
 
 tower-grpc = "0.1.0"
+tower-hyper = "0.1.0"
 prost = { version = "0.5.0", features = ["prost-derive"] }
 bytes = "0.4.12"
 

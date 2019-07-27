@@ -6,7 +6,7 @@ use super::{ConnectionPool, PoolError, QueryError, Table};
 
 /// Represents *tasks* table that contains all created scrapping tasks
 #[derive(Clone)]
-pub struct Tasks<P: ConnectionPool> {
+pub struct Tasks<P> {
     pool: P,
 }
 

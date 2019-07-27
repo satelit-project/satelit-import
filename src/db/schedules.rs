@@ -5,7 +5,7 @@ use super::{ConnectionPool, PoolError, QueryError, Table};
 
 /// Entity that represents *schedule* table in db
 #[derive(Clone)]
-pub struct Schedules<P: ConnectionPool> {
+pub struct Schedules<P> {
     /// Db connection pool
     pool: P,
 }

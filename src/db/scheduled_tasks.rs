@@ -6,7 +6,7 @@ use super::{ConnectionPool, PoolError, QueryError, Table};
 
 /// Represents *scheduled_tasks* table that contains mapping between a task and schedule
 #[derive(Clone)]
-pub struct ScheduledTasks<P: ConnectionPool> {
+pub struct ScheduledTasks<P> {
     pool: P,
 }
 

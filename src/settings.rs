@@ -6,7 +6,7 @@ use std::time::Duration;
 
 /// Returns reference to global settings instance
 pub fn shared() -> &'static Settings {
-    static mut SHARED: *const Settings = 0 as *const Settings;
+    static mut SHARED: *const Settings = std::ptr::null();
     static ONCE: Once = Once::new();
 
     unsafe {

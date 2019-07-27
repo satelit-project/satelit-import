@@ -7,11 +7,14 @@ pub struct ImportIntent {
     /// Represents an external DB from where anime titles index should be imported
     #[prost(enumeration = "super::data::Source", tag = "2")]
     pub source: i32,
+    /// URL of anime titles dump location
+    #[prost(string, tag = "3")]
+    pub dump_url: std::string::String,
     /// Identifiers of anime titles that should be re-imported
-    #[prost(sint32, repeated, tag = "3")]
+    #[prost(sint32, repeated, tag = "4")]
     pub reimport_ids: ::std::vec::Vec<i32>,
     /// URL to send request with import result
-    #[prost(string, tag = "4")]
+    #[prost(string, tag = "5")]
     pub callback_url: std::string::String,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]

@@ -3,6 +3,7 @@ use log::{error, warn};
 use tower_grpc::{Code, Request, Response, Status};
 
 use std::convert::{TryFrom, TryInto};
+use std::sync::Arc;
 
 use crate::db::entity::{ExternalSource, SchedulePriority, Task, UpdatedSchedule};
 use crate::db::scheduled_tasks::ScheduledTasks;
@@ -15,10 +16,32 @@ use crate::proto::scraper::{self, server};
 use crate::rpc::{blocking, BlockingError};
 
 #[derive(Clone)]
-pub struct ScraperTasksService<P: ConnectionPool + 'static> {
+pub struct ScraperTasksService<P> {
+    state: Arc<State<P>>,
+}
+
+#[derive(Clone)]
+struct State<P> {
     tasks: Tasks<P>,
     schedules: Schedules<P>,
     scheduled_tasks: ScheduledTasks<P>,
+}
+
+impl<P> ScraperTasksService<P>
+where
+    P: ConnectionPool + 'static,
+{
+    fn new(tasks: Tasks<P>, schedules: Schedules<P>, scheduled_tasks: ScheduledTasks<P>) -> Self {
+        let state = State {
+            tasks,
+            schedules,
+            scheduled_tasks,
+        };
+
+        Self {
+            state: Arc::new(state),
+        }
+    }
 }
 
 impl<P> server::ScraperTasksService for ScraperTasksService<P>
@@ -30,12 +53,11 @@ where
     type CompleteTaskFuture = Box<dyn Future<Item = Response<()>, Error = Status>>;
 
     fn create_task(&mut self, request: Request<scraper::TaskCreate>) -> Self::CreateTaskFuture {
-        let tasks = self.tasks.clone();
-        let scheduled_tasks = self.scheduled_tasks.clone();
+        let state = self.state.clone();
 
         let response = blocking(move || {
             let data = request.get_ref();
-            make_task(&tasks, &scheduled_tasks, data)
+            make_task(&state, data)
         })
         .then(|result| match result {
             Ok(task) => Ok(Response::new(task)),
@@ -49,12 +71,11 @@ where
     }
 
     fn yield_result(&mut self, request: Request<scraper::TaskYield>) -> Self::YieldResultFuture {
-        let schedules = self.schedules.clone();
-        let scheduled_tasks = self.scheduled_tasks.clone();
+        let state = self.state.clone();
 
         let response = blocking(move || {
             let data = request.get_ref();
-            update_task(&schedules, &scheduled_tasks, data)
+            update_task(&state, data)
         })
         .then(|result| match result {
             Ok(_) => Ok(Response::new(())),
@@ -68,11 +89,11 @@ where
     }
 
     fn complete_task(&mut self, request: Request<scraper::TaskFinish>) -> Self::CompleteTaskFuture {
-        let tasks = self.tasks.clone();
+        let state = self.state.clone();
 
         let response = blocking(move || {
             let data = request.get_ref();
-            tasks.remove(&data.task_id)
+            state.tasks.remove(&data.task_id)
         })
         .then(|result| match result {
             Ok(()) => Ok(Response::new(())),
@@ -86,11 +107,7 @@ where
     }
 }
 
-fn make_task<P>(
-    tasks: &Tasks<P>,
-    scheduled_tasks: &ScheduledTasks<P>,
-    options: &scraper::TaskCreate,
-) -> Result<scraper::Task, Status>
+fn make_task<P>(state: &State<P>, options: &scraper::TaskCreate) -> Result<scraper::Task, Status>
 where
     P: ConnectionPool + 'static,
 {
@@ -100,9 +117,9 @@ where
     let task = Task::new(id, source.try_into()?);
 
     // TODO: Do not retrieve entities that has been scraped in < 1 week
-    tasks.register(&task)?;
-    scheduled_tasks.create(&task, options.limit)?;
-    let scheduled = scheduled_tasks.for_task(&task)?;
+    state.tasks.register(&task)?;
+    state.scheduled_tasks.create(&task, options.limit)?;
+    let scheduled = state.scheduled_tasks.for_task(&task)?;
     let mut anime_ids = vec![];
     let mut schedule_ids = vec![];
 
@@ -119,11 +136,7 @@ where
     })
 }
 
-fn update_task<P>(
-    schedules: &Schedules<P>,
-    scheduled_tasks: &ScheduledTasks<P>,
-    data: &scraper::TaskYield,
-) -> Result<(), Status>
+fn update_task<P>(state: &State<P>, data: &scraper::TaskYield) -> Result<(), Status>
 where
     P: ConnectionPool + 'static,
 {
@@ -143,57 +156,13 @@ where
     };
 
     let update = update_for_anime(anime);
-    schedules.update_for_id(data.schedule_id, &update)?;
-    scheduled_tasks.complete_for_schedule(&data.task_id, data.schedule_id)?;
+    state.schedules.update_for_id(data.schedule_id, &update)?;
+    state
+        .scheduled_tasks
+        .complete_for_schedule(&data.task_id, data.schedule_id)?;
 
     Ok(())
 }
-
-impl From<QueryError> for Status {
-    fn from(e: QueryError) -> Self {
-        Status::new(Code::Internal, e.to_string())
-    }
-}
-
-impl From<BlockingError<QueryError>> for Status {
-    fn from(e: BlockingError<QueryError>) -> Self {
-        use BlockingError::*;
-
-        match e {
-            Error(e) => Status::new(Code::Internal, e.to_string()),
-            Cancelled => Status::new(Code::Cancelled, "Job was cancelled"),
-            Unavailable => Status::new(Code::Internal, "Worker thread is unavailable"),
-        }
-    }
-}
-
-impl From<BlockingError<Status>> for Status {
-    fn from(e: BlockingError<Status>) -> Self {
-        use BlockingError::*;
-
-        match e {
-            Error(status) => status,
-            Cancelled => Status::new(Code::Cancelled, "Job was cancelled"),
-            Unavailable => Status::new(Code::Internal, "Worker thread is unavailable"),
-        }
-    }
-}
-
-impl TryFrom<data::Source> for ExternalSource {
-    type Error = Status;
-
-    fn try_from(value: data::Source) -> Result<Self, Self::Error> {
-        match value {
-            data::Source::Unknown => Err(Status::new(
-                Code::InvalidArgument,
-                "scraping source is not supported",
-            )),
-            data::Source::Anidb => Ok(ExternalSource::AniDB),
-        }
-    }
-}
-
-// Helpers
 
 fn update_for_anime(anime: &data::Anime) -> UpdatedSchedule {
     use data::anime::Type as AnimeType;
@@ -272,4 +241,48 @@ fn priority_for_schedule(schedule: &UpdatedSchedule) -> SchedulePriority {
     }
 
     SchedulePriority::Idle
+}
+
+impl From<QueryError> for Status {
+    fn from(e: QueryError) -> Self {
+        Status::new(Code::Internal, e.to_string())
+    }
+}
+
+impl From<BlockingError<QueryError>> for Status {
+    fn from(e: BlockingError<QueryError>) -> Self {
+        use BlockingError::*;
+
+        match e {
+            Error(e) => Status::new(Code::Internal, e.to_string()),
+            Cancelled => Status::new(Code::Cancelled, "Job was cancelled"),
+            Unavailable => Status::new(Code::Internal, "Worker thread is unavailable"),
+        }
+    }
+}
+
+impl From<BlockingError<Status>> for Status {
+    fn from(e: BlockingError<Status>) -> Self {
+        use BlockingError::*;
+
+        match e {
+            Error(status) => status,
+            Cancelled => Status::new(Code::Cancelled, "Job was cancelled"),
+            Unavailable => Status::new(Code::Internal, "Worker thread is unavailable"),
+        }
+    }
+}
+
+impl TryFrom<data::Source> for ExternalSource {
+    type Error = Status;
+
+    fn try_from(value: data::Source) -> Result<Self, Self::Error> {
+        match value {
+            data::Source::Unknown => Err(Status::new(
+                Code::InvalidArgument,
+                "scraping source is not supported",
+            )),
+            data::Source::Anidb => Ok(ExternalSource::AniDB),
+        }
+    }
 }
