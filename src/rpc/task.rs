@@ -30,9 +30,12 @@ where
     type CompleteTaskFuture = Box<dyn Future<Item = Response<()>, Error = Status>>;
 
     fn create_task(&mut self, request: Request<scraper::TaskCreate>) -> Self::CreateTaskFuture {
+        let tasks = self.tasks.clone();
+        let scheduled_tasks = self.scheduled_tasks.clone();
+
         let response = blocking(move || {
-            let data = request.into_inner();
-            self.make_task(data)
+            let data = request.get_ref();
+            make_task(&tasks, &scheduled_tasks, data)
         })
         .then(|result| match result {
             Ok(task) => Ok(Response::new(task)),
@@ -46,12 +49,15 @@ where
     }
 
     fn yield_result(&mut self, request: Request<scraper::TaskYield>) -> Self::YieldResultFuture {
+        let schedules = self.schedules.clone();
+        let scheduled_tasks = self.scheduled_tasks.clone();
+
         let response = blocking(move || {
-            let data = request.into_inner();
-            self.update_task(data)
+            let data = request.get_ref();
+            update_task(&schedules, &scheduled_tasks, data)
         })
         .then(|result| match result {
-            Ok(v) => Ok(Response::new(())),
+            Ok(_) => Ok(Response::new(())),
             Err(e) => {
                 error!("Failed to update yielded entity: {}", e);
                 Err(e.into())
@@ -62,9 +68,11 @@ where
     }
 
     fn complete_task(&mut self, request: Request<scraper::TaskFinish>) -> Self::CompleteTaskFuture {
+        let tasks = self.tasks.clone();
+
         let response = blocking(move || {
-            let data = request.into_inner();
-            self.tasks.remove(&data.task_id)
+            let data = request.get_ref();
+            tasks.remove(&data.task_id)
         })
         .then(|result| match result {
             Ok(()) => Ok(Response::new(())),
@@ -78,59 +86,67 @@ where
     }
 }
 
-impl<P> ScraperTasksService<P>
+fn make_task<P>(
+    tasks: &Tasks<P>,
+    scheduled_tasks: &ScheduledTasks<P>,
+    options: &scraper::TaskCreate,
+) -> Result<scraper::Task, Status>
 where
     P: ConnectionPool + 'static,
 {
-    fn make_task(&self, options: scraper::TaskCreate) -> Result<scraper::Task, Status> {
-        let source = data::Source::from_i32(options.source).unwrap_or(data::Source::Unknown);
+    let source = data::Source::from_i32(options.source).unwrap_or(data::Source::Unknown);
 
-        let id = uuid::Uuid::new_v4().to_string();
-        let task = Task::new(id, source.try_into()?);
+    let id = uuid::Uuid::new_v4().to_string();
+    let task = Task::new(id, source.try_into()?);
 
-        // TODO: Do not retrieve entities that has been scraped in < 1 week
-        self.tasks.register(&task)?;
-        self.scheduled_tasks.create(&task, options.limit)?;
-        let scheduled = self.scheduled_tasks.for_task(&task)?;
-        let mut anime_ids = vec![];
-        let mut schedule_ids = vec![];
+    // TODO: Do not retrieve entities that has been scraped in < 1 week
+    tasks.register(&task)?;
+    scheduled_tasks.create(&task, options.limit)?;
+    let scheduled = scheduled_tasks.for_task(&task)?;
+    let mut anime_ids = vec![];
+    let mut schedule_ids = vec![];
 
-        for (_, schedule) in scheduled {
-            anime_ids.push(schedule.sourced_id);
-            schedule_ids.push(schedule.id);
+    for (_, schedule) in scheduled {
+        anime_ids.push(schedule.sourced_id);
+        schedule_ids.push(schedule.id);
+    }
+
+    Ok(scraper::Task {
+        id: task.id,
+        source: task.source as i32,
+        schedule_ids,
+        anime_ids,
+    })
+}
+
+fn update_task<P>(
+    schedules: &Schedules<P>,
+    scheduled_tasks: &ScheduledTasks<P>,
+    data: &scraper::TaskYield,
+) -> Result<(), Status>
+where
+    P: ConnectionPool + 'static,
+{
+    let anime = match data.anime {
+        Some(ref a) => a,
+        None => {
+            warn!(
+                "anime entity is missing, won't update task, 'task_id': {}, 'schedule_id': {}",
+                data.task_id, data.schedule_id
+            );
+
+            return Err(Status::new(
+                Code::InvalidArgument,
+                "Anime entity is missing",
+            ));
         }
+    };
 
-        Ok(scraper::Task {
-            id: task.id,
-            source: task.source as i32,
-            schedule_ids,
-            anime_ids,
-        })
-    }
+    let update = update_for_anime(anime);
+    schedules.update_for_id(data.schedule_id, &update)?;
+    scheduled_tasks.complete_for_schedule(&data.task_id, data.schedule_id)?;
 
-    fn update_task(&self, data: scraper::TaskYield) -> Result<(), Status> {
-        let anime = match data.anime {
-            Some(ref a) => a,
-            None => {
-                warn!(
-                    "anime entity is missing, won't update task, 'task_id': {}, 'schedule_id': {}",
-                    data.task_id, data.schedule_id
-                );
-
-                return Err(Status::new(
-                    Code::InvalidArgument,
-                    "Anime entity is missing",
-                ));
-            }
-        };
-
-        let update = update_for_anime(anime);
-        self.schedules.update_for_id(data.schedule_id, &update)?;
-        self.scheduled_tasks
-            .complete_for_schedule(&data.task_id, data.schedule_id)?;
-
-        Ok(())
-    }
+    Ok(())
 }
 
 impl From<QueryError> for Status {
