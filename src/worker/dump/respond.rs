@@ -97,7 +97,7 @@ impl ProtoSender for Client {
     ) -> Box<dyn Future<Item = (), Error = ProtoSenderError> + Send + 'static> {
         let mut buf = Vec::new();
         if let Err(e) = message.encode(&mut buf) {
-            return Box::new(err(e.into()))
+            return Box::new(err(e.into()));
         }
 
         let f = self

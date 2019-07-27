@@ -8,7 +8,7 @@ use super::schema::tasks;
 #[derive(Queryable)]
 pub struct Schedule {
     pub id: i32,
-    pub source_id: i32,
+    pub sourced_id: i32,
     pub source: ExternalSource,
     pub state: ScheduleState,
     pub priority: SchedulePriority,
@@ -54,14 +54,14 @@ pub enum SchedulePriority {
     /// Episodes are missing
     NeedEpisodes = 750,
 
-    /// Poster is missing
-    NeedPoster = 800,
-
     /// Description is missing
-    NeedDescription = 850,
+    NeedDescription = 800,
 
     /// Tags are missing
-    NeedTags = 900,
+    NeedTags = 850,
+
+    /// Poster is missing
+    NeedPoster = 900,
 
     /// Air date, type or episodes count is missing
     NeedAiringDetails = 950,
@@ -73,7 +73,7 @@ pub enum SchedulePriority {
 #[derive(Insertable)]
 #[table_name = "schedules"]
 pub struct SourceSchedule {
-    pub source_id: i32,
+    pub sourced_id: i32,
     pub source: ExternalSource,
     pub has_anidb_id: bool,
     pub has_mal_id: bool,
@@ -81,9 +81,9 @@ pub struct SourceSchedule {
 }
 
 impl SourceSchedule {
-    pub fn new(source_id: i32, source: ExternalSource) -> Self {
+    pub fn new(sourced_id: i32, source: ExternalSource) -> Self {
         let mut new = Self {
-            source_id,
+            sourced_id,
             source,
             has_anidb_id: false,
             has_mal_id: false,

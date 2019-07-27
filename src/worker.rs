@@ -4,10 +4,10 @@ use futures::prelude::*;
 use log::info;
 use tokio::runtime;
 
+use std::ptr;
 use std::sync::atomic::{AtomicPtr, Ordering};
 use std::sync::{mpsc, Mutex};
 use std::thread;
-use std::ptr;
 
 /// Represents a "worker" that may perform any task on background
 pub trait Worker: Send + 'static {

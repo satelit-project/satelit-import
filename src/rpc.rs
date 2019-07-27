@@ -1,9 +1,9 @@
-//pub mod import;
-//pub mod task;
+pub mod import;
+pub mod task;
 
+use futures::future::poll_fn;
 use futures::prelude::*;
 use futures::sync::oneshot;
-use futures::future::poll_fn;
 
 #[derive(Debug)]
 pub enum BlockingError<E: std::error::Error> {
@@ -20,9 +20,7 @@ where
 {
     let (tx, rx) = oneshot::channel();
     tokio::spawn(futures::lazy(move || {
-        poll_fn(move || {
-            tokio_threadpool::blocking( || f())
-        }).then(move |result| {
+        poll_fn(move || tokio_threadpool::blocking(|| f())).then(move |result| {
             if tx.is_canceled() {
                 return futures::future::err(());
             }
@@ -30,7 +28,7 @@ where
             let _ = match result {
                 Ok(inner) => match inner {
                     Ok(item) => tx.send(Ok(item)),
-                    Err(e) => tx.send(Err(BlockingError::Error(e)))
+                    Err(e) => tx.send(Err(BlockingError::Error(e))),
                 },
                 Err(_) => tx.send(Err(BlockingError::Unavailable)),
             };
@@ -39,14 +37,12 @@ where
         })
     }));
 
-    rx.then(|result| {
-        match result {
-            Ok(inner) => match inner {
-                Ok(item) => Ok(item),
-                Err(e) => Err(e)
-            },
-            Err(_) => Err(BlockingError::Cancelled),
-        }
+    rx.then(|result| match result {
+        Ok(inner) => match inner {
+            Ok(item) => Ok(item),
+            Err(e) => Err(e),
+        },
+        Err(_) => Err(BlockingError::Cancelled),
     })
 }
 

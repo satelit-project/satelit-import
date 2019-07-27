@@ -6,7 +6,7 @@ create table schedules
         constraint schedules_pk
             primary key autoincrement,
 
-    source_id         integer not null,
+    sourced_id         integer not null,
     source            integer not null,
     state             integer default 0 not null,
     priority          integer default 1000 not null,
@@ -25,8 +25,8 @@ create table schedules
     updated_at        double  default current_timestamp not null
 );
 
-create unique index schedules_source_id_source_uindex
-    on schedules (source_id, source);
+create unique index schedules_sourced_id_source_uindex
+    on schedules (sourced_id, source);
 
 -- update `update_at` field every time when row is changed
 create trigger schedules_updated_at_trigger

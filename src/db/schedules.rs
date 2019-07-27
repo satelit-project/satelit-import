@@ -29,7 +29,7 @@ impl<P: ConnectionPool> Schedules<P> {
 
         let conn = self.connection()?;
         let target = schedules
-            .filter(source_id.eq(src.source_id))
+            .filter(sourced_id.eq(src.sourced_id))
             .filter(source.eq(src.source));
         diesel::delete(target).execute(&conn)?;
 
