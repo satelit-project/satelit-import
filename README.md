@@ -4,8 +4,6 @@
 
 - ci with checks from `scripts` dir
 - unit and integration tests
-- services should return responses with proper errors
-- grpc when `tower-grpc` ready
 
 ## TODO in satelit-scheduler:
 
