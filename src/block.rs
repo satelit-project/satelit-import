@@ -48,9 +48,9 @@ impl<E: std::error::Error> std::fmt::Display for BlockingError<E> {
         use BlockingError::*;
 
         match self {
-            Error(e) => write!(f, "{}\n", e),
-            Cancelled => write!(f, "Channel has been closed\n"),
-            Unavailable => write!(f, "Blocking thread pool is unavailable\n"),
+            Error(e) => writeln!(f, "{}", e),
+            Cancelled => writeln!(f, "Channel has been closed"),
+            Unavailable => writeln!(f, "Blocking thread pool is unavailable"),
         }
     }
 }
