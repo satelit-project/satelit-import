@@ -1,61 +1,69 @@
 pub mod import;
 pub mod task;
 
-use futures::future::poll_fn;
-use futures::prelude::*;
-use futures::sync::oneshot;
+use crate::db::{self, ConnectionPool};
+use crate::proto::scheduler::server::ImportServiceServer;
+use crate::proto::scraper::server::ScraperTasksServiceServer;
+use import::ImportService;
+use task::ScraperTasksService;
 
-#[derive(Debug)]
-pub enum BlockingError<E: std::error::Error> {
-    Error(E),
-    Cancelled,
-    Unavailable,
+/// Builder for server-side gRPC services
+pub struct ServicesBuilder<P> {
+    conn_pool: P,
 }
 
-pub fn blocking<F, I, E>(mut f: F) -> impl Future<Item = I, Error = BlockingError<E>>
+impl<P> ServicesBuilder<P>
 where
-    F: FnMut() -> Result<I, E> + Send + 'static,
-    I: Send + 'static,
-    E: std::error::Error + Send + 'static,
+    P: ConnectionPool + 'static,
 {
-    let (tx, rx) = oneshot::channel();
-    tokio::spawn(futures::lazy(move || {
-        poll_fn(move || tokio_threadpool::blocking(|| f())).then(move |result| {
-            if tx.is_canceled() {
-                return futures::future::err(());
-            }
+    /// Creates new builder instance
+    ///
+    /// # Arguments
+    /// * `conn_pool` – DB connection pool
+    pub fn new(conn_pool: P) -> Self {
+        ServicesBuilder { conn_pool }
+    }
 
-            let _ = match result {
-                Ok(inner) => match inner {
-                    Ok(item) => tx.send(Ok(item)),
-                    Err(e) => tx.send(Err(BlockingError::Error(e))),
-                },
-                Err(_) => tx.send(Err(BlockingError::Unavailable)),
-            };
+    /// Creates and returns an `ImportService` gRPC service
+    pub fn import_service(&self) -> ImportServiceServer<ImportService> {
+        let service = ImportService;
+        ImportServiceServer::new(service)
+    }
 
-            futures::future::ok(())
-        })
-    }));
+    /// Creates and returns an `ScraperTasksService` gRPC service
+    pub fn tasks_service(&self) -> ScraperTasksServiceServer<ScraperTasksService<P>> {
+        let tasks = db::tasks::Tasks::new(self.conn_pool.clone());
+        let schedules = db::schedules::Schedules::new(self.conn_pool.clone());
+        let scheduled_tasks = db::scheduled_tasks::ScheduledTasks::new(self.conn_pool.clone());
 
-    rx.then(|result| match result {
-        Ok(inner) => match inner {
-            Ok(item) => Ok(item),
-            Err(e) => Err(e),
-        },
-        Err(_) => Err(BlockingError::Cancelled),
-    })
-}
-
-impl<E: std::error::Error> std::fmt::Display for BlockingError<E> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
-        use BlockingError::*;
-
-        match self {
-            Error(e) => write!(f, "{}\n", e),
-            Cancelled => write!(f, "Channel has been closed\n"),
-            Unavailable => write!(f, "Blocking thread pool is unavailable\n"),
-        }
+        let service = ScraperTasksService::new(tasks, schedules, scheduled_tasks);
+        ScraperTasksServiceServer::new(service)
     }
 }
 
-impl<E: std::error::Error> std::error::Error for BlockingError<E> {}
+/// Returns a future that serves server-side gRPC service
+#[macro_export]
+macro_rules! serve_service {
+    ($service:expr, $port:expr) => {{
+        use tokio::net;
+
+        let mut server = tower_hyper::Server::new($service);
+        let http = tower_hyper::server::Http::new().http2_only(true).clone();
+
+        let addr = format!("127.0.0.1:{}", $port).parse().unwrap();
+        let bind = net::TcpListener::bind(&addr).expect("failed to bind TcpListener");
+
+        bind.incoming()
+            .for_each(move |sock| {
+                if let Err(e) = sock.set_nodelay(true) {
+                    return Err(e);
+                }
+
+                let serve = server.serve_with(sock, http.clone());
+                tokio::spawn(serve.map_err(|e| error!("h2 error: {:?}", e)));
+
+                Ok(())
+            })
+            .map_err(|e| error!("tcp error: {:?}", e))
+    }};
+}

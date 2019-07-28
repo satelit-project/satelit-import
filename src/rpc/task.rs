@@ -11,9 +11,9 @@ use crate::db::schedules::Schedules;
 use crate::db::tasks::Tasks;
 use crate::db::{ConnectionPool, QueryError};
 
+use crate::block::{blocking, BlockingError};
 use crate::proto::data;
 use crate::proto::scraper::{self, server};
-use crate::rpc::{blocking, BlockingError};
 
 #[derive(Clone)]
 pub struct ScraperTasksService<P> {
@@ -31,7 +31,11 @@ impl<P> ScraperTasksService<P>
 where
     P: ConnectionPool + 'static,
 {
-    pub fn new(tasks: Tasks<P>, schedules: Schedules<P>, scheduled_tasks: ScheduledTasks<P>) -> Self {
+    pub fn new(
+        tasks: Tasks<P>,
+        schedules: Schedules<P>,
+        scheduled_tasks: ScheduledTasks<P>,
+    ) -> Self {
         let state = State {
             tasks,
             schedules,
