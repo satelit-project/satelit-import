@@ -16,7 +16,7 @@ env_logger = "0.6.2"
 diesel = { version = "1.4.2", features = ["sqlite", "r2d2"] }
 serde = { version = "1.0.94", features = ["derive"] }
 
-reqwest = "0.9.15"
+reqwest = "0.9.20"
 futures = "0.1.26"
 tokio = "0.1.22"
 tokio-threadpool = "0.1.15"
