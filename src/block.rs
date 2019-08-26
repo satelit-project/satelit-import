@@ -1,38 +1,43 @@
-use futures::future::poll_fn;
 use futures::prelude::*;
 use futures::sync::oneshot;
+use lazy_static::lazy_static;
+use log::error;
+use rayon::{ThreadPool, ThreadPoolBuilder};
 
-#[derive(Debug)]
-pub enum BlockingError<E: std::error::Error> {
-    Error(E),
-    Cancelled,
-    Unavailable,
+lazy_static! {
+    static ref THREAD_POOL: ThreadPool = {
+        ThreadPoolBuilder::new()
+            .build()
+            .expect("failed to init thread pool")
+    };
 }
 
-pub fn blocking<F, I, E>(mut f: F) -> impl Future<Item = I, Error = BlockingError<E>>
-where
-    F: FnMut() -> Result<I, E> + Send + 'static,
-    I: Send + 'static,
-    E: std::error::Error + Send + 'static,
+#[derive(Debug)]
+pub enum BlockingError<E: std::fmt::Debug> {
+    Error(E),
+    Cancelled,
+}
+
+pub fn blocking<F, I, E>(f: F) -> impl Future<Item = I, Error = BlockingError<E>>
+    where
+        F: FnOnce() -> Result<I, E> + Send + 'static,
+        I: Send + 'static,
+        E: std::fmt::Debug + Send + 'static,
 {
     let (tx, rx) = oneshot::channel();
-    tokio::spawn(futures::lazy(move || {
-        poll_fn(move || tokio_threadpool::blocking(|| f())).then(move |result| {
-            if tx.is_canceled() {
-                return futures::future::err(());
-            }
+    THREAD_POOL.spawn(move || {
+        let result = f();
 
-            let _ = match result {
-                Ok(inner) => match inner {
-                    Ok(item) => tx.send(Ok(item)),
-                    Err(e) => tx.send(Err(BlockingError::Error(e))),
-                },
-                Err(_) => tx.send(Err(BlockingError::Unavailable)),
-            };
+        if tx.is_canceled() {
+            error!("blocking: receiver dropped");
+            return;
+        }
 
-            futures::future::ok(())
-        })
-    }));
+        let _ = match result {
+            Ok(item) => tx.send(Ok(item)),
+            Err(e) => tx.send(Err(BlockingError::Error(e))),
+        };
+    });
 
     rx.then(|result| match result {
         Ok(inner) => match inner {
@@ -50,7 +55,6 @@ impl<E: std::error::Error> std::fmt::Display for BlockingError<E> {
         match self {
             Error(e) => writeln!(f, "{}", e),
             Cancelled => writeln!(f, "Channel has been closed"),
-            Unavailable => writeln!(f, "Blocking thread pool is unavailable"),
         }
     }
 }
