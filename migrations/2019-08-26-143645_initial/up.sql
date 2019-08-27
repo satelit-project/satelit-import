@@ -92,6 +92,8 @@ begin
     update schedules
     set state = 1
     where new.schedule_id = id;
+
+    return null;
 end;
 $$ language plpgsql;
 
@@ -110,8 +112,11 @@ begin
     update schedules
     set state = case
                     when priority = 0 then 3
-                    else 0 end
+                    else 0 end,
+        update_count = update_count + 1
     where old.schedule_id = id;
+
+    return null;
 end;
 $$ language plpgsql;
 
