@@ -28,6 +28,37 @@ pub struct GzipExtractor<P> {
     chunk_size: usize,
 }
 
+// TODO: replace with tokio::io::copy
+/// Future that reads from a file and writes it's to another file
+struct AsyncReadWrite<S: AsyncRead, D: AsyncWrite> {
+    /// Source file
+    src: S,
+    /// Destination file
+    dst: D,
+    /// State of the future
+    state: AsyncReadWriteState,
+    /// Read buffer size that should be filled before moving to `Writing` state
+    chunk_size: usize,
+    /// Read buffer
+    buf: Vec<u8>,
+    /// Number of readed bytes from source file
+    readed: usize,
+    /// Number of written bytes to destination file
+    written: usize,
+}
+
+/// State of `AsyncReadWrite` future
+enum AsyncReadWriteState {
+    /// Reading data from source file
+    Reading,
+    /// Writing data to destination file
+    Writing,
+    /// Flushing file data to fs
+    Flushing,
+}
+
+// MARK: impl GzipExtractor
+
 impl<P: AsRef<Path> + Clone + Send + 'static> GzipExtractor<P> {
     pub const DEFAULT_CHUNK_SIZE: usize = 1024;
 
@@ -61,33 +92,7 @@ impl<P: AsRef<Path> + Clone + Send + 'static> GzipExtractor<P> {
     }
 }
 
-/// State of `AsyncReadWrite` future
-enum AsyncReadWriteState {
-    /// Reading data from source file
-    Reading,
-    /// Writing data to destination file
-    Writing,
-    /// Flushing file data to fs
-    Flushing,
-}
-
-/// Future that reads from a file and writes it's to another file
-struct AsyncReadWrite<S: AsyncRead, D: AsyncWrite> {
-    /// Source file
-    src: S,
-    /// Destination file
-    dst: D,
-    /// State of the future
-    state: AsyncReadWriteState,
-    /// Read buffer size that should be filled before moving to `Writing` state
-    chunk_size: usize,
-    /// Read buffer
-    buf: Vec<u8>,
-    /// Number of readed bytes from source file
-    readed: usize,
-    /// Number of written bytes to destination file
-    written: usize,
-}
+// MARK: impl AsyncReadWrite
 
 impl<S: AsyncRead, D: AsyncWrite> AsyncReadWrite<S, D> {
     fn new(src: S, dst: D, chunk_size: usize) -> Self {

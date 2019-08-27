@@ -1,25 +1,28 @@
 use diesel::prelude::*;
 
 use super::entity::{SourceSchedule, UpdatedSchedule};
-use super::{ConnectionPool, PoolError, QueryError, Table};
+use super::{ConnectionPool, QueryError};
 
 /// Entity that represents *schedule* table in db
 #[derive(Clone)]
-pub struct Schedules<P> {
+pub struct Schedules {
     /// Db connection pool
-    pool: P,
+    pool: ConnectionPool,
 }
 
-impl<P: ConnectionPool> Schedules<P> {
-    pub fn new(pool: P) -> Self {
+impl Schedules {
+    pub fn new(pool: ConnectionPool) -> Self {
         Schedules { pool }
     }
 
     pub fn create_from_source(&self, src: &SourceSchedule) -> Result<(), QueryError> {
         use crate::db::schema::schedules::dsl::*;
 
-        let conn = self.connection()?;
-        diesel::replace_into(schedules).values(src).execute(&conn)?;
+        let conn = self.pool.get()?;
+        diesel::insert_into(schedules).values(src)
+            .on_conflict((sourced_id, source))
+            .do_update()
+            .execute(&conn)?;
 
         Ok(())
     }
@@ -27,7 +30,7 @@ impl<P: ConnectionPool> Schedules<P> {
     pub fn delete_from_source(&self, src: &SourceSchedule) -> Result<(), QueryError> {
         use crate::db::schema::schedules::dsl::*;
 
-        let conn = self.connection()?;
+        let conn = self.pool.get()?;
         let target = schedules
             .filter(sourced_id.eq(src.sourced_id))
             .filter(source.eq(src.source));
@@ -48,11 +51,5 @@ impl<P: ConnectionPool> Schedules<P> {
         diesel::update(target).set(updated).execute(&conn)?;
 
         Ok(())
-    }
-}
-
-impl<P: ConnectionPool> Table<P> for Schedules<P> {
-    fn connection(&self) -> Result<<P as ConnectionPool>::Connection, PoolError> {
-        self.pool.get()
     }
 }

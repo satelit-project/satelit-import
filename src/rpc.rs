@@ -2,25 +2,23 @@ pub mod import;
 pub mod task;
 
 use crate::db::{self, ConnectionPool};
-use crate::proto::scheduler::server::ImportServiceServer;
-use crate::proto::scraper::server::ScraperTasksServiceServer;
+use crate::proto::import::server::ImportServiceServer;
+use crate::proto::scraping::server::ScraperTasksServiceServer;
+
 use import::ImportService;
 use task::ScraperTasksService;
 
 /// Builder for server-side gRPC services
-pub struct ServicesBuilder<P> {
-    conn_pool: P,
+pub struct ServicesBuilder {
+    conn_pool: ConnectionPool,
 }
 
-impl<P> ServicesBuilder<P>
-where
-    P: ConnectionPool + 'static,
-{
+impl ServicesBuilder {
     /// Creates new builder instance
     ///
     /// # Arguments
     /// * `conn_pool` – DB connection pool
-    pub fn new(conn_pool: P) -> Self {
+    pub fn new(conn_pool: ConnectionPool) -> Self {
         ServicesBuilder { conn_pool }
     }
 
@@ -31,7 +29,7 @@ where
     }
 
     /// Creates and returns an `ScraperTasksService` gRPC service
-    pub fn tasks_service(&self) -> ScraperTasksServiceServer<ScraperTasksService<P>> {
+    pub fn tasks_service(&self) -> ScraperTasksServiceServer<ScraperTasksService> {
         let tasks = db::tasks::Tasks::new(self.conn_pool.clone());
         let schedules = db::schedules::Schedules::new(self.conn_pool.clone());
         let scheduled_tasks = db::scheduled_tasks::ScheduledTasks::new(self.conn_pool.clone());

@@ -1,42 +1,19 @@
 use config::{Config, ConfigError, File};
 use serde::Deserialize;
+use lazy_static::lazy_static;
 
-use std::sync::Once;
 use std::time::Duration;
+
+lazy_static! {
+    static ref SHARED: Settings = Settings::new().expect("failed to read settings");
+}
 
 /// Returns reference to global settings instance
 pub fn shared() -> &'static Settings {
-    static mut SHARED: *const Settings = std::ptr::null();
-    static ONCE: Once = Once::new();
-
-    unsafe {
-        ONCE.call_once(|| {
-            let settings = Settings::new(Profile::Default).expect("failed to read settings");
-            SHARED = Box::into_raw(Box::new(settings));
-        });
-
-        &*SHARED
-    }
+    &SHARED
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum Profile {
-    Default,
-    IntegrationTests,
-}
-
-impl Profile {
-    fn files(&self) -> &[&str] {
-        use Profile::*;
-
-        match *self {
-            Default => &["default"],
-            IntegrationTests => &["default", "integration-tests"],
-        }
-    }
-}
-
-/// Global settings used to configure app state
+/// Application settings
 #[derive(Debug, Deserialize)]
 pub struct Settings {
     db: Db,
@@ -44,7 +21,42 @@ pub struct Settings {
     ports: Ports,
 }
 
+/// Database settings
+#[derive(Debug, Deserialize)]
+pub struct Db {
+    url: String,
+    max_connections: u32,
+    connection_timeout: u64,
+}
+
+/// Anime index import settings
+#[derive(Debug, Deserialize)]
+pub struct Import {
+    new_download_path: String,
+    old_download_path: String,
+    new_extract_path: String,
+    old_extract_path: String,
+}
+
+/// gRPC services ports
+#[derive(Debug, Deserialize)]
+pub struct Ports {
+    import: i32,
+    task: i32,
+}
+
+// MARK: impl Settings
+
 impl Settings {
+    pub fn new() -> Result<Self, ConfigError> {
+        let mut s = Config::new();
+
+        let default = File::with_name("config/default.toml");
+        s.merge(default)?;
+
+        s.try_into()
+    }
+
     /// Returns database settings
     pub fn db(&self) -> &Db {
         &self.db
@@ -59,30 +71,14 @@ impl Settings {
     pub fn ports(&self) -> &Ports {
         &self.ports
     }
-
-    pub fn new(profile: Profile) -> Result<Self, ConfigError> {
-        let mut s = Config::new();
-
-        for &file in profile.files() {
-            s.merge(File::with_name(&format!("config/{}", file)))?;
-        }
-
-        s.try_into()
-    }
 }
 
-/// Global database settings
-#[derive(Debug, Deserialize)]
-pub struct Db {
-    path: String,
-    max_connections: u32,
-    connection_timeout: u64,
-}
+// MARK: impl Db
 
 impl Db {
     /// Returns path to database
-    pub fn path(&self) -> &str {
-        &self.path
+    pub fn url(&self) -> &str {
+        &self.url
     }
 
     /// Returns number of maximum allowed db connections
@@ -96,37 +92,27 @@ impl Db {
     }
 }
 
-/// Global anime import settings
-#[derive(Debug, Deserialize)]
-pub struct Import {
-    download_path: String,
-    dump_backup_path: String,
-    dump_path: String,
-}
+// MARK: impl Import
 
 impl Import {
-    /// Path where new dumps will be downloaded
-    pub fn download_path(&self) -> &str {
-        &self.download_path
+    pub fn new_download_path(&self) -> &str {
+        &self.new_download_path
     }
 
-    /// Return path to backed up dump
-    pub fn dump_backup_path(&self) -> &str {
-        &self.dump_backup_path
+    pub fn old_download_path(&self) -> &str {
+        &self.old_download_path
     }
 
-    /// Returns path to dump to be imported
-    pub fn dump_path(&self) -> &str {
-        &self.dump_path
+    pub fn new_extract_path(&self) -> &str {
+        &self.new_extract_path
+    }
+
+    pub fn old_extract_path(&self) -> &str {
+        &self.old_extract_path
     }
 }
 
-/// gRPC services ports
-#[derive(Debug, Deserialize)]
-pub struct Ports {
-    import: i32,
-    task: i32,
-}
+// MARK: impl Ports
 
 impl Ports {
     /// Port for `ImportService`

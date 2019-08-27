@@ -1,83 +1,73 @@
 use futures::prelude::*;
-use futures::try_ready;
 use log::{debug, warn};
-use tokio_threadpool::{blocking, BlockingError};
 
 use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::fmt;
 use std::path::Path;
 
-use crate::anidb::{AniDb, Anime, XmlError};
+use crate::anidb::parser::{Anidb, Anime, XmlError};
 use crate::db::entity::{ExternalSource, SourceSchedule};
 use crate::db::{schedules, ConnectionPool, QueryError};
+use crate::block::{blocking, BlockingError};
 
 /// Creates AniDB dump importer configured with global app settings
 ///
 /// Returned future will block your current task until it's ready
-pub fn importer<P, C>(
-    dump_backup_path: P,
-    dump_path: P,
+pub fn importer<P>(
+    old_dump_path: P,
+    new_dump_path: P,
     reimport_ids: HashSet<i32>,
-    connection_pool: C,
+    connection_pool: ConnectionPool,
 ) -> impl Future<Item = HashSet<i32>, Error = ImportError> + Send
 where
     P: AsRef<Path> + Clone + Send + 'static,
-    C: ConnectionPool + Send,
 {
-    let provider = AniDbAnimeProvider::new(dump_backup_path, dump_path, reimport_ids);
-    let schedules = schedules::Schedules::new(connection_pool);
-    let scheduler = AniDbImportScheduler::new(schedules);
+    blocking(move || {
+        let provider = AniDbAnimeProvider::new(old_dump_path, new_dump_path, reimport_ids);
+        let schedules = schedules::Schedules::new(connection_pool);
+        let scheduler = AniDbImportScheduler::new(schedules);
+        let mut importer = AnimeImporter::new(provider, scheduler);
 
-    DumpImporter::new(provider, scheduler)
+        importer.begin()
+    }).from_err()
 }
 
-/// Performs anime import from AniDB dump asynchronously
-///
-/// ## Note
-/// This future will block your current task until it's ready due to moving into blocking
-/// section of tokio thread pool. If this is not desired behavior, spawn a separate task and use
-/// this future there. For more info see docs for `tokio_threadpool::blocking`
-pub struct DumpImporter<I, P, S>(AnimeImporter<P, S>)
-where
-    I: Iterator<Item = Anime>,
-    P: AnimeProvider<Iterator = I>,
-    S: ImportScheduler;
+/// Data source for anime records that should be imported
+pub trait AnimeProvider: Clone + Send {
+    /// Iterator for anime entities that should be processes. Entities should be sorted by id
+    /// and returned in ascended order
+    type Iterator: Iterator<Item = Anime>;
 
-impl<I, P, S> DumpImporter<I, P, S>
-where
-    I: Iterator<Item = Anime>,
-    P: AnimeProvider<Iterator = I>,
-    S: ImportScheduler,
-{
-    pub fn new(provider: P, scheduler: S) -> Self {
-        let importer = AnimeImporter::new(provider, scheduler);
-        DumpImporter(importer)
-    }
+    /// If provider can't return an iterator this error type will be used to determine a cause of
+    /// the error
+    type Error: Into<ImportError>;
+
+    /// Returns iterator for previously imported anime titles
+    ///
+    /// It used to build a diff of changed anime entities and process them only. The iterator may
+    /// return `None` at any time. In that case all titles returned from `new_anime_titles`
+    /// iterator would be imported as new titles
+    fn old_anime_titles(&self) -> Result<Self::Iterator, Self::Error>;
+
+    /// Returns iterator for anime titles that should be imported
+    ///
+    /// If non-empty iterator is returned from `old_anime_titles` then only diff will be processes
+    fn new_anime_titles(&self) -> Result<Self::Iterator, Self::Error>;
+
+    /// Returns `true` if anime title with provided `id` should be imported again
+    fn should_reimport(&self, id: i32) -> bool;
 }
 
-impl<I, P, S> Future for DumpImporter<I, P, S>
-where
-    I: Iterator<Item = Anime>,
-    P: AnimeProvider<Iterator = I>,
-    S: ImportScheduler,
-{
-    type Item = HashSet<i32>;
-    type Error = ImportError;
+/// Processes changes to anime entities storage
+pub trait ImportScheduler: Clone + Send {
+    type Error: std::error::Error;
 
-    fn poll(&mut self) -> Result<Async<Self::Item>, Self::Error> {
-        let importer = self.0.clone();
+    /// Adds new anime title to anime storage
+    fn add_title(&mut self, anime: &Anime) -> Result<(), Self::Error>;
 
-        let inner = blocking(move || {
-            let mut importer = importer;
-            importer.begin()
-        });
-
-        match try_ready!(inner) {
-            Ok(v) => Ok(Async::Ready(v)),
-            Err(e) => Err(e),
-        }
-    }
+    /// Removes anime title from anime storage
+    fn remove_title(&mut self, anime: &Anime) -> Result<(), Self::Error>;
 }
 
 /// Performs anime import with titles from `provider` and schedules changes in `scheduler`.
@@ -96,6 +86,38 @@ where
     /// Anime IDs that has not been imported
     skipped_ids: HashSet<i32>,
 }
+
+/// Data source for anime entities from AniDB dumps
+#[derive(Clone)]
+pub struct AniDbAnimeProvider<P: AsRef<Path> + Clone + Send> {
+    old_dump_path: P,
+    new_dump_path: P,
+    reimport_ids: HashSet<i32>,
+}
+
+/// Schedules for anime titles from AniDB dump
+#[derive(Clone)]
+pub struct AniDbImportScheduler {
+    /// Db table for scheduled imports
+    schedules: schedules::Schedules,
+}
+
+/// Represents an error that may occur during anime import
+#[derive(Debug)]
+pub enum ImportError {
+    /// Failed to read data from data source
+    ///
+    /// For example, situation where `AnimeProvider` will not be able to provide anime titles
+    /// will cause that error.
+    DataSourceFailed(String),
+
+    /// Something bad happened and import can't be finished
+    ///
+    /// This is an error that may be caused due to errors with tokio or rayon.
+    InternalError(String),
+}
+
+// MARK: impl AnimeImporter
 
 impl<P, S> AnimeImporter<P, S>
 where
@@ -194,79 +216,7 @@ where
     }
 }
 
-/// Represents an error that may occur during anime import
-#[derive(Debug)]
-pub enum ImportError {
-    /// Failed to read data from data source
-    ///
-    /// For example, situation where `AnimeProvider` will not be able to provide anime titles
-    /// will cause that error.
-    DataSourceFailed(String),
-
-    /// Something bad happened and import can't be finished
-    ///
-    /// This is an error that may be caused due to errors in tokio runtime.
-    InternalError(String),
-}
-
-impl From<XmlError> for ImportError {
-    fn from(e: XmlError) -> Self {
-        ImportError::DataSourceFailed(format!("data source error: {}", e))
-    }
-}
-
-impl From<BlockingError> for ImportError {
-    fn from(e: BlockingError) -> Self {
-        ImportError::InternalError(format!("failed to enter blocking section: {}", e))
-    }
-}
-
-impl fmt::Display for ImportError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use ImportError::*;
-
-        match self {
-            DataSourceFailed(e) => e.fmt(f),
-            InternalError(e) => e.fmt(f),
-        }
-    }
-}
-
-impl std::error::Error for ImportError {}
-
-/// Data source for anime records that should be imported
-pub trait AnimeProvider: Clone + Send {
-    /// Iterator for anime entities that should be processes. Entities should be sorted by id
-    /// and returned in ascended order
-    type Iterator: Iterator<Item = Anime>;
-
-    /// If provider can't return an iterator this error type will be used to determine a cause of
-    /// the error
-    type Error: Into<ImportError>;
-
-    /// Returns iterator for previously imported anime titles
-    ///
-    /// It used to build a diff of changed anime entities and process them only. The iterator may
-    /// return `None` at any time. In that case all titles returned from `new_anime_titles`
-    /// iterator would be imported as new titles
-    fn old_anime_titles(&self) -> Result<Self::Iterator, Self::Error>;
-
-    /// Returns iterator for anime titles that should be imported
-    ///
-    /// If non-empty iterator is returned from `old_anime_titles` then only diff will be processes
-    fn new_anime_titles(&self) -> Result<Self::Iterator, Self::Error>;
-
-    /// Returns `true` if anime title with provided `id` should be imported again
-    fn should_reimport(&self, id: i32) -> bool;
-}
-
-/// Data source for anime entities from AniDB dumps
-#[derive(Clone)]
-pub struct AniDbAnimeProvider<P: AsRef<Path> + Clone + Send> {
-    old_dump_path: P,
-    new_dump_path: P,
-    reimport_ids: HashSet<i32>,
-}
+// MARK: impl AnidbAnimeProvider
 
 impl<P: AsRef<Path> + Clone + Send> AniDbAnimeProvider<P> {
     /// Creates instance with AniDB anime dumps
@@ -284,21 +234,15 @@ impl<P: AsRef<Path> + Clone + Send> AniDbAnimeProvider<P> {
 }
 
 impl<P: AsRef<Path> + Clone + Send> AnimeProvider for AniDbAnimeProvider<P> {
-    type Iterator = AniDb;
+    type Iterator = Anidb;
     type Error = XmlError;
 
     fn old_anime_titles(&self) -> Result<Self::Iterator, Self::Error> {
-        match AniDb::new(self.old_dump_path.as_ref()) {
-            Ok(i) => Ok(i),
-            Err(XmlError::Io(ref e)) if e.kind() == std::io::ErrorKind::NotFound => {
-                Ok(AniDb::empty())
-            }
-            result => result,
-        }
+        Anidb::new(self.old_dump_path.as_ref())
     }
 
     fn new_anime_titles(&self) -> Result<Self::Iterator, Self::Error> {
-        AniDb::new(self.new_dump_path.as_ref())
+        Anidb::new(self.new_dump_path.as_ref())
     }
 
     fn should_reimport(&self, id: i32) -> bool {
@@ -306,31 +250,15 @@ impl<P: AsRef<Path> + Clone + Send> AnimeProvider for AniDbAnimeProvider<P> {
     }
 }
 
-/// Processes changes to anime entities storage
-pub trait ImportScheduler: Clone + Send {
-    type Error: std::error::Error;
+// MARK: impl AnidbImportScheduler
 
-    /// Adds new anime title to anime storage
-    fn add_title(&mut self, anime: &Anime) -> Result<(), Self::Error>;
-
-    /// Removes anime title from anime storage
-    fn remove_title(&mut self, anime: &Anime) -> Result<(), Self::Error>;
-}
-
-/// Schedules for anime titles from AniDB dump
-#[derive(Clone)]
-pub struct AniDbImportScheduler<P: ConnectionPool + Send> {
-    /// Db table for scheduled imports
-    schedules: schedules::Schedules<P>,
-}
-
-impl<P: ConnectionPool + Send> AniDbImportScheduler<P> {
-    pub fn new(schedules: schedules::Schedules<P>) -> Self {
+impl AniDbImportScheduler {
+    pub fn new(schedules: schedules::Schedules) -> Self {
         AniDbImportScheduler { schedules }
     }
 }
 
-impl<P: ConnectionPool + Send> ImportScheduler for AniDbImportScheduler<P> {
+impl ImportScheduler for AniDbImportScheduler {
     type Error = QueryError;
 
     fn add_title(&mut self, anime: &Anime) -> Result<(), Self::Error> {
@@ -344,11 +272,40 @@ impl<P: ConnectionPool + Send> ImportScheduler for AniDbImportScheduler<P> {
     }
 }
 
+// MARK: impl ImportError
+
+impl From<XmlError> for ImportError {
+    fn from(e: XmlError) -> Self {
+        ImportError::DataSourceFailed(format!("data source error: {}", e))
+    }
+}
+
+impl<E: std::fmt::Debug> From<BlockingError<E>> for ImportError {
+    fn from(e: BlockingError<E>) -> Self {
+        match e {
+            BlockingError::Error(e) => ImportError::DataSourceFailed(format!("{:?}", e)),
+            BlockingError::Cancelled => ImportError::InternalError("blocking cancelled".to_string()),
+        }
+    }
+}
+
+impl fmt::Display for ImportError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use ImportError::*;
+
+        match self {
+            DataSourceFailed(e) => e.fmt(f),
+            InternalError(e) => e.fmt(f),
+        }
+    }
+}
+
+impl std::error::Error for ImportError {}
+
 #[cfg(test)]
 mod tests {
-    use super::super::test_utils::import::*;
-    use super::super::test_utils::tokio_run_aborting;
     use super::*;
+    use super::super::test_utils::import::*;
     use std::iter::FromIterator as _;
 
     #[test]
@@ -356,12 +313,8 @@ mod tests {
         let provider = FakeProvider::new(vec![], gen_anime([1, 2, 3, 4, 5]));
         let scheduler = FakeScheduler::empty();
 
-        let importer = DumpImporter::new(provider.clone(), scheduler.clone());
-        tokio_run_aborting(
-            importer
-                .map_err(|e| panic!("unexpected err: {}", e))
-                .and_then(|_| Ok(())),
-        );
+        let mut importer = AnimeImporter::new(provider.clone(), scheduler.clone());
+        importer.begin().unwrap();
 
         assert!(scheduler.removed.lock().unwrap().is_empty());
         assert_eq!(*scheduler.added.lock().unwrap(), provider.new);
@@ -372,12 +325,8 @@ mod tests {
         let provider = FakeProvider::new(gen_anime([1, 3, 5]), gen_anime([1, 2, 3, 4, 5]));
         let scheduler = FakeScheduler::empty();
 
-        let importer = DumpImporter::new(provider.clone(), scheduler.clone());
-        tokio_run_aborting(
-            importer
-                .map_err(|e| panic!("unexpected err: {}", e))
-                .and_then(|_| Ok(())),
-        );
+        let mut importer = AnimeImporter::new(provider.clone(), scheduler.clone());
+        importer.begin().unwrap();
 
         assert!(scheduler.removed.lock().unwrap().is_empty());
         assert_eq!(*scheduler.added.lock().unwrap(), gen_anime([2, 4]));
@@ -388,12 +337,8 @@ mod tests {
         let provider = FakeProvider::new(gen_anime([1, 2, 3, 4, 5]), gen_anime([1, 3, 5]));
         let scheduler = FakeScheduler::empty();
 
-        let importer = DumpImporter::new(provider.clone(), scheduler.clone());
-        tokio_run_aborting(
-            importer
-                .map_err(|e| panic!("unexpected err: {}", e))
-                .and_then(|_| Ok(())),
-        );
+        let mut importer = AnimeImporter::new(provider.clone(), scheduler.clone());
+        importer.begin().unwrap();
 
         assert!(scheduler.added.lock().unwrap().is_empty());
         assert_eq!(*scheduler.removed.lock().unwrap(), gen_anime([2, 4]));
@@ -404,40 +349,28 @@ mod tests {
         let provider = FakeProvider::new(gen_anime([1, 3, 5]), gen_anime([2, 4, 5, 7]));
         let scheduler = FakeScheduler::empty();
 
-        let importer = DumpImporter::new(provider.clone(), scheduler.clone());
-        tokio_run_aborting(
-            importer
-                .map_err(|e| panic!("unexpected err: {}", e))
-                .and_then(|_| Ok(())),
-        );
+        let mut importer = AnimeImporter::new(provider.clone(), scheduler.clone());
+        importer.begin().unwrap();
 
         assert_eq!(*scheduler.removed.lock().unwrap(), gen_anime([1, 3]));
         assert_eq!(*scheduler.added.lock().unwrap(), gen_anime([2, 4, 7]));
     }
 
     #[test]
-    fn test_generates_skip_ids() -> Result<(), std::io::Error> {
+    fn test_generates_skip_ids() {
         let skip = vec![2, 5];
         let provider = FakeProvider::new(vec![], gen_anime([1, 2, 3, 4, 5]));
         let scheduler = FakeScheduler::empty_skipping(HashSet::from_iter(skip.clone()));
 
-        let importer = DumpImporter::new(provider, scheduler.clone()).then(|res| {
-            match res {
-                Ok(skipped) => assert_eq!(skipped, HashSet::from_iter(skip)),
-                Err(e) => panic!("unexpected error: {}", e),
-            }
+        let mut importer = AnimeImporter::new(provider, scheduler.clone());
+        let skipped = importer.begin().unwrap();
 
-            Ok(())
-        });
-
-        tokio_run_aborting(importer);
+        assert_eq!(skipped, HashSet::from_iter(skip));
         assert_eq!(*scheduler.added.lock().unwrap(), gen_anime([1, 3, 4]));
-
-        Ok(())
     }
 
     #[test]
-    fn test_does_reimport() -> Result<(), std::io::Error> {
+    fn test_does_reimport() {
         let reimport = vec![2, 5];
         let provider = FakeProvider::new_reimporting(
             gen_anime(reimport.clone()),
@@ -446,16 +379,10 @@ mod tests {
         );
         let scheduler = FakeScheduler::empty();
 
-        let importer = DumpImporter::new(provider.clone(), scheduler.clone()).then(|res| {
-            match res {
-                Ok(skipped) => assert!(skipped.is_empty()),
-                Err(e) => panic!("unexpected error: {}", e),
-            }
+        let mut importer = AnimeImporter::new(provider.clone(), scheduler.clone());
+        let skipped = importer.begin().unwrap();
 
-            Ok(())
-        });
-
-        tokio_run_aborting(importer);
+        assert!(skipped.is_empty());
         assert_eq!(*scheduler.added.lock().unwrap(), provider.new);
 
         Ok(())

@@ -1,5 +1,4 @@
 use futures::prelude::*;
-use reqwest::header::{self, HeaderMap, HeaderValue};
 use reqwest::r#async::{Client, ClientBuilder};
 use reqwest::Method;
 use tokio::fs::File;
@@ -17,22 +16,25 @@ where
     U: AsRef<str> + Send,
     P: AsRef<Path> + Clone + Send + 'static,
 {
-    const USER_AGENT: &str =
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_4) AppleWebKit/605.1.15 \
-         (KHTML, like Gecko) Version/12.1 Safari/605.1.15";
-
-    let mut headers = HeaderMap::new();
-    headers.insert(header::USER_AGENT, HeaderValue::from_static(USER_AGENT));
-
     let client = ClientBuilder::new()
-        .default_headers(headers)
         .gzip(true)
-        .connect_timeout(Duration::new(60, 0))
+        .connect_timeout(Duration::new(60, 0)) // TODO: from config
         .build();
 
     futures::future::result(client)
         .from_err()
         .and_then(move |client| DumpDownloader::new(client, dump_url, dest_path).download())
+}
+
+/// Asynchronous file downloading client
+pub trait FileDownload: Send {
+    /// Type of chunks of data stream
+    type Chunk: AsRef<[u8]>;
+    /// Stream of data chunks
+    type Bytes: Stream<Item = Self::Chunk, Error = DownloadError>;
+
+    /// Asynchronously starts downloading file at specified `url`
+    fn download(&self, url: &str) -> Self::Bytes;
 }
 
 /// AniDB dump downloader
@@ -44,6 +46,16 @@ pub struct DumpDownloader<D, U, P> {
     /// Path where to save dump
     dest_path: P,
 }
+
+/// Represents an error that may happen during dump download
+pub enum DownloadError {
+    /// Request or download has failed
+    Net(reqwest::Error),
+    /// Failed to write dump on disk
+    Fs(std::io::Error),
+}
+
+// MARK: impl DumpDownloader
 
 impl<D, U, P> DumpDownloader<D, U, P>
 where
@@ -68,7 +80,7 @@ where
         file.and_then(move |f| {
             dump.fold(f, |f, chunk| {
                 tokio::io::write_all(f, chunk)
-                    .map_err(DownloadError::from)
+                    .map_err(|e| DownloadError::Fs(e))
                     .map(|(f, _)| f)
             })
             .and_then(|_| Ok(()))
@@ -76,16 +88,7 @@ where
     }
 }
 
-/// Asynchronous file downloading client
-pub trait FileDownload: Send {
-    /// Type of chunks of data stream
-    type Chunk: AsRef<[u8]>;
-    /// Stream of data chunks
-    type Bytes: Stream<Item = Self::Chunk, Error = DownloadError>;
-
-    /// Asynchronously starts downloading file at specified `url`
-    fn download(&self, url: &str) -> Self::Bytes;
-}
+// MARK: impl FileDownload
 
 impl FileDownload for Client {
     type Chunk = reqwest::r#async::Chunk;
@@ -99,19 +102,13 @@ impl FileDownload for Client {
             .take(1)
             .map(|r| r.into_body())
             .flatten()
-            .map_err(DownloadError::from);
+            .from_err();
 
-        Box::new(bytes) // TODO: how to eliminate alloc?
+        Box::new(bytes)
     }
 }
 
-/// Represents an error that may happen during dump download
-pub enum DownloadError {
-    /// Request or download has failed
-    Net(reqwest::Error),
-    /// Failed to write dump on disk
-    Fs(std::io::Error),
-}
+// MARK: impl DownloadError
 
 impl Debug for DownloadError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

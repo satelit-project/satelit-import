@@ -1,12 +1,13 @@
 [db]
-path = "db/anime.sqlite"
+url = "postgres://test:qwerty@127.0.0.1:5432/import-dev"
 max_connections = 8
 connection_timeout = 15
 
 [import]
-download_path = "db/anidb-dump/dump.gz"
-dump_backup_path = "db/anidb-dump/old.xml"
-dump_path = "db/anidb-dump/new.xml"
+new_download_path = "static/anidb-index/new.gz"
+old_download_path = "static/anidb-index/old.gz"
+new_extract_path = "static/anidb-index/new.xml"
+old_extract_path = "static/anidb-index/old.xml"
 
 [ports]
 import = 10601

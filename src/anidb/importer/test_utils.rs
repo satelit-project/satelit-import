@@ -3,8 +3,8 @@
 use futures::prelude::*;
 
 pub(crate) mod import {
-    use crate::anidb::*;
-    use crate::worker::dump::import::*;
+    use crate::anidb::parser::*;
+    use crate::anidb::importer::import::*;
     use std::collections::HashSet;
     use std::sync::{Arc, Mutex};
     use std::vec::IntoIter;
@@ -124,7 +124,7 @@ pub(crate) mod import {
 }
 
 pub(crate) mod download {
-    use crate::worker::dump::download::*;
+    use crate::anidb::importer::download::*;
     use futures::stream::{self, IterOk};
 
     #[derive(Clone)]

@@ -9,32 +9,29 @@ use crate::db::entity::{ExternalSource, SchedulePriority, Task, UpdatedSchedule}
 use crate::db::scheduled_tasks::ScheduledTasks;
 use crate::db::schedules::Schedules;
 use crate::db::tasks::Tasks;
-use crate::db::{ConnectionPool, QueryError};
+use crate::db::QueryError;
 
 use crate::block::{blocking, BlockingError};
 use crate::proto::data;
-use crate::proto::scraper::{self, server};
+use crate::proto::scraping::{self, server};
 
 #[derive(Clone)]
-pub struct ScraperTasksService<P> {
-    state: Arc<State<P>>,
+pub struct ScraperTasksService {
+    state: Arc<State>,
 }
 
 #[derive(Clone)]
-struct State<P> {
-    tasks: Tasks<P>,
-    schedules: Schedules<P>,
-    scheduled_tasks: ScheduledTasks<P>,
+struct State {
+    tasks: Tasks,
+    schedules: Schedules,
+    scheduled_tasks: ScheduledTasks,
 }
 
-impl<P> ScraperTasksService<P>
-where
-    P: ConnectionPool + 'static,
-{
+impl ScraperTasksService {
     pub fn new(
-        tasks: Tasks<P>,
-        schedules: Schedules<P>,
-        scheduled_tasks: ScheduledTasks<P>,
+        tasks: Tasks,
+        schedules: Schedules,
+        scheduled_tasks: ScheduledTasks,
     ) -> Self {
         let state = State {
             tasks,
@@ -48,15 +45,12 @@ where
     }
 }
 
-impl<P> server::ScraperTasksService for ScraperTasksService<P>
-where
-    P: ConnectionPool + 'static,
-{
-    type CreateTaskFuture = Box<dyn Future<Item = Response<scraper::Task>, Error = Status> + Send>;
+impl server::ScraperTasksService for ScraperTasksService {
+    type CreateTaskFuture = Box<dyn Future<Item = Response<scraping::Task>, Error = Status> + Send>;
     type YieldResultFuture = Box<dyn Future<Item = Response<()>, Error = Status> + Send>;
     type CompleteTaskFuture = Box<dyn Future<Item = Response<()>, Error = Status> + Send>;
 
-    fn create_task(&mut self, request: Request<scraper::TaskCreate>) -> Self::CreateTaskFuture {
+    fn create_task(&mut self, request: Request<scraping::TaskCreate>) -> Self::CreateTaskFuture {
         let state = self.state.clone();
 
         let response = blocking(move || {
@@ -74,7 +68,7 @@ where
         Box::new(response)
     }
 
-    fn yield_result(&mut self, request: Request<scraper::TaskYield>) -> Self::YieldResultFuture {
+    fn yield_result(&mut self, request: Request<scraping::TaskYield>) -> Self::YieldResultFuture {
         let state = self.state.clone();
 
         let response = blocking(move || {
@@ -92,7 +86,7 @@ where
         Box::new(response)
     }
 
-    fn complete_task(&mut self, request: Request<scraper::TaskFinish>) -> Self::CompleteTaskFuture {
+    fn complete_task(&mut self, request: Request<scraping::TaskFinish>) -> Self::CompleteTaskFuture {
         let state = self.state.clone();
 
         let response = blocking(move || {
@@ -111,10 +105,7 @@ where
     }
 }
 
-fn make_task<P>(state: &State<P>, options: &scraper::TaskCreate) -> Result<scraper::Task, Status>
-where
-    P: ConnectionPool + 'static,
-{
+fn make_task(state: &State, options: &scraping::TaskCreate) -> Result<scraping::Task, Status> {
     let source = data::Source::from_i32(options.source).unwrap_or(data::Source::Unknown);
 
     let id = uuid::Uuid::new_v4().to_string();
@@ -132,7 +123,7 @@ where
         schedule_ids.push(schedule.id);
     }
 
-    Ok(scraper::Task {
+    Ok(scraping::Task {
         id: task.id,
         source: task.source as i32,
         schedule_ids,
@@ -140,10 +131,7 @@ where
     })
 }
 
-fn update_task<P>(state: &State<P>, data: &scraper::TaskYield) -> Result<(), Status>
-where
-    P: ConnectionPool + 'static,
-{
+fn update_task(state: &State, data: &scraping::TaskYield) -> Result<(), Status> {
     let anime = match data.anime {
         Some(ref a) => a,
         None => {
@@ -260,7 +248,6 @@ impl From<BlockingError<QueryError>> for Status {
         match e {
             Error(e) => Status::new(Code::Internal, e.to_string()),
             Cancelled => Status::new(Code::Cancelled, "Job was cancelled"),
-            Unavailable => Status::new(Code::Internal, "Worker thread is unavailable"),
         }
     }
 }
@@ -272,7 +259,6 @@ impl From<BlockingError<Status>> for Status {
         match e {
             Error(status) => status,
             Cancelled => Status::new(Code::Cancelled, "Job was cancelled"),
-            Unavailable => Status::new(Code::Internal, "Worker thread is unavailable"),
         }
     }
 }

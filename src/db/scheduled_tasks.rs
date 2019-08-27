@@ -2,17 +2,17 @@ use diesel::prelude::*;
 
 use super::entity::{Schedule, ScheduledTask, Task};
 use super::schema::{scheduled_tasks, schedules};
-use super::{ConnectionPool, PoolError, QueryError, Table};
+use super::{ConnectionPool, QueryError};
 
 /// Represents *scheduled_tasks* table that contains mapping between a task and schedule
 #[derive(Clone)]
-pub struct ScheduledTasks<P> {
-    pool: P,
+pub struct ScheduledTasks {
+    pool: ConnectionPool,
 }
 
-impl<P: ConnectionPool> ScheduledTasks<P> {
+impl ScheduledTasks {
     /// Creates new table instance
-    pub fn new(pool: P) -> Self {
+    pub fn new(pool: ConnectionPool) -> Self {
         Self { pool }
     }
 
@@ -21,7 +21,7 @@ impl<P: ConnectionPool> ScheduledTasks<P> {
     /// It will choose the first `count` anime titles with `Pending` state and sorted
     /// by priority. You can retrieve  
     pub fn create(&self, task: &Task, count: i32) -> Result<(), QueryError> {
-        let conn = self.connection()?;
+        let conn = self.pool.get()?;
 
         let sql = r#"
         insert into scheduled_tasks (task_id, schedule_id)
@@ -43,7 +43,7 @@ impl<P: ConnectionPool> ScheduledTasks<P> {
     pub fn for_task(&self, task: &Task) -> Result<Vec<(ScheduledTask, Schedule)>, QueryError> {
         use self::scheduled_tasks::dsl::*;
 
-        let conn = self.connection()?;
+        let conn = self.pool.get()?;
         let result = scheduled_tasks
             .filter(task_id.eq(&task.id))
             .inner_join(self::schedules::table)
@@ -55,18 +55,12 @@ impl<P: ConnectionPool> ScheduledTasks<P> {
     pub fn complete_for_schedule(&self, task_id: &str, schedule_id: i32) -> Result<(), QueryError> {
         use self::scheduled_tasks::dsl;
 
-        let conn = self.connection()?;
+        let conn = self.pool.get()?;
         let target = dsl::scheduled_tasks
             .filter(dsl::task_id.eq(task_id))
             .filter(dsl::schedule_id.eq(schedule_id));
         diesel::delete(target).execute(&conn)?;
 
         Ok(())
-    }
-}
-
-impl<P: ConnectionPool> Table<P> for ScheduledTasks<P> {
-    fn connection(&self) -> Result<<P as ConnectionPool>::Connection, PoolError> {
-        self.pool.get()
     }
 }

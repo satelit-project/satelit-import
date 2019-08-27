@@ -3,31 +3,8 @@ target
 **/*.rs.bk
 
 ### Project
-db/*.sqlite
-db/anidb-dump/*.xml
-db/anidb-dump/*.gz
+static/anidb-index/*.xml
+static/anidb-index/*.gz
 
-### CLion
-
-# User-specific stuff
-.idea/**/workspace.xml
-.idea/**/tasks.xml
-.idea/**/usage.statistics.xml
-.idea/**/dictionaries
-.idea/**/shelf
-
-# Generated files
-.idea/**/contentModel.xml
-
-# Sensitive or high-churn files
-.idea/**/dataSources/
-.idea/**/dataSources.ids
-.idea/**/dataSources.local.xml
-.idea/**/sqlDataSources.xml
-.idea/**/dynamic.xml
-.idea/**/uiDesigner.xml
-.idea/**/dbnavigator.xml
-.idea/**/markdown*
-
-# Editor-based Rest Client
-.idea/httpRequests
+### IDEA
+.idea

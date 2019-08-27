@@ -2,17 +2,17 @@ use diesel::prelude::*;
 
 use super::entity::Task;
 use super::schema::tasks;
-use super::{ConnectionPool, PoolError, QueryError, Table};
+use super::{ConnectionPool, QueryError};
 
 /// Represents *tasks* table that contains all created scrapping tasks
 #[derive(Clone)]
-pub struct Tasks<P> {
-    pool: P,
+pub struct Tasks {
+    pool: ConnectionPool,
 }
 
-impl<P: ConnectionPool> Tasks<P> {
+impl Tasks {
     /// Creates new table instance
-    pub fn new(pool: P) -> Self {
+    pub fn new(pool: ConnectionPool) -> Self {
         Self { pool }
     }
 
@@ -20,7 +20,7 @@ impl<P: ConnectionPool> Tasks<P> {
     pub fn register(&self, task: &Task) -> Result<(), QueryError> {
         use self::tasks::dsl::*;
 
-        let conn = self.connection()?;
+        let conn = self.pool.get()?;
         diesel::insert_into(tasks).values(task).execute(&conn)?;
 
         Ok(())
@@ -44,11 +44,5 @@ impl<P: ConnectionPool> Tasks<P> {
         diesel::delete(tasks.filter(id.eq(task_id))).execute(&conn)?;
 
         Ok(())
-    }
-}
-
-impl<P: ConnectionPool> Table<P> for Tasks<P> {
-    fn connection(&self) -> Result<<P as ConnectionPool>::Connection, PoolError> {
-        self.pool.get()
     }
 }
