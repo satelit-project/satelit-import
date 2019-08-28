@@ -70,6 +70,12 @@ pub struct Anime {
     /// Anime description
     #[prost(string, tag="11")]
     pub description: std::string::String,
+    /// Creation date in external DB
+    #[prost(sint64, tag="12")]
+    pub src_created_at: i64,
+    /// Last update date in external DB
+    #[prost(sint64, tag="13")]
+    pub src_updated_at: i64,
 }
 pub mod anime {
     /// External DB location

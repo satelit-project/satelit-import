@@ -1,17 +1,19 @@
 use diesel::sql_types::Integer;
+use chrono::{DateTime, Utc};
+use uuid::Uuid;
 
-use super::schema::scheduled_tasks;
+use super::schema::queued_tasks;
 use super::schema::schedules;
-use super::schema::tasks;
 
 /// Represents scheduled anidb item import
 #[derive(Queryable)]
 pub struct Schedule {
     pub id: i32,
-    pub sourced_id: i32,
+    pub external_id: i32,
     pub source: ExternalSource,
     pub state: ScheduleState,
     pub priority: SchedulePriority,
+    pub update_count: i32,
     pub has_poster: bool,
     pub has_air_date: bool,
     pub has_type: bool,
@@ -19,12 +21,14 @@ pub struct Schedule {
     pub has_mal_id: bool,
     pub has_ann_id: bool,
     pub has_tags: bool,
-    pub has_episode_count: bool,
-    pub has_all_episodes: bool,
+    pub has_ep_count: bool,
+    pub has_all_eps: bool,
     pub has_rating: bool,
     pub has_description: bool,
-    pub created_at: f64,
-    pub updated_at: f64,
+    pub src_created_at: Option<DateTime<Utc>>,
+    pub src_updated_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
 /// Represents state of a schedule
@@ -72,18 +76,18 @@ pub enum SchedulePriority {
 
 #[derive(Insertable)]
 #[table_name = "schedules"]
-pub struct SourceSchedule {
-    pub sourced_id: i32,
+pub struct NewSchedule {
+    pub external_id: i32,
     pub source: ExternalSource,
     pub has_anidb_id: bool,
     pub has_mal_id: bool,
     pub has_ann_id: bool,
 }
 
-impl SourceSchedule {
-    pub fn new(sourced_id: i32, source: ExternalSource) -> Self {
+impl NewSchedule {
+    pub fn new(external_id: i32, source: ExternalSource) -> Self {
         let mut new = Self {
-            sourced_id,
+            external_id,
             source,
             has_anidb_id: false,
             has_mal_id: false,
@@ -110,10 +114,12 @@ pub struct UpdatedSchedule {
     pub has_mal_id: bool,
     pub has_ann_id: bool,
     pub has_tags: bool,
-    pub has_episode_count: bool,
-    pub has_all_episodes: bool,
+    pub has_ep_count: bool,
+    pub has_all_eps: bool,
     pub has_rating: bool,
     pub has_description: bool,
+    pub src_created_at: Option<DateTime<Utc>>,
+    pub src_updated_at: Option<DateTime<Utc>>,
 }
 
 impl Default for UpdatedSchedule {
@@ -127,10 +133,12 @@ impl Default for UpdatedSchedule {
             has_mal_id: false,
             has_ann_id: false,
             has_tags: false,
-            has_episode_count: false,
-            has_all_episodes: false,
+            has_ep_count: false,
+            has_all_eps: false,
             has_rating: false,
             has_description: false,
+            src_created_at: None,
+            src_updated_at: None,
         }
     }
 }
@@ -144,22 +152,19 @@ pub enum ExternalSource {
     ANN = 2,
 }
 
-#[derive(Queryable, Insertable)]
+#[derive(Queryable)]
 pub struct Task {
-    pub id: String,
+    pub id: Uuid,
     pub source: ExternalSource,
-}
-
-impl Task {
-    pub fn new(id: String, source: ExternalSource) -> Self {
-        Self { id, source }
-    }
+    pub external_ids: Vec<i32>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
 #[derive(Queryable, QueryableByName)]
-#[table_name = "scheduled_tasks"]
-pub struct ScheduledTask {
-    pub id: i32,
-    pub task_id: String,
+#[table_name = "queued_tasks"]
+pub struct QueuedTask {
+    pub id: Uuid,
+    pub task_id: Uuid,
     pub schedule_id: i32,
 }

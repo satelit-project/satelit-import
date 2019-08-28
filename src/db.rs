@@ -1,6 +1,6 @@
 mod convert;
 pub mod entity;
-pub mod scheduled_tasks;
+pub mod queued_tasks;
 pub mod schedules;
 pub mod schema;
 pub mod tasks;

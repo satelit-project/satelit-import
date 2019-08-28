@@ -4,7 +4,7 @@ pub struct ImportIntent {
     /// Intent ID
     #[prost(string, tag="1")]
     pub id: std::string::String,
-    /// Represents an external DB from where anime titles index should be imported
+    /// External data source to which index files belongs to
     #[prost(enumeration="super::data::Source", tag="2")]
     pub source: i32,
     /// URL of latest anime titles index

@@ -6,7 +6,7 @@ use std::convert::{TryFrom, TryInto};
 use std::sync::Arc;
 
 use crate::db::entity::{ExternalSource, SchedulePriority, Task, UpdatedSchedule};
-use crate::db::scheduled_tasks::ScheduledTasks;
+use crate::db::queued_tasks::ScheduledTasks;
 use crate::db::schedules::Schedules;
 use crate::db::tasks::Tasks;
 use crate::db::QueryError;

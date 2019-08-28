@@ -32,7 +32,7 @@ impl ServicesBuilder {
     pub fn tasks_service(&self) -> ScraperTasksServiceServer<ScraperTasksService> {
         let tasks = db::tasks::Tasks::new(self.conn_pool.clone());
         let schedules = db::schedules::Schedules::new(self.conn_pool.clone());
-        let scheduled_tasks = db::scheduled_tasks::ScheduledTasks::new(self.conn_pool.clone());
+        let scheduled_tasks = db::queued_tasks::ScheduledTasks::new(self.conn_pool.clone());
 
         let service = ScraperTasksService::new(tasks, schedules, scheduled_tasks);
         ScraperTasksServiceServer::new(service)
