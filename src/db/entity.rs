@@ -12,10 +12,12 @@ pub struct Schedule {
     pub external_id: i32,
     pub source: ExternalSource,
     pub state: ScheduleState,
-    pub priority: SchedulePriority,
+    pub priority: i32,
+    pub next_update_at: DateTime<Utc>,
     pub update_count: i32,
     pub has_poster: bool,
-    pub has_air_date: bool,
+    pub has_start_air_date: bool,
+    pub has_end_air_date: bool,
     pub has_type: bool,
     pub has_anidb_id: bool,
     pub has_mal_id: bool,
@@ -39,39 +41,6 @@ pub enum ScheduleState {
     Pending = 0,
     Processing = 1,
     Finished = 2,
-}
-
-/// Represents scraping priority of a schedule
-#[sql_type = "Integer"]
-#[repr(C)]
-#[derive(Debug, Clone, Copy, PartialEq, FromSqlRow, AsExpression)]
-pub enum SchedulePriority {
-    /// Lowest priority meaning that the item should be scraped if no more work is available
-    Idle = 0,
-
-    /// External sources like AniDB or MAL are missing
-    NeedExternalSources = 500,
-
-    /// Rating is missing
-    NeedRating = 700,
-
-    /// Episodes are missing
-    NeedEpisodes = 750,
-
-    /// Description is missing
-    NeedDescription = 800,
-
-    /// Tags are missing
-    NeedTags = 850,
-
-    /// Poster is missing
-    NeedPoster = 900,
-
-    /// Air date, type or episodes count is missing
-    NeedAiringDetails = 950,
-
-    /// Newly added item that should be scraped asap
-    New = 1_000,
 }
 
 #[derive(Insertable)]
@@ -106,9 +75,10 @@ impl NewSchedule {
 #[derive(AsChangeset)]
 #[table_name = "schedules"]
 pub struct UpdatedSchedule {
-    pub priority: SchedulePriority,
+    pub next_update_at: DateTime<Utc>,
     pub has_poster: bool,
-    pub has_air_date: bool,
+    pub has_start_air_date: bool,
+    pub has_end_air_date: bool,
     pub has_type: bool,
     pub has_anidb_id: bool,
     pub has_mal_id: bool,
@@ -125,9 +95,10 @@ pub struct UpdatedSchedule {
 impl Default for UpdatedSchedule {
     fn default() -> Self {
         Self {
-            priority: SchedulePriority::Idle,
+            next_update_at: Utc::now(),
             has_poster: false,
-            has_air_date: false,
+            has_start_air_date: false,
+            has_end_air_date: false,
             has_type: false,
             has_anidb_id: false,
             has_mal_id: false,

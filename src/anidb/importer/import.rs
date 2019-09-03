@@ -7,7 +7,7 @@ use std::fmt;
 use std::path::Path;
 
 use crate::anidb::parser::{Anidb, Anime, XmlError};
-use crate::db::entity::{ExternalSource, SourceSchedule};
+use crate::db::entity::{ExternalSource, QueuedTask};
 use crate::db::{schedules, ConnectionPool, QueryError};
 use crate::block::{blocking, BlockingError};
 

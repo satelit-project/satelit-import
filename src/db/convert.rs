@@ -35,33 +35,6 @@ impl FromSql<Integer, Pg> for ScheduleState {
     }
 }
 
-// Conversion from SchedulePriority
-impl ToSql<Integer, Pg> for SchedulePriority {
-    fn to_sql<W: Write>(
-        &self,
-        out: &mut diesel::serialize::Output<'_, W, Pg>,
-    ) -> diesel::serialize::Result {
-        ToSql::<Integer, Pg>::to_sql(&(*self as i32), out)
-    }
-}
-
-// Conversion to SchedulePriority
-impl FromSql<Integer, Pg> for SchedulePriority {
-    fn from_sql(
-        bytes: Option<&<Pg as Backend>::RawValue>,
-    ) -> diesel::deserialize::Result<Self> {
-        use SchedulePriority::*;
-
-        let value: i32 = FromSql::<Integer, Pg>::from_sql(bytes)?;
-        let range = (Idle as i32)..=(New as i32);
-        if range.contains(&value) {
-            unsafe { return Ok(std::mem::transmute(value)) }
-        }
-
-        Err(format!("Unrecognized SchedulePriority raw value: {}", value).into())
-    }
-}
-
 // Conversion from ExternalSource
 impl ToSql<Integer, Pg> for ExternalSource {
     fn to_sql<W: Write>(

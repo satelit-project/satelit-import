@@ -1,3 +1,5 @@
+mod update;
+
 use futures::prelude::*;
 use log::{error, warn};
 use tower_grpc::{Code, Request, Response, Status};
@@ -201,38 +203,6 @@ fn update_for_anime(anime: &data::Anime) -> UpdatedSchedule {
     schedule.priority = priority_for_schedule(&schedule);
 
     schedule
-}
-
-fn priority_for_schedule(schedule: &UpdatedSchedule) -> SchedulePriority {
-    if !schedule.has_air_date || !schedule.has_type || !schedule.has_episode_count {
-        return SchedulePriority::NeedAiringDetails;
-    }
-
-    if !schedule.has_poster {
-        return SchedulePriority::NeedPoster;
-    }
-
-    if !schedule.has_tags {
-        return SchedulePriority::NeedTags;
-    }
-
-    if !schedule.has_description {
-        return SchedulePriority::NeedDescription;
-    }
-
-    if !schedule.has_all_episodes {
-        return SchedulePriority::NeedEpisodes;
-    }
-
-    if !schedule.has_rating {
-        return SchedulePriority::NeedRating;
-    }
-
-    if !schedule.has_anidb_id || !schedule.has_mal_id || !schedule.has_ann_id {
-        return SchedulePriority::NeedExternalSources;
-    }
-
-    SchedulePriority::Idle
 }
 
 impl From<QueryError> for Status {

@@ -2,27 +2,29 @@
 
 create table schedules
 (
-    id              serial                    not null,
-    external_id     int                       not null,
-    source          int                       not null,
-    state           int         default 0     not null,
-    priority        int         default 1000  not null,
-    update_count    int         default 0     not null,
-    has_poster      boolean     default false not null,
-    has_air_date    boolean     default false not null,
-    has_type        boolean     default false not null,
-    has_anidb_id    boolean     default false not null,
-    has_mal_id      boolean     default false not null,
-    has_ann_id      boolean     default false not null,
-    has_tags        boolean     default false not null,
-    has_ep_count    boolean     default false not null,
-    has_all_eps     boolean     default false not null,
-    has_rating      boolean     default false not null,
-    has_description boolean     default false not null,
-    src_created_at  timestamptz default null,
-    src_updated_at  timestamptz default null,
-    created_at      timestamptz default now() not null,
-    updated_at      timestamptz default now() not null
+    id                 serial                    not null,
+    external_id        int                       not null,
+    source             int                       not null,
+    state              int         default 0     not null,
+    priority           int         default 1000  not null,
+    next_update_at     timestamptz               not null,
+    update_count       int         default 0     not null,
+    has_poster         boolean     default false not null,
+    has_start_air_date boolean     default false not null,
+    has_end_air_date   bool        default false not null,
+    has_type           boolean     default false not null,
+    has_anidb_id       boolean     default false not null,
+    has_mal_id         boolean     default false not null,
+    has_ann_id         boolean     default false not null,
+    has_tags           boolean     default false not null,
+    has_ep_count       boolean     default false not null,
+    has_all_eps        boolean     default false not null,
+    has_rating         boolean     default false not null,
+    has_description    boolean     default false not null,
+    src_created_at     timestamptz default null,
+    src_updated_at     timestamptz default null,
+    created_at         timestamptz default now() not null,
+    updated_at         timestamptz default now() not null
 );
 
 create unique index schedules_external_id_source_uindex
@@ -110,9 +112,9 @@ create function queued_tasks_set_pending_or_finished_state()
 $$
 begin
     update schedules
-    set state = case
-                    when priority = 0 then 3
-                    else 0 end,
+    set state        = case
+                           when priority = 0 then 3
+                           else 0 end,
         update_count = update_count + 1
     where old.schedule_id = id;
 
