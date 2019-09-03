@@ -13,7 +13,7 @@ pub struct Schedule {
     pub source: ExternalSource,
     pub state: ScheduleState,
     pub priority: i32,
-    pub next_update_at: DateTime<Utc>,
+    pub next_update_at: Option<DateTime<Utc>>,
     pub update_count: i32,
     pub has_poster: bool,
     pub has_start_air_date: bool,
@@ -75,7 +75,7 @@ impl NewSchedule {
 #[derive(AsChangeset)]
 #[table_name = "schedules"]
 pub struct UpdatedSchedule {
-    pub next_update_at: DateTime<Utc>,
+    pub next_update_at: Option<DateTime<Utc>>,
     pub has_poster: bool,
     pub has_start_air_date: bool,
     pub has_end_air_date: bool,
@@ -95,7 +95,7 @@ pub struct UpdatedSchedule {
 impl Default for UpdatedSchedule {
     fn default() -> Self {
         Self {
-            next_update_at: Utc::now(),
+            next_update_at: None,
             has_poster: false,
             has_start_air_date: false,
             has_end_air_date: false,

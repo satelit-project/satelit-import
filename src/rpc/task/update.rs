@@ -4,10 +4,11 @@ use crate::db::entity::UpdatedSchedule;
 use crate::proto::data::anime::Type as AnimeType;
 use crate::proto::data::episode::Type as EpisodeType;
 use crate::proto::data::Anime;
+use std::ops::Deref;
 
 pub trait Strategy {
     fn accepts(&self, anime: &Anime) -> bool;
-    fn next_update_date(&self, anime: &Anime) -> Date<Utc>;
+    fn next_update_date(&self, anime: &Anime) -> Option<Date<Utc>>;
 }
 
 pub struct UpdateBuilder<'a, S> {
@@ -23,9 +24,29 @@ pub struct JustAiredStrategy(State);
 
 pub struct AiredStrategy(State);
 
+pub struct NeverStrategy;
+
 struct State {
     interval: Duration,
     now: Date<Utc>,
+}
+
+pub fn make_update(anime: &Anime) -> UpdatedSchedule {
+    let strategies: Vec<Box<dyn Strategy>> = vec![
+        Box::new(UnairedStrategy::new()),
+        Box::new(AiringStrategy::new()),
+        Box::new(JustAiredStrategy::new()),
+        Box::new(AiredStrategy::new()),
+    ];
+
+    for strategy in strategies {
+        if strategy.accepts(anime) {
+            return UpdateBuilder::new(anime, strategy).build();
+        }
+    }
+
+    // TODO: log as error
+    UpdateBuilder::new(anime, NeverStrategy).build()
 }
 
 // MARK: impl UpdateBuilder
@@ -38,16 +59,20 @@ impl<'a, S> UpdateBuilder<'a, S>
         UpdateBuilder { anime, strategy }
     }
 
-    fn next_update_datetime(&self) -> DateTime<Utc> {
-        let mut time = Utc::now().time();
-        if time.hour() == 23 {
-            time = NaiveTime::from_hms(22, 59, 0);
-        }
+    fn next_update_datetime(&self) -> Option<DateTime<Utc>> {
+        match self.strategy.next_update_date(self.anime) {
+            Some(date) => {
+                let mut time = Utc::now().time();
+                if time.hour() == 23 {
+                    time = NaiveTime::from_hms(22, 59, 0);
+                }
 
-        // if scheduled for today add one hour delay
-        time += Duration::hours(1);
-        let date = self.strategy.next_update_date(self.anime);
-        date.and_hms(time.hour(), time.minute(), time.second())
+                // if scheduled for today add one hour delay
+                time += Duration::hours(1);
+                Some(date.and_hms(time.hour(), time.minute(), time.second()))
+            }
+            None => None,
+        }
     }
 
     fn has_type(&self) -> bool {
@@ -166,11 +191,11 @@ impl Strategy for UnairedStrategy {
         false
     }
 
-    fn next_update_date(&self, anime: &Anime) -> Date<Utc> {
+    fn next_update_date(&self, anime: &Anime) -> Option<Date<Utc>> {
         debug_assert!(self.accepts(anime));
 
         if anime.start_date == 0 {
-            return self.0.now + self.0.interval;
+            return Some(self.0.now + self.0.interval);
         }
 
         let start_date = Utc.timestamp(anime.start_date, 0).date();
@@ -178,12 +203,12 @@ impl Strategy for UnairedStrategy {
 
         // if we too close to airing date just return it
         if diff <= self.0.interval {
-            return start_date;
+            return Some(start_date);
         }
 
         // find update date relative to start_date
         let util_update = diff.num_days() % self.0.interval.num_days();
-        return self.0.now + Duration::days(util_update);
+        Some(self.0.now + Duration::days(util_update))
     }
 }
 
@@ -256,18 +281,119 @@ impl Strategy for AiringStrategy {
         return end_date >= self.0.now;
     }
 
-    fn next_update_date(&self, anime: &Anime) -> Date<Utc> {
+    fn next_update_date(&self, anime: &Anime) -> Option<Date<Utc>> {
         debug_assert!(self.accepts(anime));
 
         if self.schedule_today(anime) {
-            return self.0.now;
+            return Some(self.0.now);
         }
 
         // if end air date is unknown schedule for every week
         if anime.end_date == 0 {
-            return self.every_week_from_start(anime);
+            return Some(self.every_week_from_start(anime));
         }
 
-        self.every_week_before_end(anime)
+        Some(self.every_week_before_end(anime))
+    }
+}
+
+// MARK: impl JustAiredStrategy
+
+impl JustAiredStrategy {
+    pub fn new() -> Self {
+        Self(State {
+            interval: Duration::days(10),
+            now: Utc::now().date(),
+        })
+    }
+}
+
+impl Strategy for JustAiredStrategy {
+    fn accepts(&self, anime: &Anime) -> bool {
+        // if end air date is unknown
+        if anime.end_date == 0 {
+            return false;
+        }
+
+        // if it's still airing
+        let end_date = Utc.timestamp(anime.end_date, 0).date();
+        if self.0.now <= end_date {
+            return false;
+        }
+
+        // if finished airing less than three months ago
+        let diff = self.0.now - end_date;
+        diff.num_weeks() < 3 * 4
+    }
+
+    fn next_update_date(&self, anime: &Anime) -> Option<Date<Utc>> {
+        debug_assert!(self.accepts(anime));
+
+        let end_date = Utc.timestamp(anime.end_date, 0).date();
+        let diff = self.0.now - end_date;
+        let elapsed_for_interval = diff.num_days() % self.0.interval.num_days();
+        let until_update = self.0.interval.num_days() - elapsed_for_interval;
+        Some(self.0.now + Duration::days(until_update))
+    }
+}
+
+// MARK: impl AiredStrategy
+
+impl AiredStrategy {
+    pub fn new() -> Self {
+        Self(State {
+            interval: Duration::zero(),
+            now: Utc::now().date(),
+        })
+    }
+}
+
+impl Strategy for AiredStrategy {
+    fn accepts(&self, anime: &Anime) -> bool {
+        // if end air date is unknown
+        if anime.end_date == 0 {
+            return false;
+        }
+
+        let end_date = Utc.timestamp(anime.end_date, 0).date();
+
+        // if still airing
+        if self.0.now <= end_date {
+            return false;
+        }
+
+        // if aired 3 or more months ago
+        let diff = end_date - self.0.now;
+        diff.num_weeks() >= 3 * 4
+    }
+
+    fn next_update_date(&self, anime: &Anime) -> Option<Date<Utc>> {
+        debug_assert!(self.accepts(anime));
+        None
+    }
+}
+
+// MARK: impl NeverStrategy
+
+impl Strategy for NeverStrategy {
+    fn accepts(&self, anime: &Anime) -> bool {
+        true
+    }
+
+    fn next_update_date(&self, anime: &Anime) -> Option<Date<Utc>> {
+        // TODO: log as error
+        None
+    }
+}
+
+// MARK: impl Strategy
+
+impl Strategy for Box<dyn Strategy> {
+    fn accepts(&self, anime: &Anime) -> bool {
+        self.deref().accepts(anime)
+    }
+
+    fn next_update_date(&self, anime: &Anime) -> Option<Date<Utc>> {
+        self.deref().next_update_date(anime)
     }
 }

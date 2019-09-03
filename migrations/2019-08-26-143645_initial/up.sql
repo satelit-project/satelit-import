@@ -7,7 +7,7 @@ create table schedules
     source             int                       not null,
     state              int         default 0     not null,
     priority           int         default 1000  not null,
-    next_update_at     timestamptz               not null,
+    next_update_at     timestamptz default null,
     update_count       int         default 0     not null,
     has_poster         boolean     default false not null,
     has_start_air_date boolean     default false not null,
@@ -112,9 +112,7 @@ create function queued_tasks_set_pending_or_finished_state()
 $$
 begin
     update schedules
-    set state        = case
-                           when priority = 0 then 3
-                           else 0 end,
+    set state        = case when next_update_at is null then 3 else 0 end,
         update_count = update_count + 1
     where old.schedule_id = id;
 

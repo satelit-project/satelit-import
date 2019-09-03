@@ -7,7 +7,9 @@ use tower_grpc::{Code, Request, Response, Status};
 use std::convert::{TryFrom, TryInto};
 use std::sync::Arc;
 
-use crate::db::entity::{ExternalSource, SchedulePriority, Task, UpdatedSchedule};
+use update::make_update;
+
+use crate::db::entity::{ExternalSource, Task, UpdatedSchedule};
 use crate::db::queued_tasks::ScheduledTasks;
 use crate::db::schedules::Schedules;
 use crate::db::tasks::Tasks;
@@ -156,53 +158,6 @@ fn update_task(state: &State, data: &scraping::TaskYield) -> Result<(), Status> 
         .complete_for_schedule(&data.task_id, data.schedule_id)?;
 
     Ok(())
-}
-
-fn update_for_anime(anime: &data::Anime) -> UpdatedSchedule {
-    use data::anime::Type as AnimeType;
-    use data::episode::Type as EpisodeType;
-
-    let mut schedule = UpdatedSchedule::default();
-    schedule.has_poster = !anime.poster_url.is_empty();
-    schedule.has_air_date = anime.start_date != 0 && anime.end_date != 0;
-
-    let anime_type = AnimeType::from_i32(anime.r#type).unwrap_or(AnimeType::Unknown);
-    schedule.has_type = anime_type != AnimeType::Unknown;
-
-    schedule.has_anidb_id = anime
-        .source
-        .as_ref()
-        .map_or(false, |s| !s.anidb_ids.is_empty());
-    schedule.has_mal_id = anime
-        .source
-        .as_ref()
-        .map_or(false, |s| !s.mal_ids.is_empty());
-    schedule.has_ann_id = anime
-        .source
-        .as_ref()
-        .map_or(false, |s| !s.ann_ids.is_empty());
-
-    schedule.has_tags = !anime.tags.is_empty();
-    schedule.has_episode_count = anime.episodes_count != 0;
-
-    let unknown_eps_count = anime
-        .episodes
-        .iter()
-        .filter(|&e| {
-            let ep_type = EpisodeType::from_i32(e.r#type).unwrap_or(EpisodeType::Unknown);
-            ep_type == EpisodeType::Unknown
-                || e.air_date == 0
-                || e.duration == 0.0
-                || e.name.is_empty()
-        })
-        .count();
-
-    schedule.has_all_episodes = unknown_eps_count == 0 && !anime.episodes.is_empty();
-    schedule.has_rating = anime.rating != 0.0;
-    schedule.has_description = !anime.description.is_empty();
-    schedule.priority = priority_for_schedule(&schedule);
-
-    schedule
 }
 
 impl From<QueryError> for Status {

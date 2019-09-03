@@ -14,7 +14,7 @@ table! {
         source -> Int4,
         state -> Int4,
         priority -> Int4,
-        next_update_at -> Timestamptz,
+        next_update_at -> Nullable<Timestamptz>,
         update_count -> Int4,
         has_poster -> Bool,
         has_start_air_date -> Bool,
