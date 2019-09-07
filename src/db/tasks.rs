@@ -1,6 +1,6 @@
 use diesel::prelude::*;
 
-use super::entity::Task;
+use super::entity::{Task, ExternalSource};
 use super::schema::tasks;
 use super::{ConnectionPool, QueryError};
 
@@ -16,33 +16,14 @@ impl Tasks {
         Self { pool }
     }
 
-    /// Registers new task in DB
-    pub fn register(&self, task: &Task) -> Result<(), QueryError> {
+    /// Registers new scraping task for provided source
+    pub fn register(&self, schedule_source: &ExternalSource) -> Result<Task, QueryError> {
         use self::tasks::dsl::*;
 
         let conn = self.pool.get()?;
-        diesel::insert_into(tasks).values(task).execute(&conn)?;
+        let task: Task = diesel::insert_into(tasks)
+            .values(source.eq(schedule_source)).get_result(&conn)?;
 
-        Ok(())
-    }
-
-    /// Returns a task for specified task `id`
-    pub fn for_id(&self, task_id: &str) -> Result<Task, QueryError> {
-        use self::tasks::dsl::*;
-
-        let conn = self.connection()?;
-        let result = tasks.find(task_id).get_result::<Task>(&conn)?;
-
-        Ok(result)
-    }
-
-    /// Removes specified task's `id` and marks associated schedules entities as finished processing  
-    pub fn remove(&self, task_id: &str) -> Result<(), QueryError> {
-        use self::tasks::dsl::*;
-
-        let conn = self.connection()?;
-        diesel::delete(tasks.filter(id.eq(task_id))).execute(&conn)?;
-
-        Ok(())
+        Ok(task)
     }
 }

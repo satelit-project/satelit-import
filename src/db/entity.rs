@@ -127,7 +127,7 @@ pub enum ExternalSource {
 pub struct Task {
     pub id: Uuid,
     pub source: ExternalSource,
-    pub external_ids: Vec<i32>,
+    pub schedule_ids: Vec<i32>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -138,4 +138,5 @@ pub struct QueuedTask {
     pub id: Uuid,
     pub task_id: Uuid,
     pub schedule_id: i32,
+    pub created_at: DateTime<Utc>,
 }

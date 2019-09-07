@@ -1,6 +1,6 @@
 use diesel::prelude::*;
 
-use super::entity::{SourceSchedule, UpdatedSchedule};
+use super::entity::{NewSchedule, ExternalSource, UpdatedSchedule};
 use super::{ConnectionPool, QueryError};
 
 /// Entity that represents *schedule* table in db
@@ -15,39 +15,42 @@ impl Schedules {
         Schedules { pool }
     }
 
-    pub fn create_from_source(&self, src: &SourceSchedule) -> Result<(), QueryError> {
+    pub fn put(&self, src: &NewSchedule) -> Result<(), QueryError> {
         use crate::db::schema::schedules::dsl::*;
 
         let conn = self.pool.get()?;
         diesel::insert_into(schedules).values(src)
-            .on_conflict((sourced_id, source))
-            .do_update()
+            .on_conflict((external_id, source))
+            .do_nothing()
             .execute(&conn)?;
 
         Ok(())
     }
 
-    pub fn delete_from_source(&self, src: &SourceSchedule) -> Result<(), QueryError> {
+    pub fn pop(&self, src: &NewSchedule) -> Result<(), QueryError> {
         use crate::db::schema::schedules::dsl::*;
 
         let conn = self.pool.get()?;
         let target = schedules
-            .filter(sourced_id.eq(src.sourced_id))
+            .filter(external_id.eq(src.external_id))
             .filter(source.eq(src.source));
-        diesel::delete(target).execute(&conn)?;
+        diesel::delete(target).execute(&conn)?; // TODO: test deleting non-existent row
 
         Ok(())
     }
 
-    pub fn update_for_id(
+    pub fn update(
         &self,
         schedule_id: i32,
+        schedule_source: ExternalSource,
         updated: &UpdatedSchedule,
     ) -> Result<(), QueryError> {
         use crate::db::schema::schedules::dsl::*;
 
-        let conn = self.connection()?;
-        let target = schedules.find(schedule_id);
+        let conn = self.pool.get()?;
+        let target = schedules
+            .filter(external_id.eq(schedule_id))
+            .filter(source.eq(schedule_source));
         diesel::update(target).set(updated).execute(&conn)?;
 
         Ok(())

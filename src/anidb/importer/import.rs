@@ -7,7 +7,7 @@ use std::fmt;
 use std::path::Path;
 
 use crate::anidb::parser::{Anidb, Anime, XmlError};
-use crate::db::entity::{ExternalSource, QueuedTask};
+use crate::db::entity::{ExternalSource, NewSchedule};
 use crate::db::{schedules, ConnectionPool, QueryError};
 use crate::block::{blocking, BlockingError};
 
@@ -262,13 +262,13 @@ impl ImportScheduler for AniDbImportScheduler {
     type Error = QueryError;
 
     fn add_title(&mut self, anime: &Anime) -> Result<(), Self::Error> {
-        let schedule = SourceSchedule::new(anime.id, ExternalSource::AniDB);
-        self.schedules.create_from_source(&schedule)
+        let schedule = NewSchedule::new(anime.id, ExternalSource::AniDB);
+        self.schedules.put(&schedule)
     }
 
     fn remove_title(&mut self, anime: &Anime) -> Result<(), Self::Error> {
-        let schedule = SourceSchedule::new(anime.id, ExternalSource::AniDB);
-        self.schedules.delete_from_source(&schedule)
+        let schedule = NewSchedule::new(anime.id, ExternalSource::AniDB);
+        self.schedules.pop(&schedule)
     }
 }
 
@@ -384,7 +384,5 @@ mod tests {
 
         assert!(skipped.is_empty());
         assert_eq!(*scheduler.added.lock().unwrap(), provider.new);
-
-        Ok(())
     }
 }

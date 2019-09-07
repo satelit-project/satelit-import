@@ -45,7 +45,7 @@ create table tasks
 (
     id           uuid        default uuid_generate_v4() not null,
     source       int                                    not null,
-    external_ids int[]       default array []::int[]    not null,
+    schedule_ids int[]       default array []::int[]    not null,
     created_at   timestamptz default now()              not null,
     updated_at   timestamptz default now()              not null
 );
@@ -91,9 +91,15 @@ create function queued_tasks_set_processing_state()
     returns trigger as
 $$
 begin
+    --- set state to processing
     update schedules
     set state = 1
     where new.schedule_id = id;
+
+    --- put schedule id to task
+    update tasks
+    set schedule_ids = array_append(schedule_ids, new.schedule_id)
+    where new.task_id = id;
 
     return null;
 end;

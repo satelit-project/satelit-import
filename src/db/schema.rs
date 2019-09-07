@@ -39,7 +39,7 @@ table! {
     tasks (id) {
         id -> Uuid,
         source -> Int4,
-        external_ids -> Array<Int4>,
+        schedule_ids -> Array<Int4>,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
     }
