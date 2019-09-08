@@ -5,13 +5,13 @@ use super::entity::{Schedule, QueuedTask};
 use super::schema::{queued_tasks, schedules};
 use super::{ConnectionPool, QueryError};
 
-/// Represents *scheduled_tasks* table that contains mapping between a task and schedule
+/// Represents *queued_tasks* table that contains mapping between a task and schedule
 #[derive(Clone)]
-pub struct ScheduledTasks {
+pub struct QueuedTasks {
     pool: ConnectionPool,
 }
 
-impl ScheduledTasks {
+impl QueuedTasks {
     /// Creates new table instance
     pub fn new(pool: ConnectionPool) -> Self {
         Self { pool }

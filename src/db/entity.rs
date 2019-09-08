@@ -1,9 +1,11 @@
 use diesel::sql_types::Integer;
 use chrono::{DateTime, Utc};
-use uuid::Uuid;
 
 use super::schema::queued_tasks;
 use super::schema::schedules;
+
+/// Represents UUID
+pub use crate::proto::uuid::Uuid;
 
 /// Represents scheduled anidb item import
 #[derive(Queryable)]

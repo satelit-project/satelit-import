@@ -7,10 +7,8 @@ use tower_grpc::{Code, Request, Response, Status};
 use std::convert::{TryFrom, TryInto};
 use std::sync::Arc;
 
-use update::make_update;
-
-use crate::db::entity::{ExternalSource, Task, UpdatedSchedule};
-use crate::db::queued_tasks::ScheduledTasks;
+use crate::db::entity::{ExternalSource, Task};
+use crate::db::queued_tasks::QueuedTasks;
 use crate::db::schedules::Schedules;
 use crate::db::tasks::Tasks;
 use crate::db::QueryError;
@@ -21,26 +19,26 @@ use crate::proto::scraping::{self, server};
 
 #[derive(Clone)]
 pub struct ScraperTasksService {
-    state: Arc<State>,
+    state: Arc<State>, // TODO: will Rc be enough?
 }
 
 #[derive(Clone)]
 struct State {
     tasks: Tasks,
     schedules: Schedules,
-    scheduled_tasks: ScheduledTasks,
+    queued_tasks: QueuedTasks,
 }
 
 impl ScraperTasksService {
     pub fn new(
         tasks: Tasks,
         schedules: Schedules,
-        scheduled_tasks: ScheduledTasks,
+        queued_tasks: QueuedTasks,
     ) -> Self {
         let state = State {
             tasks,
             schedules,
-            scheduled_tasks,
+            queued_tasks,
         };
 
         Self {
@@ -111,24 +109,22 @@ impl server::ScraperTasksService for ScraperTasksService {
 
 fn make_task(state: &State, options: &scraping::TaskCreate) -> Result<scraping::Task, Status> {
     let source = data::Source::from_i32(options.source).unwrap_or(data::Source::Unknown);
+    let source: ExternalSource = source.try_into()?;
+    let task = state.tasks.register(&source)?;
 
-    let id = uuid::Uuid::new_v4().to_string();
-    let task = Task::new(id, source.try_into()?);
+    state.queued_tasks.bind(&task.id, options.limit)?;
 
-    // TODO: Do not retrieve entities that has been scraped in < 1 week
-    state.tasks.register(&task)?;
-    state.scheduled_tasks.create(&task, options.limit)?;
-    let scheduled = state.scheduled_tasks.for_task(&task)?;
+    let queued = state.queued_tasks.for_task_id(&task.id)?;
     let mut anime_ids = vec![];
     let mut schedule_ids = vec![];
 
-    for (_, schedule) in scheduled {
-        anime_ids.push(schedule.sourced_id);
+    for (_, schedule) in queued {
+        anime_ids.push(schedule.external_id);
         schedule_ids.push(schedule.id);
     }
 
     Ok(scraping::Task {
-        id: task.id,
+        id: task.id.to_string(),
         source: task.source as i32,
         schedule_ids,
         anime_ids,
@@ -151,7 +147,8 @@ fn update_task(state: &State, data: &scraping::TaskYield) -> Result<(), Status> 
         }
     };
 
-    let update = update_for_anime(anime);
+    let update = update::make_update(anime);
+    state.schedules.update(data.schedule_id, data.sou)
     state.schedules.update_for_id(data.schedule_id, &update)?;
     state
         .scheduled_tasks

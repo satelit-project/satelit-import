@@ -2,8 +2,8 @@
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ScrapeIntent {
     /// Intent ID
-    #[prost(string, tag="1")]
-    pub id: std::string::String,
+    #[prost(message, optional, tag="1")]
+    pub id: ::std::option::Option<super::uuid::Uuid>,
     /// Indicator from where to scrape data
     #[prost(enumeration="super::data::Source", tag="2")]
     pub source: i32,
@@ -11,8 +11,8 @@ pub struct ScrapeIntent {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ScrapeIntentResult {
     /// ID of an intent that was used to initiate data scraping
-    #[prost(string, tag="1")]
-    pub id: std::string::String,
+    #[prost(message, optional, tag="1")]
+    pub id: ::std::option::Option<super::uuid::Uuid>,
     /// Wherever there's more data to scrape
     #[prost(bool, tag="2")]
     pub may_continue: bool,
@@ -21,17 +21,24 @@ pub struct ScrapeIntentResult {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Task {
     /// Task ID
-    #[prost(string, tag="1")]
-    pub id: std::string::String,
+    #[prost(message, optional, tag="1")]
+    pub id: ::std::option::Option<super::uuid::Uuid>,
     /// External DB from where to scrape info
     #[prost(enumeration="super::data::Source", tag="2")]
     pub source: i32,
-    /// Schedule IDs for each anime ID
-    #[prost(sint32, repeated, tag="3")]
-    pub schedule_ids: ::std::vec::Vec<i32>,
-    /// Anime ID's to scrape
-    #[prost(sint32, repeated, tag="4")]
-    pub anime_ids: ::std::vec::Vec<i32>,
+    /// Scraping jobs
+    #[prost(message, repeated, tag="3")]
+    pub jobs: ::std::vec::Vec<Job>,
+}
+/// Represents a single scraping job for an anime page
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Job {
+    /// Job ID
+    #[prost(message, optional, tag="1")]
+    pub id: ::std::option::Option<super::uuid::Uuid>,
+    /// Anime ID
+    #[prost(sint32, tag="2")]
+    pub anime_id: i32,
 }
 /// Scrape task creation request
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -47,11 +54,11 @@ pub struct TaskCreate {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TaskYield {
     /// ID of the related task
-    #[prost(string, tag="1")]
-    pub task_id: std::string::String,
-    /// ID of the schedule
-    #[prost(sint32, tag="2")]
-    pub schedule_id: i32,
+    #[prost(message, optional, tag="1")]
+    pub task_id: ::std::option::Option<super::uuid::Uuid>,
+    /// ID of the related job
+    #[prost(message, optional, tag="2")]
+    pub job_id: ::std::option::Option<super::uuid::Uuid>,
     /// Parsed anime entity
     #[prost(message, optional, tag="3")]
     pub anime: ::std::option::Option<super::data::Anime>,

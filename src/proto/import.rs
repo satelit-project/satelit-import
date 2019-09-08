@@ -2,8 +2,8 @@
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ImportIntent {
     /// Intent ID
-    #[prost(string, tag="1")]
-    pub id: std::string::String,
+    #[prost(message, optional, tag="1")]
+    pub id: ::std::option::Option<super::uuid::Uuid>,
     /// External data source to which index files belongs to
     #[prost(enumeration="super::data::Source", tag="2")]
     pub source: i32,
@@ -20,8 +20,8 @@ pub struct ImportIntent {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ImportIntentResult {
     /// Intent ID
-    #[prost(string, tag="1")]
-    pub id: std::string::String,
+    #[prost(message, optional, tag="1")]
+    pub id: ::std::option::Option<super::uuid::Uuid>,
     /// IDs of anime titles that was not imported
     #[prost(sint32, repeated, tag="2")]
     pub skipped_ids: ::std::vec::Vec<i32>,
