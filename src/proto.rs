@@ -1,10 +1,6 @@
-#[allow(clippy::all)]
-pub mod data;
-#[allow(clippy::all)]
-pub mod scraping;
-#[allow(clippy::all)]
-pub mod import;
-#[allow(clippy::all)]
-pub mod uuid;
+#![allow(clippy::all)]
 
-pub mod ext;
+pub mod data;
+pub mod import;
+pub mod scraping;
+pub mod uuid;

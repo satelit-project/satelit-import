@@ -1,10 +1,10 @@
 use lazy_static::lazy_static;
 
-use super::uuid;
+use super::Uuid;
 
-impl uuid::Uuid {
+impl Uuid {
     pub fn nil() -> Self {
-        uuid::Uuid { uuid: vec![] }
+        Uuid { uuid: vec![] }
     }
 
     pub fn as_slice(&self) -> &[u8] {
@@ -17,7 +17,7 @@ impl uuid::Uuid {
     }
 }
 
-impl std::convert::TryFrom<&[u8]> for uuid::Uuid {
+impl std::convert::TryFrom<&[u8]> for Uuid {
     type Error = String;
 
     fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
@@ -27,23 +27,25 @@ impl std::convert::TryFrom<&[u8]> for uuid::Uuid {
             return Err("slice has wrong size".to_owned());
         }
 
-        Ok(uuid::Uuid { uuid: Vec::from(value) })
+        Ok(Uuid {
+            uuid: Vec::from(value),
+        })
     }
 }
 
-impl From<Option<uuid::Uuid>> for uuid::Uuid {
-    fn from(value: Option<uuid::Uuid>) -> Self {
+impl From<Option<Uuid>> for Uuid {
+    fn from(value: Option<Uuid>) -> Self {
         match value {
             Some(uuid) => uuid,
-            None => uuid::Uuid::nil(),
+            None => Uuid::nil(),
         }
     }
 }
 
-impl<'a> From<&'a Option<uuid::Uuid>> for &'a uuid::Uuid {
-    fn from(value: &'a Option<uuid::Uuid>) -> Self {
+impl<'a> From<&'a Option<Uuid>> for &'a Uuid {
+    fn from(value: &'a Option<Uuid>) -> Self {
         lazy_static! {
-            static ref NIL: uuid::Uuid = uuid::Uuid::nil();
+            static ref NIL: Uuid = Uuid::nil();
         }
 
         match value.as_ref() {

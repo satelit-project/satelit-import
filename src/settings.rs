@@ -1,6 +1,6 @@
 use config::{Config, ConfigError, File};
-use serde::Deserialize;
 use lazy_static::lazy_static;
+use serde::Deserialize;
 
 use std::time::Duration;
 

@@ -19,10 +19,10 @@ pub enum BlockingError<E: std::fmt::Debug> {
 }
 
 pub fn blocking<F, I, E>(f: F) -> impl Future<Item = I, Error = BlockingError<E>>
-    where
-        F: FnOnce() -> Result<I, E> + Send + 'static,
-        I: Send + 'static,
-        E: std::fmt::Debug + Send + 'static,
+where
+    F: FnOnce() -> Result<I, E> + Send + 'static,
+    I: Send + 'static,
+    E: std::fmt::Debug + Send + 'static,
 {
     let (tx, rx) = oneshot::channel();
     THREAD_POOL.spawn(move || {

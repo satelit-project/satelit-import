@@ -6,7 +6,7 @@ use satelit_import::rpc;
 use satelit_import::settings;
 
 fn main() -> std::io::Result<()> {
-//    env_logger::init_from_env(env_logger::Env::new().filter_or("SATELIT_LOG", "info"));
+    //    env_logger::init_from_env(env_logger::Env::new().filter_or("SATELIT_LOG", "info"));
 
     let mut rt = tokio::runtime::Runtime::new()?;
     serve_services(&mut rt);

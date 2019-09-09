@@ -1,8 +1,8 @@
 use diesel::prelude::*;
 
 use super::entity::Uuid;
-use super::entity::{Task, ExternalSource};
-use super::schema::{tasks, queued_jobs};
+use super::entity::{ExternalSource, Task};
+use super::schema::{queued_jobs, tasks};
 use super::{ConnectionPool, QueryError};
 
 /// Represents *tasks* table that contains all created scrapping tasks
@@ -23,7 +23,8 @@ impl Tasks {
 
         let conn = self.pool.get()?;
         let task: Task = diesel::insert_into(tasks)
-            .values(source.eq(schedule_source)).get_result(&conn)?;
+            .values(source.eq(schedule_source))
+            .get_result(&conn)?;
 
         Ok(task)
     }
@@ -33,8 +34,7 @@ impl Tasks {
         use self::queued_jobs::dsl;
 
         let conn = self.pool.get()?;
-        diesel::delete(dsl::queued_jobs.filter(dsl::task_id.eq(task_id)))
-            .execute(&conn)?;
+        diesel::delete(dsl::queued_jobs.filter(dsl::task_id.eq(task_id))).execute(&conn)?;
 
         Ok(())
     }

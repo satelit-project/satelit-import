@@ -19,7 +19,8 @@ impl Schedules {
         use crate::db::schema::schedules::dsl::*;
 
         let conn = self.pool.get()?;
-        diesel::insert_into(schedules).values(src)
+        diesel::insert_into(schedules)
+            .values(src)
             .on_conflict((external_id, source))
             .do_nothing()
             .execute(&conn)?;
@@ -39,11 +40,7 @@ impl Schedules {
         Ok(())
     }
 
-    pub fn update(
-        &self,
-        schedule_id: i32,
-        updated: &UpdatedSchedule,
-    ) -> Result<(), QueryError> {
+    pub fn update(&self, schedule_id: i32, updated: &UpdatedSchedule) -> Result<(), QueryError> {
         use crate::db::schema::schedules::dsl::*;
 
         let conn = self.pool.get()?;

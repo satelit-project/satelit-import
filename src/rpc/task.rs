@@ -7,7 +7,7 @@ use tower_grpc::{Code, Request, Response, Status};
 use std::convert::{TryFrom, TryInto};
 use std::sync::Arc;
 
-use crate::db::entity::{ExternalSource};
+use crate::db::entity::ExternalSource;
 use crate::db::queued_jobs::QueuedJobs;
 use crate::db::schedules::Schedules;
 use crate::db::tasks::Tasks;
@@ -30,11 +30,7 @@ struct State {
 }
 
 impl ScraperTasksService {
-    pub fn new(
-        tasks: Tasks,
-        schedules: Schedules,
-        queued_jobs: QueuedJobs,
-    ) -> Self {
+    pub fn new(tasks: Tasks, schedules: Schedules, queued_jobs: QueuedJobs) -> Self {
         let state = State {
             tasks,
             schedules,
@@ -88,7 +84,10 @@ impl server::ScraperTasksService for ScraperTasksService {
         Box::new(response)
     }
 
-    fn complete_task(&mut self, request: Request<scraping::TaskFinish>) -> Self::CompleteTaskFuture {
+    fn complete_task(
+        &mut self,
+        request: Request<scraping::TaskFinish>,
+    ) -> Self::CompleteTaskFuture {
         let state = self.state.clone();
 
         let response = blocking(move || {
@@ -120,14 +119,14 @@ fn make_task(state: &State, options: &scraping::TaskCreate) -> Result<scraping::
     for (job, schedule) in queued {
         jobs.push(scraping::Job {
             id: Some(job.id),
-            anime_id: schedule.external_id
+            anime_id: schedule.external_id,
         });
     }
 
     Ok(scraping::Task {
         id: Some(task.id),
         source: options.source,
-        jobs
+        jobs,
     })
 }
 

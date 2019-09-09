@@ -7,9 +7,9 @@ use std::fmt;
 use std::path::Path;
 
 use crate::anidb::parser::{Anidb, Anime, XmlError};
+use crate::block::{blocking, BlockingError};
 use crate::db::entity::{ExternalSource, NewSchedule};
 use crate::db::{schedules, ConnectionPool, QueryError};
-use crate::block::{blocking, BlockingError};
 
 /// Creates AniDB dump importer configured with global app settings
 ///
@@ -30,7 +30,8 @@ where
         let mut importer = AnimeImporter::new(provider, scheduler);
 
         importer.begin()
-    }).from_err()
+    })
+    .from_err()
 }
 
 /// Data source for anime records that should be imported
@@ -284,7 +285,9 @@ impl<E: std::fmt::Debug> From<BlockingError<E>> for ImportError {
     fn from(e: BlockingError<E>) -> Self {
         match e {
             BlockingError::Error(e) => ImportError::DataSourceFailed(format!("{:?}", e)),
-            BlockingError::Cancelled => ImportError::InternalError("blocking cancelled".to_string()),
+            BlockingError::Cancelled => {
+                ImportError::InternalError("blocking cancelled".to_string())
+            }
         }
     }
 }
@@ -304,8 +307,8 @@ impl std::error::Error for ImportError {}
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::test_utils::import::*;
+    use super::*;
     use std::iter::FromIterator as _;
 
     #[test]

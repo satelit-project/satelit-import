@@ -1,11 +1,11 @@
 use diesel::backend::Backend;
 use diesel::deserialize::FromSql;
+use diesel::pg::Pg;
 use diesel::serialize::ToSql;
 use diesel::sql_types::{Integer, Uuid};
-use diesel::pg::Pg;
 
-use std::io::Write;
 use std::convert::TryFrom;
+use std::io::Write;
 
 use super::entity::*;
 use crate::proto::uuid;
@@ -22,9 +22,7 @@ impl ToSql<Integer, Pg> for ScheduleState {
 }
 
 impl FromSql<Integer, Pg> for ScheduleState {
-    fn from_sql(
-        bytes: Option<&<Pg as Backend>::RawValue>,
-    ) -> diesel::deserialize::Result<Self> {
+    fn from_sql(bytes: Option<&<Pg as Backend>::RawValue>) -> diesel::deserialize::Result<Self> {
         use ScheduleState::*;
 
         let value: i32 = FromSql::<Integer, Pg>::from_sql(bytes)?;
@@ -49,9 +47,7 @@ impl ToSql<Integer, Pg> for ExternalSource {
 }
 
 impl FromSql<Integer, Pg> for ExternalSource {
-    fn from_sql(
-        bytes: Option<&<Pg as Backend>::RawValue>,
-    ) -> diesel::deserialize::Result<Self> {
+    fn from_sql(bytes: Option<&<Pg as Backend>::RawValue>) -> diesel::deserialize::Result<Self> {
         use ExternalSource::*;
 
         let value: i32 = FromSql::<Integer, Pg>::from_sql(bytes)?;

@@ -1,4 +1,4 @@
-use chrono::{Date, DateTime, Utc, TimeZone, Duration, Timelike, NaiveTime};
+use chrono::{Date, DateTime, Duration, NaiveTime, TimeZone, Timelike, Utc};
 
 use crate::db::entity::UpdatedSchedule;
 use crate::proto::data::anime::Type as AnimeType;
@@ -52,8 +52,8 @@ pub fn make_update(anime: &Anime) -> UpdatedSchedule {
 // MARK: impl UpdateBuilder
 
 impl<'a, S> UpdateBuilder<'a, S>
-    where
-        S: Strategy
+where
+    S: Strategy,
 {
     pub fn new(anime: &'a Anime, strategy: S) -> Self {
         UpdateBuilder { anime, strategy }
@@ -102,7 +102,8 @@ impl<'a, S> UpdateBuilder<'a, S>
     }
 
     fn has_all_eps(&self) -> bool {
-        let unknown_eps_count = self.anime
+        let unknown_eps_count = self
+            .anime
             .episodes
             .iter()
             .filter(|&e| {
@@ -135,8 +136,8 @@ impl<'a, S> UpdateBuilder<'a, S>
 }
 
 impl<'a, S> UpdateBuilder<'a, S>
-    where
-        S: Strategy
+where
+    S: Strategy,
 {
     pub fn build(&self) -> UpdatedSchedule {
         let mut schedule = UpdatedSchedule::default();

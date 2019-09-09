@@ -1,12 +1,12 @@
 mod build;
 mod entity;
 
+use log::warn;
 use quick_xml::events::BytesStart;
 use quick_xml::events::BytesText;
 use quick_xml::events::Event;
 use quick_xml::Error as QXError;
 use quick_xml::Reader;
-use log::warn;
 
 use std::fs::File;
 use std::io::{BufRead, BufReader};
