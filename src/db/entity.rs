@@ -1,7 +1,7 @@
 use diesel::sql_types::Integer;
 use chrono::{DateTime, Utc};
 
-use super::schema::queued_tasks;
+use super::schema::queued_jobs;
 use super::schema::schedules;
 
 /// Represents UUID
@@ -135,8 +135,8 @@ pub struct Task {
 }
 
 #[derive(Queryable, QueryableByName)]
-#[table_name = "queued_tasks"]
-pub struct QueuedTask {
+#[table_name = "queued_jobs"]
+pub struct QueuedJob {
     pub id: Uuid,
     pub task_id: Uuid,
     pub schedule_id: i32,

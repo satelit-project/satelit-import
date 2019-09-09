@@ -1,7 +1,8 @@
 use diesel::prelude::*;
 
+use super::entity::Uuid;
 use super::entity::{Task, ExternalSource};
-use super::schema::tasks;
+use super::schema::{tasks, queued_jobs};
 use super::{ConnectionPool, QueryError};
 
 /// Represents *tasks* table that contains all created scrapping tasks
@@ -25,5 +26,16 @@ impl Tasks {
             .values(source.eq(schedule_source)).get_result(&conn)?;
 
         Ok(task)
+    }
+
+    /// Removes queued jobs for a task with specified id
+    pub fn finish(&self, task_id: &Uuid) -> Result<(), QueryError> {
+        use self::queued_jobs::dsl;
+
+        let conn = self.pool.get()?;
+        diesel::delete(dsl::queued_jobs.filter(dsl::task_id.eq(task_id)))
+            .execute(&conn)?;
+
+        Ok(())
     }
 }

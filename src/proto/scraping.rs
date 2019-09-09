@@ -67,8 +67,8 @@ pub struct TaskYield {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TaskFinish {
     /// ID of the related task
-    #[prost(string, tag="1")]
-    pub task_id: std::string::String,
+    #[prost(message, optional, tag="1")]
+    pub task_id: ::std::option::Option<super::uuid::Uuid>,
 }
 pub mod client {
     use ::tower_grpc::codegen::client::*;

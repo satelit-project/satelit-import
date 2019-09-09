@@ -1,6 +1,6 @@
 use diesel::prelude::*;
 
-use super::entity::{NewSchedule, ExternalSource, UpdatedSchedule};
+use super::entity::{NewSchedule, UpdatedSchedule};
 use super::{ConnectionPool, QueryError};
 
 /// Entity that represents *schedule* table in db
@@ -34,7 +34,7 @@ impl Schedules {
         let target = schedules
             .filter(external_id.eq(src.external_id))
             .filter(source.eq(src.source));
-        diesel::delete(target).execute(&conn)?; // TODO: test deleting non-existent row
+        diesel::delete(target).execute(&conn)?; // TODO: test deleting non-existent row (should not fail)
 
         Ok(())
     }
@@ -42,16 +42,14 @@ impl Schedules {
     pub fn update(
         &self,
         schedule_id: i32,
-        schedule_source: ExternalSource,
         updated: &UpdatedSchedule,
     ) -> Result<(), QueryError> {
         use crate::db::schema::schedules::dsl::*;
 
         let conn = self.pool.get()?;
-        let target = schedules
-            .filter(external_id.eq(schedule_id))
-            .filter(source.eq(schedule_source));
-        diesel::update(target).set(updated).execute(&conn)?;
+        diesel::update(schedules.find(schedule_id))
+            .set(updated)
+            .execute(&conn)?;
 
         Ok(())
     }

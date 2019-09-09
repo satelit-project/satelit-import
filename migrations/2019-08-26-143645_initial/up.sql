@@ -59,35 +59,34 @@ alter table tasks
 
 select diesel_manage_updated_at('tasks');
 
-/* Queued Tasks table */
+/* Queued Jobs table */
 
-create table queued_tasks
+create table queued_jobs
 (
     id          uuid        default uuid_generate_v4() not null,
     task_id     uuid                                   not null
-        constraint queued_tasks_tasks_id_fk
+        constraint queued_jobs_tasks_id_fk
             references tasks
             on delete cascade,
     schedule_id serial                                 not null
-        constraint queued_tasks_schedules_id_fk
+        constraint queued_jobs_schedules_id_fk
             references schedules
             on delete cascade,
     created_at  timestamptz default now()              not null
 );
 
-create unique index queued_tasks_id_uindex
-    on queued_tasks (id);
+create unique index queued_jobs_id_uindex
+    on queued_jobs (id);
 
-create unique index queued_tasks_schedule_id_uindex
-    on queued_tasks (schedule_id);
+create unique index queued_jobs_schedule_id_uindex
+    on queued_jobs (schedule_id);
 
-alter table queued_tasks
-    add constraint queued_tasks_pk
+alter table queued_jobs
+    add constraint queued_jobs_pk
         primary key (id);
 
 -- update state on new queued task
-
-create function queued_tasks_set_processing_state()
+create function queued_jobs_set_processing_state()
     returns trigger as
 $$
 begin
@@ -105,18 +104,18 @@ begin
 end;
 $$ language plpgsql;
 
-create trigger queued_tasks_set_state_after_insert
+create trigger queued_jobs_set_state_after_insert
     after insert
-    on queued_tasks
+    on queued_jobs
     for each row
-execute procedure queued_tasks_set_processing_state();
+execute procedure queued_jobs_set_processing_state();
 
 -- update state on queued task finished
-
-create function queued_tasks_set_pending_or_finished_state()
+create function queued_jobs_set_pending_or_finished_state()
     returns trigger as
 $$
 begin
+    -- set state to finished or pending and increment update_count
     update schedules
     set state        = case when next_update_at is null then 3 else 0 end,
         update_count = update_count + 1
@@ -126,8 +125,8 @@ begin
 end;
 $$ language plpgsql;
 
-create trigger queued_tasks_set_state_after_delete
+create trigger queued_jobs_set_state_after_delete
     after delete
-    on queued_tasks
+    on queued_jobs
     for each row
-execute procedure queued_tasks_set_pending_or_finished_state();
+execute procedure queued_jobs_set_pending_or_finished_state();

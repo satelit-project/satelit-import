@@ -1,5 +1,5 @@
 table! {
-    queued_tasks (id) {
+    queued_jobs (id) {
         id -> Uuid,
         task_id -> Uuid,
         schedule_id -> Int4,
@@ -45,11 +45,11 @@ table! {
     }
 }
 
-joinable!(queued_tasks -> schedules (schedule_id));
-joinable!(queued_tasks -> tasks (task_id));
+joinable!(queued_jobs -> schedules (schedule_id));
+joinable!(queued_jobs -> tasks (task_id));
 
 allow_tables_to_appear_in_same_query!(
-    queued_tasks,
+    queued_jobs,
     schedules,
     tasks,
 );

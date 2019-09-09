@@ -278,7 +278,7 @@ impl Strategy for AiringStrategy {
 
         // if not yet finished airing
         let end_date = Utc.timestamp(anime.end_date, 0).date();
-        return end_date >= self.0.now;
+        end_date >= self.0.now
     }
 
     fn next_update_date(&self, anime: &Anime) -> Option<Date<Utc>> {
@@ -376,11 +376,11 @@ impl Strategy for AiredStrategy {
 // MARK: impl NeverStrategy
 
 impl Strategy for NeverStrategy {
-    fn accepts(&self, anime: &Anime) -> bool {
+    fn accepts(&self, _anime: &Anime) -> bool {
         true
     }
 
-    fn next_update_date(&self, anime: &Anime) -> Option<Date<Utc>> {
+    fn next_update_date(&self, _anime: &Anime) -> Option<Date<Utc>> {
         // TODO: log as error
         None
     }

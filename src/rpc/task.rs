@@ -7,8 +7,8 @@ use tower_grpc::{Code, Request, Response, Status};
 use std::convert::{TryFrom, TryInto};
 use std::sync::Arc;
 
-use crate::db::entity::{ExternalSource, Task};
-use crate::db::queued_tasks::QueuedTasks;
+use crate::db::entity::{ExternalSource};
+use crate::db::queued_jobs::QueuedJobs;
 use crate::db::schedules::Schedules;
 use crate::db::tasks::Tasks;
 use crate::db::QueryError;
@@ -26,19 +26,19 @@ pub struct ScraperTasksService {
 struct State {
     tasks: Tasks,
     schedules: Schedules,
-    queued_tasks: QueuedTasks,
+    queued_jobs: QueuedJobs,
 }
 
 impl ScraperTasksService {
     pub fn new(
         tasks: Tasks,
         schedules: Schedules,
-        queued_tasks: QueuedTasks,
+        queued_jobs: QueuedJobs,
     ) -> Self {
         let state = State {
             tasks,
             schedules,
-            queued_tasks,
+            queued_jobs,
         };
 
         Self {
@@ -92,8 +92,8 @@ impl server::ScraperTasksService for ScraperTasksService {
         let state = self.state.clone();
 
         let response = blocking(move || {
-            let data = request.get_ref();
-            state.tasks.remove(&data.task_id)
+            let data = request.into_inner();
+            state.tasks.finish(&data.task_id.into())
         })
         .then(|result| match result {
             Ok(()) => Ok(Response::new(())),
@@ -112,22 +112,22 @@ fn make_task(state: &State, options: &scraping::TaskCreate) -> Result<scraping::
     let source: ExternalSource = source.try_into()?;
     let task = state.tasks.register(&source)?;
 
-    state.queued_tasks.bind(&task.id, options.limit)?;
+    state.queued_jobs.bind(&task.id, options.limit)?;
 
-    let queued = state.queued_tasks.for_task_id(&task.id)?;
-    let mut anime_ids = vec![];
-    let mut schedule_ids = vec![];
+    let queued = state.queued_jobs.for_task_id(&task.id)?;
+    let mut jobs = vec![];
 
-    for (_, schedule) in queued {
-        anime_ids.push(schedule.external_id);
-        schedule_ids.push(schedule.id);
+    for (job, schedule) in queued {
+        jobs.push(scraping::Job {
+            id: Some(job.id),
+            anime_id: schedule.external_id
+        });
     }
 
     Ok(scraping::Task {
-        id: task.id.to_string(),
-        source: task.source as i32,
-        schedule_ids,
-        anime_ids,
+        id: Some(task.id),
+        source: options.source,
+        jobs
     })
 }
 
@@ -136,8 +136,8 @@ fn update_task(state: &State, data: &scraping::TaskYield) -> Result<(), Status> 
         Some(ref a) => a,
         None => {
             warn!(
-                "anime entity is missing, won't update task, 'task_id': {}, 'schedule_id': {}",
-                data.task_id, data.schedule_id
+                "anime entity is missing, won't update task, 'task_id': {:?}",
+                data.task_id
             );
 
             return Err(Status::new(
@@ -148,11 +148,8 @@ fn update_task(state: &State, data: &scraping::TaskYield) -> Result<(), Status> 
     };
 
     let update = update::make_update(anime);
-    state.schedules.update(data.schedule_id, data.sou)
-    state.schedules.update_for_id(data.schedule_id, &update)?;
-    state
-        .scheduled_tasks
-        .complete_for_schedule(&data.task_id, data.schedule_id)?;
+    let job = state.queued_jobs.pop((&data.job_id).into())?;
+    state.schedules.update(job.schedule_id, &update)?;
 
     Ok(())
 }

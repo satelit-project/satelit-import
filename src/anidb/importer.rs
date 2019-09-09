@@ -17,7 +17,7 @@ use crate::proto::import::{ImportIntent, ImportIntentResult};
 /// Represents dump import task error as a whole
 type ImportError = Box<dyn Error + Send + 'static>;
 
-/// Creates new worker for importing AniDB dump configured with global app settings
+/// Creates new future for importing AniDB dump configured with global app settings
 pub fn importer(intent: ImportIntent) -> impl Future<Item=ImportIntentResult, Error=ImportError> {
     let settings = crate::settings::shared().import();
     let pool = db::connection_pool();
@@ -27,8 +27,8 @@ pub fn importer(intent: ImportIntent) -> impl Future<Item=ImportIntentResult, Er
     } = intent;
 
     download(old_index_url, new_index_url, settings)
-        .and_then(|_| extract(settings))
-        .and_then(|_| import(reimport_ids, pool, settings))
+        .and_then(move |_| extract(settings))
+        .and_then(move |_| import(reimport_ids, pool, settings))
         .and_then(move |skipped_ids| {
             let result = ImportIntentResult { id, skipped_ids };
             Ok(result)

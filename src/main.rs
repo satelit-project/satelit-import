@@ -4,17 +4,14 @@ use log::error;
 use satelit_import::db;
 use satelit_import::rpc;
 use satelit_import::settings;
-use satelit_import::worker;
 
 fn main() -> std::io::Result<()> {
-    env_logger::init_from_env(env_logger::Env::new().filter_or("SATELIT_LOG", "info"));
-    worker::start_worker_thread();
+//    env_logger::init_from_env(env_logger::Env::new().filter_or("SATELIT_LOG", "info"));
 
     let mut rt = tokio::runtime::Runtime::new()?;
     serve_services(&mut rt);
 
     rt.shutdown_on_idle().wait().unwrap();
-    worker::shutdown_worker_thread();
 
     Ok(())
 }

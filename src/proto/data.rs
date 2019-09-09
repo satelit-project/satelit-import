@@ -1,10 +1,3 @@
-/// External data source
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
-#[repr(i32)]
-pub enum Source {
-    Unknown = 0,
-    Anidb = 1,
-}
 /// Anime episode
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Episode {
@@ -123,4 +116,11 @@ pub mod anime {
         Movie = 4,
         Special = 5,
     }
+}
+/// External data source
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum Source {
+    Unknown = 0,
+    Anidb = 1,
 }
