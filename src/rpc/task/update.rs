@@ -193,7 +193,9 @@ impl Strategy for UnairedStrategy {
     }
 
     fn next_update_date(&self, anime: &Anime) -> Option<Date<Utc>> {
-        debug_assert!(self.accepts(anime));
+        if !self.accepts(anime) {
+            return None;
+        }
 
         if anime.start_date == 0 {
             return Some(self.0.now + self.0.interval);
@@ -208,8 +210,12 @@ impl Strategy for UnairedStrategy {
         }
 
         // find update date relative to start_date
-        let util_update = diff.num_days() % self.0.interval.num_days();
-        Some(self.0.now + Duration::days(util_update))
+        let mut until_update = diff.num_days() % self.0.interval.num_days();
+        if until_update == 0 {
+            until_update = self.0.interval.num_days();
+        }
+
+        Some(self.0.now + Duration::days(until_update))
     }
 }
 
@@ -223,9 +229,11 @@ impl AiringStrategy {
         })
     }
 
-    fn schedule_today(&self, anime: &Anime) -> bool {
+    fn schedule_asap(&self, anime: &Anime) -> bool {
         let start_date = Utc.timestamp(anime.start_date, 0).date();
-        if start_date <= self.0.now {
+        let end_date = Utc.timestamp(anime.end_date, 0).date();
+
+        if self.0.now <= start_date || (self.0.now >= end_date && anime.end_date != 0) {
             return true;
         }
 
@@ -240,9 +248,12 @@ impl AiringStrategy {
 
     fn every_week_from_start(&self, anime: &Anime) -> Date<Utc> {
         let start_date = Utc.timestamp(anime.start_date, 0).date();
+        let interval = self.0.interval.num_days();
+
         let diff = self.0.now - start_date;
-        let elapsed_for_week = diff.num_days() % self.0.interval.num_days();
-        let until_update = self.0.interval.num_days() - elapsed_for_week;
+        let elapsed_for_week = diff.num_days() % interval;
+        let until_update = interval - elapsed_for_week;
+
         self.0.now + Duration::days(until_update)
     }
 
@@ -255,7 +266,11 @@ impl AiringStrategy {
             return end_date;
         }
 
-        let until_update = diff.num_days() % self.0.interval.num_days();
+        let mut until_update = diff.num_days() % self.0.interval.num_days();
+        if until_update == 0 {
+            until_update = self.0.interval.num_days();
+        }
+
         self.0.now + Duration::days(until_update)
     }
 }
@@ -283,10 +298,12 @@ impl Strategy for AiringStrategy {
     }
 
     fn next_update_date(&self, anime: &Anime) -> Option<Date<Utc>> {
-        debug_assert!(self.accepts(anime));
+        if !self.accepts(anime) {
+            return None;
+        }
 
-        if self.schedule_today(anime) {
-            return Some(self.0.now);
+        if self.schedule_asap(anime) {
+            return Some(self.0.now + Duration::days(1));
         }
 
         // if end air date is unknown schedule for every week
@@ -328,7 +345,9 @@ impl Strategy for JustAiredStrategy {
     }
 
     fn next_update_date(&self, anime: &Anime) -> Option<Date<Utc>> {
-        debug_assert!(self.accepts(anime));
+        if !self.accepts(anime) {
+            return None;
+        }
 
         let end_date = Utc.timestamp(anime.end_date, 0).date();
         let diff = self.0.now - end_date;
@@ -368,8 +387,7 @@ impl Strategy for AiredStrategy {
         diff.num_weeks() >= 3 * 4
     }
 
-    fn next_update_date(&self, anime: &Anime) -> Option<Date<Utc>> {
-        debug_assert!(self.accepts(anime));
+    fn next_update_date(&self, _anime: &Anime) -> Option<Date<Utc>> {
         None
     }
 }
@@ -402,6 +420,29 @@ impl Strategy for Box<dyn Strategy> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::proto::data::Episode;
+
+    #[test]
+    fn test_unaired_strategy_accepts() {
+        let strategy = UnairedStrategy::new();
+        let mut anime = Anime::default();
+        anime.end_date = Utc::now().timestamp();
+
+        // no start date
+        assert!(strategy.accepts(&anime));
+
+        // start date is in future
+        anime.start_date = (Utc::now() + Duration::days(1)).timestamp();
+        assert!(strategy.accepts(&anime));
+
+        // start date is today
+        anime.start_date = Utc::now().timestamp();
+        assert!(!strategy.accepts(&anime));
+
+        // start date is in past
+        anime.start_date = (Utc::now() - Duration::days(1)).timestamp();
+        assert!(!strategy.accepts(&anime));
+    }
 
     #[test]
     fn test_unaired_strategy() {
@@ -410,35 +451,145 @@ mod tests {
         anime.end_date = Utc::now().timestamp();
 
         // no start date
-        assert!(strategy.accepts(&anime));
         assert_eq!(strategy.next_update_date(&anime), Some(strategy.0.now + strategy.0.interval));
 
         // very soon, before next update interval
-        let start_date = strategy.0.now + strategy.0.interval / 2;
-        anime.start_date = timestamp(&start_date);
-        assert!(strategy.accepts(&anime));
-        assert_eq!(strategy.next_update_date(&anime), Some(start_date));
+        let start_date = Utc::now() + strategy.0.interval / 2;
+        anime.start_date = start_date.timestamp();
+        assert_eq!(strategy.next_update_date(&anime), Some(start_date.date()));
 
-        // start date at next update date
-        let start_date = strategy.0.now + strategy.0.interval;
-        anime.start_date = timestamp(&start_date);
-        assert!(strategy.accepts(&anime));
-        assert_eq!(strategy.next_update_date(&anime), Some(start_date));
+        // start date aligned with update date
+        let expected = Utc::now() + strategy.0.interval;
+        let start_date = Utc::now() + strategy.0.interval * 2;
+        anime.start_date = start_date.timestamp();
+        assert_eq!(strategy.next_update_date(&anime), Some(expected.date()));
+
+        // start date is in future
+        let offset = Duration::days(2);
+        let start_date = Utc::now() + strategy.0.interval + offset;
+        anime.start_date = start_date.timestamp();
+        assert_eq!(strategy.next_update_date(&anime), Some(strategy.0.now + offset));
+    }
+
+    #[test]
+    fn test_airing_strategy_accepts() {
+        let strategy = AiringStrategy::new();
+        let mut anime = Anime::default();
+
+        // no start date
+        assert!(!strategy.accepts(&anime));
 
         // start date in future
-        let offset = Duration::days(2);
-        let start_date = strategy.0.now + strategy.0.interval + offset;
-        anime.start_date = timestamp(&start_date);
-        assert!(strategy.accepts(&anime));
-        assert_eq!(strategy.next_update_date(&anime), Some(strategy.0.now + offset));
+        anime.start_date = (Utc::now() + Duration::days(1)).timestamp();
+        assert!(!strategy.accepts(&anime));
 
-        // start date in past
-        let start_date = strategy.0.now - Duration::days(1);
-        anime.start_date = timestamp(&start_date);
+        // started and finished today
+        anime.start_date = Utc::now().timestamp();
+        anime.end_date = anime.start_date;
+        assert!(strategy.accepts(&anime));
+
+        // started in past without finish date
+        anime.start_date = (Utc::now() - Duration::days(1)).timestamp();
+        anime.end_date = 0;
+        assert!(strategy.accepts(&anime));
+
+        // started in past and will finish in future
+        anime.start_date = (Utc::now() - Duration::days(1)).timestamp();
+        anime.end_date = (Utc::now() + Duration::days(1)).timestamp();
+        assert!(strategy.accepts(&anime));
+
+        // started and already finished
+        anime.start_date = (Utc::now() - Duration::days(2)).timestamp();
+        anime.end_date = (Utc::now() - Duration::days(1)).timestamp();
         assert!(!strategy.accepts(&anime));
     }
 
-    fn timestamp(date: &Date<Utc>) -> i64 {
-        date.and_hms(0, 0, 0).timestamp()
+    #[test]
+    fn test_airing_strategy_asap() {
+        let strategy = AiringStrategy::new();
+        let mut anime = Anime::default();
+        let tomorrow = (Utc::now() + Duration::days(1)).date();
+
+        // start date is today and end date is in future
+        anime.start_date = Utc::now().timestamp();
+        anime.end_date = (Utc::now() + Duration::days(2)).timestamp();
+        assert_eq!(strategy.next_update_date(&anime), Some(tomorrow));
+
+        // start date is in past and end date is today
+        anime.start_date = (Utc::now() - Duration::days(2)).timestamp();
+        anime.end_date = Utc::now().timestamp();
+        assert_eq!(strategy.next_update_date(&anime), Some(tomorrow));
+
+        // episode is missing but wasn't airing today
+        anime.start_date = (Utc::now() - Duration::days(1)).timestamp();
+        anime.end_date = (Utc::now() + Duration::weeks(2)).timestamp();
+        assert_ne!(strategy.next_update_date(&anime), Some(tomorrow));
+        anime.episodes.push(Episode::default());
+
+        // episode is missing and is airing today
+        anime.start_date = (Utc::now() - Duration::weeks(1)).timestamp();
+        assert_eq!(strategy.next_update_date(&anime), Some(tomorrow));
+        anime.episodes.push(Episode::default());
+
+        anime.start_date = (Utc::now() - Duration::weeks(2)).timestamp();
+        anime.end_date = (Utc::now() + Duration::weeks(2)).timestamp();
+        assert_eq!(strategy.next_update_date(&anime), Some(tomorrow));
+        anime.episodes.push(Episode::default());
+
+        // no missing episodes
+        assert_ne!(strategy.next_update_date(&anime), Some(tomorrow));
+
+        anime.start_date = (Utc::now() - Duration::days(1)).timestamp();
+        anime.episodes.clear();
+        anime.episodes.push(Episode::default());
+        assert_ne!(strategy.next_update_date(&anime), Some(tomorrow));
+    }
+
+    #[test]
+    fn test_airing_strategy_no_end() {
+        let strategy = AiringStrategy::new();
+        let mut anime = Anime::default();
+        anime.episodes = vec![Episode::default(); 24];
+
+        // started in past aligned to start date
+        anime.start_date = (Utc::now() - strategy.0.interval).timestamp();
+        let expected = Utc::now() + strategy.0.interval;
+        assert_eq!(strategy.next_update_date(&anime), Some(expected.date()));
+
+        let offset = Duration::days(1);
+        let expected = Utc::now().date() + strategy.0.interval - offset;
+
+        anime.start_date = (Utc::now() - offset).timestamp();
+        assert_eq!(strategy.next_update_date(&anime), Some(expected));
+        assert_ne!(strategy.next_update_date(&anime), Some(Utc::now().date()));
+
+        anime.start_date = (Utc::now() - strategy.0.interval * 2 - offset).timestamp();
+        assert_eq!(strategy.next_update_date(&anime), Some(expected));
+        assert_ne!(strategy.next_update_date(&anime), Some(Utc::now().date()));
+    }
+
+    #[test]
+    fn test_airing_strategy_has_end() {
+        let strategy = AiringStrategy::new();
+        let mut anime = Anime::default();
+        anime.episodes = vec![Episode::default(); 24];
+        anime.start_date = (Utc::now() - strategy.0.interval).timestamp();
+
+        // started in past and is aligned to end date
+        anime.end_date = (Utc::now() + strategy.0.interval).timestamp();
+        let expected = Utc.timestamp(anime.end_date, 0).date();
+        assert_eq!(strategy.next_update_date(&anime), Some(expected));
+
+        anime.end_date = (Utc::now() + strategy.0.interval * 2).timestamp();
+        let expected = Utc::now() + strategy.0.interval;
+        assert_eq!(strategy.next_update_date(&anime), Some(expected.date()));
+
+        anime.end_date = (Utc::now() + strategy.0.interval / 2).timestamp();
+        let expected = Utc.timestamp(anime.end_date, 0).date();
+        assert_eq!(strategy.next_update_date(&anime), Some(expected));
+
+        anime.end_date = (Utc::now() + strategy.0.interval + strategy.0.interval / 2).timestamp();
+        let expected = Utc::now() + strategy.0.interval / 2;
+        assert_eq!(strategy.next_update_date(&anime), Some(expected.date()));
     }
 }
