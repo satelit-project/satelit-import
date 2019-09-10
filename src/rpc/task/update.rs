@@ -398,3 +398,47 @@ impl Strategy for Box<dyn Strategy> {
         self.deref().next_update_date(anime)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_unaired_strategy() {
+        let strategy = UnairedStrategy::new();
+        let mut anime = Anime::default();
+        anime.end_date = Utc::now().timestamp();
+
+        // no start date
+        assert!(strategy.accepts(&anime));
+        assert_eq!(strategy.next_update_date(&anime), Some(strategy.0.now + strategy.0.interval));
+
+        // very soon, before next update interval
+        let start_date = strategy.0.now + strategy.0.interval / 2;
+        anime.start_date = timestamp(&start_date);
+        assert!(strategy.accepts(&anime));
+        assert_eq!(strategy.next_update_date(&anime), Some(start_date));
+
+        // start date at next update date
+        let start_date = strategy.0.now + strategy.0.interval;
+        anime.start_date = timestamp(&start_date);
+        assert!(strategy.accepts(&anime));
+        assert_eq!(strategy.next_update_date(&anime), Some(start_date));
+
+        // start date in future
+        let offset = Duration::days(2);
+        let start_date = strategy.0.now + strategy.0.interval + offset;
+        anime.start_date = timestamp(&start_date);
+        assert!(strategy.accepts(&anime));
+        assert_eq!(strategy.next_update_date(&anime), Some(strategy.0.now + offset));
+
+        // start date in past
+        let start_date = strategy.0.now - Duration::days(1);
+        anime.start_date = timestamp(&start_date);
+        assert!(!strategy.accepts(&anime));
+    }
+
+    fn timestamp(date: &Date<Utc>) -> i64 {
+        date.and_hms(0, 0, 0).timestamp()
+    }
+}

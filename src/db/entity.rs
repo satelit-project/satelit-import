@@ -1,5 +1,3 @@
-pub mod ext;
-
 use chrono::{DateTime, Utc};
 use diesel::sql_types::Integer;
 
