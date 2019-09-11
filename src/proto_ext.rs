@@ -11,7 +11,11 @@ impl uuid::Uuid {
 
     pub fn as_slice(&self) -> &[u8] {
         const BYTES_LEN: usize = 16;
-        if self.uuid.len() == BYTES_LEN { &[] } else { &self.uuid }
+        if self.uuid.len() == BYTES_LEN {
+            &[]
+        } else {
+            &self.uuid
+        }
     }
 }
 

@@ -14,6 +14,7 @@ use crate::db::{schedules, ConnectionPool, QueryError};
 /// Creates AniDB dump importer configured with global app settings
 ///
 /// Returned future will block your current task until it's ready
+#[allow(clippy::implicit_hasher)]
 pub fn importer<P>(
     old_dump_path: P,
     new_dump_path: P,
@@ -21,7 +22,7 @@ pub fn importer<P>(
     connection_pool: ConnectionPool,
 ) -> impl Future<Item = HashSet<i32>, Error = ImportError> + Send
 where
-    P: AsRef<Path> + Clone + Send + 'static,
+    P: AsRef<Path> + Send + 'static,
 {
     blocking(move || {
         let provider = AniDbAnimeProvider::new(old_dump_path, new_dump_path, reimport_ids);
@@ -35,7 +36,7 @@ where
 }
 
 /// Data source for anime records that should be imported
-pub trait AnimeProvider: Clone + Send {
+pub trait AnimeProvider: Send {
     /// Iterator for anime entities that should be processes. Entities should be sorted by id
     /// and returned in ascended order
     type Iterator: Iterator<Item = Anime>;
@@ -61,7 +62,7 @@ pub trait AnimeProvider: Clone + Send {
 }
 
 /// Processes changes to anime entities storage
-pub trait ImportScheduler: Clone + Send {
+pub trait ImportScheduler: Send {
     type Error: std::error::Error;
 
     /// Adds new anime title to anime storage
@@ -90,7 +91,7 @@ where
 
 /// Data source for anime entities from AniDB dumps
 #[derive(Clone)]
-pub struct AniDbAnimeProvider<P: AsRef<Path> + Clone + Send> {
+pub struct AniDbAnimeProvider<P> {
     old_dump_path: P,
     new_dump_path: P,
     reimport_ids: HashSet<i32>,
@@ -219,7 +220,10 @@ where
 
 // MARK: impl AnidbAnimeProvider
 
-impl<P: AsRef<Path> + Clone + Send> AniDbAnimeProvider<P> {
+impl<P> AniDbAnimeProvider<P>
+where
+    P: AsRef<Path> + Send,
+{
     /// Creates instance with AniDB anime dumps
     ///
     /// * `old_dump_path` – path to previously imported dump
@@ -234,7 +238,10 @@ impl<P: AsRef<Path> + Clone + Send> AniDbAnimeProvider<P> {
     }
 }
 
-impl<P: AsRef<Path> + Clone + Send> AnimeProvider for AniDbAnimeProvider<P> {
+impl<P> AnimeProvider for AniDbAnimeProvider<P>
+where
+    P: AsRef<Path> + Send,
+{
     type Iterator = Anidb;
     type Error = XmlError;
 
