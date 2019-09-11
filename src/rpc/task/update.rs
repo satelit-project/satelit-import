@@ -5,6 +5,7 @@ use crate::proto::data::anime::Type as AnimeType;
 use crate::proto::data::episode::Type as EpisodeType;
 use crate::proto::data::Anime;
 use std::ops::Deref;
+use std::cmp::min;
 
 pub trait Strategy {
     fn accepts(&self, anime: &Anime) -> bool;
@@ -248,11 +249,15 @@ impl AiringStrategy {
 
     fn every_week_from_start(&self, anime: &Anime) -> Date<Utc> {
         let start_date = Utc.timestamp(anime.start_date, 0).date();
-        let interval = self.0.interval.num_days();
+        let days = self.0.interval.num_days();
 
         let diff = self.0.now - start_date;
-        let elapsed_for_week = diff.num_days() % interval;
-        let until_update = interval - elapsed_for_week;
+        let elapsed_for_week = diff.num_days() % days;
+        let mut until_update = days - elapsed_for_week;
+
+        if until_update == 0 {
+            until_update = days;
+        }
 
         self.0.now + Duration::days(until_update)
     }
@@ -260,15 +265,16 @@ impl AiringStrategy {
     fn every_week_before_end(&self, anime: &Anime) -> Date<Utc> {
         let end_date = Utc.timestamp(anime.end_date, 0).date();
         let diff = end_date - self.0.now;
+        let days = self.0.interval.num_days();
 
         // if we too close to end air date
         if diff < self.0.interval {
             return end_date;
         }
 
-        let mut until_update = diff.num_days() % self.0.interval.num_days();
+        let mut until_update = diff.num_days() % days;
         if until_update == 0 {
-            until_update = self.0.interval.num_days();
+            until_update = days;
         }
 
         self.0.now + Duration::days(until_update)
@@ -318,6 +324,8 @@ impl Strategy for AiringStrategy {
 // MARK: impl JustAiredStrategy
 
 impl JustAiredStrategy {
+    const WEEKS_AFTER_AIRING: i64 = 3 * 4;
+
     pub fn new() -> Self {
         Self(State {
             interval: Duration::days(10),
@@ -341,7 +349,7 @@ impl Strategy for JustAiredStrategy {
 
         // if finished airing less than three months ago
         let diff = self.0.now - end_date;
-        diff.num_weeks() < 3 * 4
+        diff.num_weeks() < Self::WEEKS_AFTER_AIRING
     }
 
     fn next_update_date(&self, anime: &Anime) -> Option<Date<Utc>> {
@@ -350,10 +358,13 @@ impl Strategy for JustAiredStrategy {
         }
 
         let end_date = Utc.timestamp(anime.end_date, 0).date();
-        let diff = self.0.now - end_date;
+        let diff = dbg!(self.0.now - end_date);
         let elapsed_for_interval = diff.num_days() % self.0.interval.num_days();
         let until_update = self.0.interval.num_days() - elapsed_for_interval;
-        Some(self.0.now + Duration::days(until_update))
+
+        let proposed = self.0.now + Duration::days(until_update);
+        let latest_date = end_date + Duration::weeks(Self::WEEKS_AFTER_AIRING);
+        Some(min(proposed, latest_date))
     }
 }
 
@@ -383,8 +394,8 @@ impl Strategy for AiredStrategy {
         }
 
         // if aired 3 or more months ago
-        let diff = end_date - self.0.now;
-        diff.num_weeks() >= 3 * 4
+        let diff = self.0.now - end_date;
+        diff.num_weeks() >= JustAiredStrategy::WEEKS_AFTER_AIRING
     }
 
     fn next_update_date(&self, _anime: &Anime) -> Option<Date<Utc>> {
@@ -418,12 +429,12 @@ impl Strategy for Box<dyn Strategy> {
 }
 
 #[cfg(test)]
-mod tests {
+mod tests_strategies {
     use super::*;
     use crate::proto::data::Episode;
 
     #[test]
-    fn test_unaired_strategy_accepts() {
+    fn test_unaired_accepts() {
         let strategy = UnairedStrategy::new();
         let mut anime = Anime::default();
         anime.end_date = Utc::now().timestamp();
@@ -445,7 +456,7 @@ mod tests {
     }
 
     #[test]
-    fn test_unaired_strategy() {
+    fn test_unaired() {
         let strategy = UnairedStrategy::new();
         let mut anime = Anime::default();
         anime.end_date = Utc::now().timestamp();
@@ -472,7 +483,7 @@ mod tests {
     }
 
     #[test]
-    fn test_airing_strategy_accepts() {
+    fn test_airing_accepts() {
         let strategy = AiringStrategy::new();
         let mut anime = Anime::default();
 
@@ -505,7 +516,7 @@ mod tests {
     }
 
     #[test]
-    fn test_airing_strategy_asap() {
+    fn test_airing_asap() {
         let strategy = AiringStrategy::new();
         let mut anime = Anime::default();
         let tomorrow = (Utc::now() + Duration::days(1)).date();
@@ -546,7 +557,7 @@ mod tests {
     }
 
     #[test]
-    fn test_airing_strategy_no_end() {
+    fn test_airing_no_end() {
         let strategy = AiringStrategy::new();
         let mut anime = Anime::default();
         anime.episodes = vec![Episode::default(); 24];
@@ -569,7 +580,7 @@ mod tests {
     }
 
     #[test]
-    fn test_airing_strategy_has_end() {
+    fn test_airing_has_end() {
         let strategy = AiringStrategy::new();
         let mut anime = Anime::default();
         anime.episodes = vec![Episode::default(); 24];
@@ -591,5 +602,83 @@ mod tests {
         anime.end_date = (Utc::now() + strategy.0.interval + strategy.0.interval / 2).timestamp();
         let expected = Utc::now() + strategy.0.interval / 2;
         assert_eq!(strategy.next_update_date(&anime), Some(expected.date()));
+    }
+
+    #[test]
+    fn test_just_aired_accept() {
+        let strategy = JustAiredStrategy::new();
+        let mut anime = Anime::default();
+        let threshold = JustAiredStrategy::WEEKS_AFTER_AIRING;
+
+        // unknown end airing date
+        assert!(!strategy.accepts(&anime));
+
+        // not finished airing yet
+        anime.end_date = (Utc::now() + Duration::days(1)).timestamp();
+        assert!(!strategy.accepts(&anime));
+
+        // finished airing today
+        anime.end_date = Utc::now().timestamp();
+        assert!(!strategy.accepts(&anime));
+
+        // finished airing recently
+        anime.end_date = (Utc::now() - Duration::weeks(threshold / 2)).timestamp();
+        assert!(strategy.accepts(&anime));
+
+        // finished airing long ago
+        anime.end_date = (Utc::now() - Duration::weeks(threshold)).timestamp();
+        assert!(!strategy.accepts(&anime));
+    }
+
+    #[test]
+    fn test_just_aired() {
+        let strategy = JustAiredStrategy::new();
+        let mut anime = Anime::default();
+        let threshold = JustAiredStrategy::WEEKS_AFTER_AIRING;
+
+        // recently aired and not aligned
+        let offset = Duration::days(1);
+        let expected = (Utc::now() + strategy.0.interval - offset).date();
+        anime.end_date = (Utc::now() - offset).timestamp();
+        assert_eq!(strategy.next_update_date(&anime), Some(expected));
+
+        anime.end_date = (Utc::now() - strategy.0.interval - offset).timestamp();
+        assert_eq!(strategy.next_update_date(&anime), Some(expected));
+
+        // recently aired and aligned
+        let expected = (Utc::now() + strategy.0.interval).date();
+        anime.end_date = (Utc::now() - strategy.0.interval).timestamp();
+        assert_eq!(strategy.next_update_date(&anime), Some(expected));
+
+        anime.end_date = (Utc::now() - strategy.0.interval * 2).timestamp();
+        assert_eq!(strategy.next_update_date(&anime), Some(expected));
+
+        // aired long ago but needs last update
+        let offset = Duration::days(1);
+        let expected = (Utc::now() + offset).date();
+        anime.end_date = (Utc::now() - Duration::weeks(threshold) + offset).timestamp();
+        assert_eq!(strategy.next_update_date(&anime), Some(expected));
+    }
+
+    #[test]
+    fn test_aired_accept() {
+        let strategy = AiredStrategy::new();
+        let mut anime = Anime::default();
+
+        // no end air date
+        assert!(!strategy.accepts(&anime));
+
+        // still airing
+        anime.end_date = (Utc::now() + Duration::days(1)).timestamp();
+        assert!(!strategy.accepts(&anime));
+
+        // recently finished airing
+        anime.end_date = (Utc::now() - Duration::days(1)).timestamp();
+        assert!(!strategy.accepts(&anime));
+
+        // finished airing long ago
+        let end_date = Utc::now() - Duration::weeks(JustAiredStrategy::WEEKS_AFTER_AIRING);
+        anime.end_date = end_date.timestamp();
+        assert!(strategy.accepts(&anime));
     }
 }
