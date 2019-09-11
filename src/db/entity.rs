@@ -74,7 +74,7 @@ impl NewSchedule {
     }
 }
 
-#[derive(AsChangeset)]
+#[derive(Debug, PartialEq, AsChangeset)]
 #[table_name = "schedules"]
 pub struct UpdatedSchedule {
     pub next_update_at: Option<DateTime<Utc>>,

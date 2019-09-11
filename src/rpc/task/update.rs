@@ -1,11 +1,13 @@
-use chrono::{Date, DateTime, Duration, NaiveTime, TimeZone, Timelike, Utc};
+use chrono::{Date, DateTime, Duration, TimeZone, Timelike, Utc};
+use log::{error, warn};
+
+use std::cmp::min;
+use std::ops::Deref;
 
 use crate::db::entity::UpdatedSchedule;
 use crate::proto::data::anime::Type as AnimeType;
 use crate::proto::data::episode::Type as EpisodeType;
 use crate::proto::data::Anime;
-use std::ops::Deref;
-use std::cmp::min;
 
 pub trait Strategy {
     fn accepts(&self, anime: &Anime) -> bool;
@@ -15,6 +17,7 @@ pub trait Strategy {
 pub struct UpdateBuilder<'a, S> {
     anime: &'a Anime,
     strategy: S,
+    now: DateTime<Utc>,
 }
 
 pub struct UnairedStrategy(State);
@@ -46,7 +49,7 @@ pub fn make_update(anime: &Anime) -> UpdatedSchedule {
         }
     }
 
-    // TODO: log as error
+    error!("fallback to Never update strategy: {:?}", anime.source);
     UpdateBuilder::new(anime, NeverStrategy).build()
 }
 
@@ -57,19 +60,22 @@ where
     S: Strategy,
 {
     pub fn new(anime: &'a Anime, strategy: S) -> Self {
-        UpdateBuilder { anime, strategy }
+        UpdateBuilder {
+            anime,
+            strategy,
+            now: Utc::now(),
+        }
     }
 
     fn next_update_datetime(&self) -> Option<DateTime<Utc>> {
         match self.strategy.next_update_date(self.anime) {
-            Some(date) => {
-                let mut time = Utc::now().time();
-                if time.hour() == 23 {
-                    time = NaiveTime::from_hms(22, 59, 0);
+            Some(mut date) => {
+                if date == self.now.date() {
+                    warn!("scheduled for today: {:?}", self.anime.source);
+                    date = date + Duration::days(1);
                 }
 
-                // if scheduled for today add one hour delay
-                time += Duration::hours(1);
+                let time = self.now.time();
                 Some(date.and_hms(time.hour(), time.minute(), time.second()))
             }
             None => None,
@@ -109,10 +115,7 @@ where
             .iter()
             .filter(|&e| {
                 let ep_type = EpisodeType::from_i32(e.r#type).unwrap_or(EpisodeType::Unknown);
-                ep_type == EpisodeType::Unknown
-                    || e.air_date == 0
-                    || e.duration == 0.0
-                    || e.name.is_empty()
+                ep_type == EpisodeType::Unknown || e.name.is_empty()
             })
             .count();
 
@@ -429,7 +432,7 @@ impl Strategy for Box<dyn Strategy> {
 }
 
 #[cfg(test)]
-mod tests_strategies {
+mod strategy_tests {
     use super::*;
     use crate::proto::data::Episode;
 
@@ -462,7 +465,10 @@ mod tests_strategies {
         anime.end_date = Utc::now().timestamp();
 
         // no start date
-        assert_eq!(strategy.next_update_date(&anime), Some(strategy.0.now + strategy.0.interval));
+        assert_eq!(
+            strategy.next_update_date(&anime),
+            Some(strategy.0.now + strategy.0.interval)
+        );
 
         // very soon, before next update interval
         let start_date = Utc::now() + strategy.0.interval / 2;
@@ -479,7 +485,10 @@ mod tests_strategies {
         let offset = Duration::days(2);
         let start_date = Utc::now() + strategy.0.interval + offset;
         anime.start_date = start_date.timestamp();
-        assert_eq!(strategy.next_update_date(&anime), Some(strategy.0.now + offset));
+        assert_eq!(
+            strategy.next_update_date(&anime),
+            Some(strategy.0.now + offset)
+        );
     }
 
     #[test]
@@ -680,5 +689,87 @@ mod tests_strategies {
         let end_date = Utc::now() - Duration::weeks(JustAiredStrategy::WEEKS_AFTER_AIRING);
         anime.end_date = end_date.timestamp();
         assert!(strategy.accepts(&anime));
+    }
+}
+
+#[cfg(test)]
+mod builder_tests {
+    use super::*;
+    use crate::proto::data::{anime, episode, Episode};
+
+    #[test]
+    fn test_next_update_date() {
+        let anime = Anime::default();
+        let builder = UpdateBuilder::new(&anime, TodayStrategy);
+
+        // next update date should never be today
+        assert!(builder.next_update_datetime().unwrap().date() > Utc::today());
+    }
+
+    #[test]
+    fn test_empty_update() {
+        let anime = Anime::default();
+        let builder = UpdateBuilder::new(&anime, TodayStrategy);
+
+        let mut expected = UpdatedSchedule::default();
+        expected.next_update_at = builder.next_update_datetime();
+
+        let update = builder.build();
+        assert_eq!(update, expected);
+    }
+
+    #[test]
+    fn test_full_update() {
+        let mut episode = Episode::default();
+        episode.r#type = episode::Type::Regular as i32;
+        episode.name = "ep".to_owned();
+
+        let mut anime = Anime::default();
+        anime.source = Some(anime::Source {
+            anidb_ids: vec![1],
+            mal_ids: vec![1],
+            ann_ids: vec![1],
+        });
+        anime.r#type = anime::Type::Movie as i32;
+        anime.title = "Hello".to_owned();
+        anime.poster_url = "google.com".to_owned();
+        anime.episodes_count = 10;
+        anime.episodes = vec![episode; 10];
+        anime.start_date = Utc::now().timestamp();
+        anime.end_date = Utc::now().timestamp();
+        anime.tags = vec![anime::Tag::default()];
+        anime.rating = 10f64;
+        anime.description = "10/10".to_owned();
+
+        let builder = UpdateBuilder::new(&anime, TodayStrategy);
+
+        let mut expected = UpdatedSchedule::default();
+        expected.next_update_at = builder.next_update_datetime();
+        expected.has_poster = true;
+        expected.has_start_air_date = true;
+        expected.has_end_air_date = true;
+        expected.has_type = true;
+        expected.has_anidb_id = true;
+        expected.has_mal_id = true;
+        expected.has_ann_id = true;
+        expected.has_tags = true;
+        expected.has_ep_count = true;
+        expected.has_all_eps = true;
+        expected.has_rating = true;
+        expected.has_description = true;
+
+        let update = builder.build();
+        assert_eq!(expected, update);
+    }
+
+    struct TodayStrategy;
+    impl Strategy for TodayStrategy {
+        fn accepts(&self, _anime: &Anime) -> bool {
+            true
+        }
+
+        fn next_update_date(&self, _anime: &Anime) -> Option<Date<Utc>> {
+            Some(Utc::today())
+        }
     }
 }

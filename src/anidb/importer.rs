@@ -28,8 +28,8 @@ pub fn importer(
         id,
         new_index_url,
         old_index_url,
-        source: _,
         reimport_ids,
+        ..
     } = intent;
 
     download(old_index_url, new_index_url, settings)

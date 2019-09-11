@@ -109,7 +109,7 @@ impl server::ScraperTasksService for ScraperTasksService {
 fn make_task(state: &State, options: &scraping::TaskCreate) -> Result<scraping::Task, Status> {
     let source = data::Source::from_i32(options.source).unwrap_or(data::Source::Unknown);
     let source: ExternalSource = source.try_into()?;
-    let task = state.tasks.register(&source)?;
+    let task = state.tasks.register(source)?;
 
     state.queued_jobs.bind(&task.id, options.limit)?;
 

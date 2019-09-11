@@ -11,11 +11,7 @@ impl uuid::Uuid {
 
     pub fn as_slice(&self) -> &[u8] {
         const BYTES_LEN: usize = 16;
-
-        match self.uuid.len() == BYTES_LEN {
-            true => &[],
-            false => &self.uuid,
-        }
+        if self.uuid.len() == BYTES_LEN { &[] } else { &self.uuid }
     }
 }
 
@@ -25,7 +21,7 @@ impl std::convert::TryFrom<&[u8]> for uuid::Uuid {
     fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
         const BYTES_LEN: usize = 16;
 
-        if value.len() != BYTES_LEN && value.len() != 0 {
+        if value.len() != BYTES_LEN && !value.is_empty() {
             return Err("slice has wrong size".to_owned());
         }
 

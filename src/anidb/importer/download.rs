@@ -80,7 +80,7 @@ where
         file.and_then(move |f| {
             dump.fold(f, |f, chunk| {
                 tokio::io::write_all(f, chunk)
-                    .map_err(|e| DownloadError::Fs(e))
+                    .map_err(DownloadError::Fs)
                     .map(|(f, _)| f)
             })
             .and_then(|_| Ok(()))

@@ -18,7 +18,7 @@ impl Tasks {
     }
 
     /// Registers new scraping task for provided source
-    pub fn register(&self, schedule_source: &ExternalSource) -> Result<Task, QueryError> {
+    pub fn register(&self, schedule_source: ExternalSource) -> Result<Task, QueryError> {
         use self::tasks::dsl::*;
 
         let conn = self.pool.get()?;
