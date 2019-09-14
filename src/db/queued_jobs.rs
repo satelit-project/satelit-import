@@ -22,12 +22,7 @@ impl QueuedJobs {
         let conn = self.pool.get()?;
 
         let sql = r#"
-        insert into queued_jobs (task_id, schedule_id) (
-            select $1, schedules.id from schedules
-            where schedules.state = 0 and schedules.next_update_at <= now()
-            order by schedules.priority desc
-            limit $2
-        );
+        select queued_jobs_bind_schedules_for_task($1, $2)
         "#;
 
         diesel::sql_query(sql)

@@ -130,3 +130,20 @@ create trigger queued_jobs_set_state_after_delete
     on queued_jobs
     for each row
 execute procedure queued_jobs_set_pending_or_finished_state();
+
+-- schedules binding
+create function queued_jobs_bind_schedules_for_task(uuid, int)
+    returns void as
+$$
+begin
+    lock table schedules in access exclusive mode;
+    insert into queued_jobs (task_id, schedule_id) (
+        select $1, schedules.id
+        from schedules
+        where schedules.state = 0
+          and schedules.next_update_at <= now()
+        order by schedules.priority desc
+        limit $2
+    );
+end;
+$$ language plpgsql;
