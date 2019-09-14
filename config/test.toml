@@ -1,0 +1,4 @@
+[db]
+url = "postgres://test:qwerty@127.0.0.1:5432/"
+max_connections = 32
+connection_timeout = 15
