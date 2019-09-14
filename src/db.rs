@@ -9,6 +9,7 @@ pub use diesel::r2d2::PoolError;
 pub use diesel::result::Error as UnderlyingError;
 
 use diesel::prelude::*;
+use diesel::result::DatabaseErrorKind;
 use diesel::r2d2;
 use lazy_static::lazy_static;
 
@@ -71,6 +72,21 @@ impl std::fmt::Debug for ConnectionPool {
 }
 
 // MARK: impl QueryError
+
+impl QueryError {
+	/// Returns error kind in case of database error
+	///
+	/// If database returned an error when executing query then we can see what's
+	/// exactly happened. If it's not a database error then `None` will be returned.
+    pub fn database_error(&self) -> Option<&DatabaseErrorKind> {
+        match self {
+            QueryError::QueryFailed(UnderlyingError::DatabaseError(kind, _)) => {
+                Some(kind)
+            }
+            _ => None,
+        }
+    }
+}
 
 impl From<PoolError> for QueryError {
     fn from(e: PoolError) -> Self {
