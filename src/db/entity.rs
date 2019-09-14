@@ -125,7 +125,7 @@ pub enum ExternalSource {
     ANN = 2,
 }
 
-#[derive(Debug, Queryable)]
+#[derive(Debug, PartialEq, Queryable)]
 pub struct Task {
     pub id: Uuid,
     pub source: ExternalSource,
@@ -134,7 +134,7 @@ pub struct Task {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Queryable, QueryableByName)]
+#[derive(Debug, PartialEq, Queryable, QueryableByName)]
 #[table_name = "queued_jobs"]
 pub struct QueuedJob {
     pub id: Uuid,

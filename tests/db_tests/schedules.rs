@@ -156,7 +156,7 @@ fn test_update_nonexistent() -> Result<(), QueryError> {
 // MARK: db
 
 fn make_pool() -> ConnectionPool {
-    crate::connection_pool("schedules")
+    crate::connection_pool("schedules-tests")
 }
 
 fn count_new_schedules(pool: &ConnectionPool, new: &NewSchedule) -> Result<i64, QueryError> {

@@ -12,7 +12,7 @@ db_name() {
 
   set +e
   # shellcheck disable=SC2016
-  cat < "${filename}" | rg '^\W*crate::connection_pool\("(\w+)"\).*$' -r '$1'
+  cat < "${filename}" | rg '^\W*crate::connection_pool\("([\w\-_]+)"\).*$' -r '$1'
   set -e
 }
 

@@ -79,7 +79,7 @@ impl FromSql<Uuid, Pg> for uuid::Uuid {
 impl ToSql<Uuid, Pg> for uuid::Uuid {
     fn to_sql<W: Write>(
         &self,
-        out: &mut diesel::serialize::Output<'_, W, Pg>,
+        out: &mut diesel::serialize::Output<W, Pg>,
     ) -> diesel::serialize::Result {
         let bytes = self.as_slice();
         if bytes.is_empty() {
