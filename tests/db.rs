@@ -1,4 +1,4 @@
-mod db_tests;
+pub mod db_tests;
 
 use satelit_import::db;
 use satelit_import::settings;
