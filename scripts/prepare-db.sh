@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Looks up all used database names in tests and prepares those databases
+#
+# Usage: ./prepare-db.sh
 
 set -euo pipefail
 
@@ -33,9 +36,8 @@ prepare_db() {
       1>&2
 }
 
-# Looks up all used db names in test files and prepares them
 main() {
-  local test_files="${REPO_DIR}/tests/*_tests/*.rs"
+  local test_files="${REPO_DIR}/tests/db_tests/*.rs"
 
   local url
   url="$(postgres_url)"
