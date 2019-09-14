@@ -1,9 +1,9 @@
 use diesel::prelude::*;
 
-use satelit_import::db::schema::schedules::dsl;
-use satelit_import::db::{ConnectionPool, QueryError, DatabaseErrorKind};
-use satelit_import::db::schedules::Schedules;
 use satelit_import::db::entity::*;
+use satelit_import::db::schedules::Schedules;
+use satelit_import::db::schema::schedules::dsl;
+use satelit_import::db::{ConnectionPool, QueryError};
 
 // MARK: put tests
 
@@ -174,10 +174,12 @@ fn count_new_schedules(pool: &ConnectionPool, new: &NewSchedule) -> Result<i64, 
 fn delete_new_schedule(pool: &ConnectionPool, new: &NewSchedule) -> Result<(), QueryError> {
     let conn = pool.get()?;
 
-    diesel::delete(dsl::schedules
-        .filter(dsl::external_id.eq(new.external_id))
-        .filter(dsl::source.eq(new.source)))
-        .execute(&conn)?;
+    diesel::delete(
+        dsl::schedules
+            .filter(dsl::external_id.eq(new.external_id))
+            .filter(dsl::source.eq(new.source)),
+    )
+    .execute(&conn)?;
 
     Ok(())
 }

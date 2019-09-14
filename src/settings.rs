@@ -76,12 +76,12 @@ impl Profile {
     fn files(&self) -> Vec<String> {
         let mut files = vec!["config/default.toml".to_string()];
         match self {
-            Profile::Default => {},
+            Profile::Default => {}
             profile => {
                 let name = toml::ser::to_string(profile).unwrap();
                 let trimmed_name = name.trim_matches('"');
                 files.push(format!("config/{}.toml", trimmed_name))
-            },
+            }
         }
 
         files
@@ -102,19 +102,29 @@ impl Settings {
         s.try_into()
     }
 
-    pub fn db(&self) -> &Db { &self.db }
+    pub fn db(&self) -> &Db {
+        &self.db
+    }
 
-    pub fn import(&self) -> &Import { &self.import }
+    pub fn import(&self) -> &Import {
+        &self.import
+    }
 
-    pub fn ports(&self) -> &Ports { &self.ports }
+    pub fn ports(&self) -> &Ports {
+        &self.ports
+    }
 }
 
 // MARK: impl Db
 
 impl Db {
-    pub fn url(&self) -> &str { &self.url }
+    pub fn url(&self) -> &str {
+        &self.url
+    }
 
-    pub fn max_connections(&self) -> u32 { self.max_connections }
+    pub fn max_connections(&self) -> u32 {
+        self.max_connections
+    }
 
     pub fn connection_timeout(&self) -> Duration {
         Duration::new(self.connection_timeout, 0)
@@ -124,19 +134,31 @@ impl Db {
 // MARK: impl Import
 
 impl Import {
-    pub fn new_download_path(&self) -> &str { &self.new_download_path }
+    pub fn new_download_path(&self) -> &str {
+        &self.new_download_path
+    }
 
-    pub fn old_download_path(&self) -> &str { &self.old_download_path }
+    pub fn old_download_path(&self) -> &str {
+        &self.old_download_path
+    }
 
-    pub fn new_extract_path(&self) -> &str { &self.new_extract_path }
+    pub fn new_extract_path(&self) -> &str {
+        &self.new_extract_path
+    }
 
-    pub fn old_extract_path(&self) -> &str { &self.old_extract_path }
+    pub fn old_extract_path(&self) -> &str {
+        &self.old_extract_path
+    }
 }
 
 // MARK: impl Ports
 
 impl Ports {
-    pub fn import(&self) -> i32 { self.import }
+    pub fn import(&self) -> i32 {
+        self.import
+    }
 
-    pub fn task(&self) -> i32 { self.task }
+    pub fn task(&self) -> i32 {
+        self.task
+    }
 }

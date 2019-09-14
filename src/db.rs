@@ -6,8 +6,8 @@ pub mod schema;
 pub mod tasks;
 
 pub use diesel::r2d2::PoolError;
-pub use diesel::result::Error as UnderlyingError;
 pub use diesel::result::DatabaseErrorKind;
+pub use diesel::result::Error as UnderlyingError;
 
 use diesel::prelude::*;
 use diesel::r2d2;
@@ -74,15 +74,13 @@ impl std::fmt::Debug for ConnectionPool {
 // MARK: impl QueryError
 
 impl QueryError {
-	/// Returns error kind in case of database error
-	///
-	/// If database returned an error when executing query then we can see what's
-	/// exactly happened. If it's not a database error then `None` will be returned.
+    /// Returns error kind in case of database error
+    ///
+    /// If database returned an error when executing query then we can see what's
+    /// exactly happened. If it's not a database error then `None` will be returned.
     pub fn database_error(&self) -> Option<&DatabaseErrorKind> {
         match self {
-            QueryError::QueryFailed(UnderlyingError::DatabaseError(kind, _)) => {
-                Some(kind)
-            }
+            QueryError::QueryFailed(UnderlyingError::DatabaseError(kind, _)) => Some(kind),
             _ => None,
         }
     }
