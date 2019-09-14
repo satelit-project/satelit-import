@@ -1,7 +1,6 @@
 use config::{Config, ConfigError, File};
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 
 use std::time::Duration;
 
@@ -78,7 +77,11 @@ impl Profile {
         let mut files = vec!["config/default.toml".to_string()];
         match self {
             Profile::Default => {},
-            profile => files.push(format!("config/{}.toml", json!(profile))),
+            profile => {
+                let name = toml::ser::to_string(profile).unwrap();
+                let trimmed_name = name.trim_matches('"');
+                files.push(format!("config/{}.toml", trimmed_name))
+            },
         }
 
         files
