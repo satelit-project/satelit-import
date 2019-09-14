@@ -1,5 +1,14 @@
 # satelit-import
 
+## Dependencies
+
+- Rust (latest stable and nightly)
+- Clippy and Rustfmt
+- [diesel_cli](https://github.com/diesel-rs/diesel/tree/master/diesel_cli)
+  (`postgres` feature only)
+- [ripgrep](https://github.com/BurntSushi/ripgrep)
+- PostgreSQL 12
+
 ## TODO:
 
 - ci with checks from `scripts` dir
