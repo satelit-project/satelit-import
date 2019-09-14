@@ -53,10 +53,6 @@ pub fn new_connection_pool(settings: &settings::Db) -> Result<ConnectionPool, Po
         .connection_timeout(settings.connection_timeout())
         .build(manager)?;
 
-    pool.get()?
-        .execute("PRAGMA foreign_keys = ON")
-        .expect("Failed to enable foreign keys support");
-
     Ok(ConnectionPool(pool))
 }
 

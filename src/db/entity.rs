@@ -8,7 +8,7 @@ use super::schema::schedules;
 pub use crate::proto::uuid::Uuid;
 
 /// Represents scheduled anidb item import
-#[derive(Queryable)]
+#[derive(Debug, PartialEq, Queryable)]
 pub struct Schedule {
     pub id: i32,
     pub external_id: i32,
@@ -45,7 +45,7 @@ pub enum ScheduleState {
     Finished = 2,
 }
 
-#[derive(Insertable)]
+#[derive(Debug, Insertable)]
 #[table_name = "schedules"]
 pub struct NewSchedule {
     pub external_id: i32,
@@ -125,7 +125,7 @@ pub enum ExternalSource {
     ANN = 2,
 }
 
-#[derive(Queryable)]
+#[derive(Debug, Queryable)]
 pub struct Task {
     pub id: Uuid,
     pub source: ExternalSource,
@@ -134,7 +134,7 @@ pub struct Task {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Queryable, QueryableByName)]
+#[derive(Debug, Queryable, QueryableByName)]
 #[table_name = "queued_jobs"]
 pub struct QueuedJob {
     pub id: Uuid,
