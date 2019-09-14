@@ -7,9 +7,9 @@ pub mod tasks;
 
 pub use diesel::r2d2::PoolError;
 pub use diesel::result::Error as UnderlyingError;
+pub use diesel::result::DatabaseErrorKind;
 
 use diesel::prelude::*;
-use diesel::result::DatabaseErrorKind;
 use diesel::r2d2;
 use lazy_static::lazy_static;
 

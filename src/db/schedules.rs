@@ -35,7 +35,7 @@ impl Schedules {
         let target = schedules
             .filter(external_id.eq(src.external_id))
             .filter(source.eq(src.source));
-        diesel::delete(target).execute(&conn)?; // TODO: test deleting non-existent row (should not fail)
+        diesel::delete(target).execute(&conn)?;
 
         Ok(())
     }
