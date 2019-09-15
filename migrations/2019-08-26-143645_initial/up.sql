@@ -114,7 +114,7 @@ create function queued_jobs_bind_schedules_for_task(uuid, int)
     returns void as
 $$
 begin
-    lock queued_jobs in access exclusive mode;
+    perform pg_advisory_xact_lock(42);
 
     insert into queued_jobs (task_id, schedule_id)
     select $1, id
