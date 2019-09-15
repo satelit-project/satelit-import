@@ -5,8 +5,8 @@ use satelit_import::db::tasks::Tasks;
 
 use super::count_jobs;
 use super::add_schedule;
-use super::{fetch_queued_schedules, fetch_schedule_by_id, fetch_taskby_id};
-use super::{delete_schedules_by_ids, delete_task};
+use super::{fetch_queued_schedules, fetch_schedule_by_id, fetch_task_by_id};
+use super::delete_task;
 
 #[test]
 fn test_job_binding() -> Result<(), QueryError> {
@@ -48,7 +48,7 @@ fn test_job_binding_limit() -> Result<(), QueryError> {
     queue_table.bind(&task.id, 2)?;
     assert_eq!(count_jobs(&pool, &task)?, 2);
 
-    let task = fetch_taskby_id(&pool, &task.id)?;
+    let task = fetch_task_by_id(&pool, &task.id)?;
     tasks_table.finish(&task.id)?;
 
     delete_task(&pool, &task)?;
@@ -69,7 +69,7 @@ fn test_fetching_by_task_id() -> Result<(), QueryError> {
     let task = tasks_table.register(ExternalSource::AniDB)?;
     queue_table.bind(&task.id, 3)?;
 
-    let task = fetch_taskby_id(&pool, &task.id)?;
+    let task = fetch_task_by_id(&pool, &task.id)?;
     let queued = queue_table.for_task_id(&task.id)?;
     for (job, schedule) in queued.iter() {
         assert_eq!(task.id, job.task_id);

@@ -69,7 +69,7 @@ fn add_schedule(
 
 // MARK: fetch
 
-fn fetch_taskby_id(pool: &ConnectionPool, task_id: &Uuid) -> Result<Task, QueryError> {
+fn fetch_task_by_id(pool: &ConnectionPool, task_id: &Uuid) -> Result<Task, QueryError> {
     use satelit_import::db::schema::tasks::dsl;
 
     let conn = pool.get()?;
@@ -135,6 +135,7 @@ fn delete_task_jobs(pool: &ConnectionPool, task: &Task) -> Result<(), QueryError
     Ok(())
 }
 
+// DO NOT DELETE SCHEDULES IF YOU EVER BIND JOBS TO SCRAPING TASKS!!!!!
 fn delete_schedules_by_ids(pool: &ConnectionPool, schedules: &[i32]) -> Result<(), QueryError> {
     use satelit_import::db::schema::schedules::dsl;
 

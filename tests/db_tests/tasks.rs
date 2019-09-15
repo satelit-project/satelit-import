@@ -5,8 +5,8 @@ use satelit_import::db::{ConnectionPool, QueryError};
 
 use super::{count_tasks, count_jobs};
 use super::add_schedule;
-use super::{fetch_taskby_id, fetch_queued_schedules};
-use super::{delete_task, delete_task_jobs, delete_schedules_by_ids};
+use super::{fetch_task_by_id, fetch_queued_schedules};
+use super::{delete_task, delete_task_jobs};
 
 #[test]
 fn test_register_task() -> Result<(), QueryError> {
@@ -46,7 +46,7 @@ fn test_schedule_ids_after_bind() -> Result<(), QueryError> {
     let task = tasks_table.register(ExternalSource::AniDB)?;
     queue_table.bind(&task.id, 3)?;
 
-    let mut task = fetch_taskby_id(&pool, &task.id)?;
+    let mut task = fetch_task_by_id(&pool, &task.id)?;
     task.schedule_ids.sort();
 
     let mut schedules: Vec<_> = fetch_queued_schedules(&pool, &task)?
@@ -59,7 +59,6 @@ fn test_schedule_ids_after_bind() -> Result<(), QueryError> {
 
     delete_task_jobs(&pool, &task)?;
     delete_task(&pool, &task)?;
-    delete_schedules_by_ids(&pool, &schedules)?;
     Ok(())
 }
 
@@ -83,7 +82,7 @@ fn test_queue_after_task_finish() -> Result<(), QueryError> {
     schedules.sort();
 
     tasks_table.finish(&task.id)?;
-    let mut finished_task = fetch_taskby_id(&pool, &task.id)?;
+    let mut finished_task = fetch_task_by_id(&pool, &task.id)?;
     finished_task.schedule_ids.sort();
 
     assert_eq!(task.id, finished_task.id);
@@ -92,7 +91,6 @@ fn test_queue_after_task_finish() -> Result<(), QueryError> {
     assert_eq!(count_jobs(&pool, &finished_task)?, 0);
 
     delete_task(&pool, &finished_task)?;
-    delete_schedules_by_ids(&pool, &schedules)?;
     Ok(())
 }
 
