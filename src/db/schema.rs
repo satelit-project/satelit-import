@@ -12,7 +12,6 @@ table! {
         id -> Int4,
         external_id -> Int4,
         source -> Int4,
-        state -> Int4,
         priority -> Int4,
         next_update_at -> Nullable<Timestamptz>,
         update_count -> Int4,

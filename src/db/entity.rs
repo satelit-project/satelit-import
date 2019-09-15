@@ -13,7 +13,6 @@ pub struct Schedule {
     pub id: i32,
     pub external_id: i32,
     pub source: ExternalSource,
-    pub state: ScheduleState,
     pub priority: i32,
     pub next_update_at: Option<DateTime<Utc>>,
     pub update_count: i32,
@@ -33,16 +32,6 @@ pub struct Schedule {
     pub src_updated_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
-}
-
-/// Represents state of a schedule
-#[sql_type = "Integer"]
-#[repr(C)]
-#[derive(Debug, Clone, Copy, PartialEq, FromSqlRow, AsExpression)]
-pub enum ScheduleState {
-    Pending = 0,
-    Processing = 1,
-    Finished = 2,
 }
 
 #[derive(Debug, Insertable)]

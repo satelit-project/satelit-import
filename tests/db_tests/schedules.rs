@@ -1,9 +1,10 @@
-use diesel::prelude::*;
-
 use satelit_import::db::entity::*;
 use satelit_import::db::schedules::Schedules;
-use satelit_import::db::schema::schedules::dsl;
 use satelit_import::db::{ConnectionPool, QueryError};
+
+use super::count_schedules_by_new;
+use super::fetch_schedule_from_new;
+use super::delete_schedule_by_new;
 
 // MARK: put tests
 
@@ -15,14 +16,14 @@ fn test_put_new() -> Result<(), QueryError> {
     let new = NewSchedule::new(1, ExternalSource::AniDB);
     table.put(&new)?;
 
-    let schedule = get_schedule_from_new(&pool, &new)?;
+    let schedule = fetch_schedule_from_new(&pool, &new)?;
     let mut expected = default_schedule();
     merge_db_schedule(&schedule, &mut expected);
     merge_new_schedule(&new, &mut expected);
 
     assert_eq!(expected, schedule);
 
-    delete_new_schedule(&pool, &new)?;
+    delete_schedule_by_new(&pool, &new)?;
     Ok(())
 }
 
@@ -33,12 +34,12 @@ fn test_put_twice() -> Result<(), QueryError> {
 
     let new = NewSchedule::new(2, ExternalSource::AniDB);
     table.put(&new)?;
-    assert_eq!(count_new_schedules(&pool, &new)?, 1);
+    assert_eq!(count_schedules_by_new(&pool, &new)?, 1);
 
     table.put(&new)?;
-    assert_eq!(count_new_schedules(&pool, &new)?, 1);
+    assert_eq!(count_schedules_by_new(&pool, &new)?, 1);
 
-    delete_new_schedule(&pool, &new)?;
+    delete_schedule_by_new(&pool, &new)?;
     Ok(())
 }
 
@@ -49,14 +50,14 @@ fn test_put_twice_diff_id() -> Result<(), QueryError> {
 
     let new1 = NewSchedule::new(3, ExternalSource::AniDB);
     table.put(&new1)?;
-    assert_eq!(count_new_schedules(&pool, &new1)?, 1);
+    assert_eq!(count_schedules_by_new(&pool, &new1)?, 1);
 
     let new2 = NewSchedule::new(4, ExternalSource::AniDB);
     table.put(&new2)?;
-    assert_eq!(count_new_schedules(&pool, &new2)?, 1);
+    assert_eq!(count_schedules_by_new(&pool, &new2)?, 1);
 
-    delete_new_schedule(&pool, &new1)?;
-    delete_new_schedule(&pool, &new2)?;
+    delete_schedule_by_new(&pool, &new1)?;
+    delete_schedule_by_new(&pool, &new2)?;
     Ok(())
 }
 
@@ -67,14 +68,14 @@ fn test_put_twice_diff_source() -> Result<(), QueryError> {
 
     let new1 = NewSchedule::new(5, ExternalSource::AniDB);
     table.put(&new1)?;
-    assert_eq!(count_new_schedules(&pool, &new1)?, 1);
+    assert_eq!(count_schedules_by_new(&pool, &new1)?, 1);
 
     let new2 = NewSchedule::new(5, ExternalSource::MAL);
     table.put(&new2)?;
-    assert_eq!(count_new_schedules(&pool, &new2)?, 1);
+    assert_eq!(count_schedules_by_new(&pool, &new2)?, 1);
 
-    delete_new_schedule(&pool, &new1)?;
-    delete_new_schedule(&pool, &new2)?;
+    delete_schedule_by_new(&pool, &new1)?;
+    delete_schedule_by_new(&pool, &new2)?;
     Ok(())
 }
 
@@ -87,10 +88,10 @@ fn test_pop_schedule() -> Result<(), QueryError> {
 
     let new = NewSchedule::new(100, ExternalSource::ANN);
     table.put(&new)?;
-    assert_eq!(count_new_schedules(&pool, &new)?, 1);
+    assert_eq!(count_schedules_by_new(&pool, &new)?, 1);
 
     table.pop(&new)?;
-    assert_eq!(count_new_schedules(&pool, &new)?, 0);
+    assert_eq!(count_schedules_by_new(&pool, &new)?, 0);
 
     Ok(())
 }
@@ -103,7 +104,7 @@ fn test_pop_nonexistent_schedule() -> Result<(), QueryError> {
     let new = NewSchedule::new(101, ExternalSource::ANN);
     table.pop(&new)?;
     table.pop(&new)?;
-    assert_eq!(count_new_schedules(&pool, &new)?, 0);
+    assert_eq!(count_schedules_by_new(&pool, &new)?, 0);
 
     Ok(())
 }
@@ -118,7 +119,7 @@ fn test_update_schedule() -> Result<(), QueryError> {
     let new = NewSchedule::new(300, ExternalSource::MAL);
     table.put(&new)?;
 
-    let schedule = get_schedule_from_new(&pool, &new)?;
+    let schedule = fetch_schedule_from_new(&pool, &new)?;
     let mut expected = default_schedule();
     merge_db_schedule(&schedule, &mut expected);
     merge_new_schedule(&new, &mut expected);
@@ -129,15 +130,14 @@ fn test_update_schedule() -> Result<(), QueryError> {
     let update = full_update();
     table.update(schedule.id, &update)?;
 
-    let updated_schedule = get_schedule_from_new(&pool, &new)?;
+    let updated_schedule = fetch_schedule_from_new(&pool, &new)?;
     merge_db_schedule(&updated_schedule, &mut expected);
     merge_updated_schedule(&update, &mut expected);
     assert_eq!(updated_schedule, expected);
     assert_eq!(schedule.created_at, updated_schedule.created_at);
     assert_ne!(schedule.updated_at, updated_schedule.updated_at);
 
-    delete_new_schedule(&pool, &new)?;
-
+    delete_schedule_by_new(&pool, &new)?;
     Ok(())
 }
 
@@ -159,42 +159,6 @@ fn make_pool() -> ConnectionPool {
     crate::connection_pool("schedules-tests")
 }
 
-fn count_new_schedules(pool: &ConnectionPool, new: &NewSchedule) -> Result<i64, QueryError> {
-    let conn = pool.get()?;
-
-    let count = dsl::schedules
-        .filter(dsl::external_id.eq(new.external_id))
-        .filter(dsl::source.eq(new.source))
-        .count()
-        .get_result(&conn)?;
-
-    Ok(count)
-}
-
-fn delete_new_schedule(pool: &ConnectionPool, new: &NewSchedule) -> Result<(), QueryError> {
-    let conn = pool.get()?;
-
-    diesel::delete(
-        dsl::schedules
-            .filter(dsl::external_id.eq(new.external_id))
-            .filter(dsl::source.eq(new.source)),
-    )
-    .execute(&conn)?;
-
-    Ok(())
-}
-
-fn get_schedule_from_new(pool: &ConnectionPool, new: &NewSchedule) -> Result<Schedule, QueryError> {
-    let conn = pool.get()?;
-
-    let schedule: Schedule = dsl::schedules
-        .filter(dsl::external_id.eq(new.external_id))
-        .filter(dsl::source.eq(new.source))
-        .get_result(&conn)?;
-
-    Ok(schedule)
-}
-
 // MARK: schedule
 
 fn default_schedule() -> Schedule {
@@ -202,7 +166,6 @@ fn default_schedule() -> Schedule {
         id: 0,
         external_id: 0,
         source: ExternalSource::AniDB,
-        state: ScheduleState::Pending,
         priority: 1000,
         next_update_at: None,
         update_count: 0,

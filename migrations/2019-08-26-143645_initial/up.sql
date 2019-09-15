@@ -5,7 +5,6 @@ create table schedules
     id                 serial                    not null,
     external_id        int                       not null,
     source             int                       not null,
-    state              int         default 0     not null,
     priority           int         default 1000  not null,
     next_update_at     timestamptz default null,
     update_count       int         default 0     not null,
@@ -85,65 +84,47 @@ alter table queued_jobs
     add constraint queued_jobs_pk
         primary key (id);
 
--- update state on new queued task
-create function queued_jobs_set_processing_state()
+-- update parent rows
+create function queued_jobs_update_parent_rows()
     returns trigger as
 $$
 begin
-    --- set state to processing
-    update schedules
-    set state = 1
-    where new.schedule_id = id;
-
-    --- put schedule id to task
+    -- put schedule id to task
     update tasks
     set schedule_ids = array_append(schedule_ids, new.schedule_id)
     where new.task_id = id;
 
+    -- increment update_count
+    update schedules
+    set update_count = update_count + 1
+    where new.schedule_id = id;
+
     return null;
 end;
 $$ language plpgsql;
 
-create trigger queued_jobs_set_state_after_insert
+create trigger queued_jobs_update_parent_rows_after_insert
     after insert
     on queued_jobs
     for each row
-execute procedure queued_jobs_set_processing_state();
-
--- update state on queued task finished
-create function queued_jobs_set_pending_or_finished_state()
-    returns trigger as
-$$
-begin
-    -- set state to finished or pending and increment update_count
-    update schedules
-    set state        = case when next_update_at is null then 3 else 0 end,
-        update_count = update_count + 1
-    where old.schedule_id = id;
-
-    return null;
-end;
-$$ language plpgsql;
-
-create trigger queued_jobs_set_state_after_delete
-    after delete
-    on queued_jobs
-    for each row
-execute procedure queued_jobs_set_pending_or_finished_state();
+execute procedure queued_jobs_update_parent_rows();
 
 -- schedules binding
 create function queued_jobs_bind_schedules_for_task(uuid, int)
     returns void as
 $$
 begin
-    lock table schedules in access exclusive mode;
-    insert into queued_jobs (task_id, schedule_id) (
-        select $1, schedules.id
-        from schedules
-        where schedules.state = 0
-          and schedules.next_update_at <= now()
-        order by schedules.priority desc
-        limit $2
-    );
+    lock queued_jobs in access exclusive mode;
+
+    insert into queued_jobs (task_id, schedule_id)
+    select $1, id
+    from schedules
+    where not exists(
+            select true
+            from queued_jobs
+            where schedule_id = schedules.id
+        )
+    order by priority desc
+    limit $2;
 end;
 $$ language plpgsql;

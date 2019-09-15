@@ -10,31 +10,6 @@ use std::io::Write;
 use super::entity::*;
 use crate::proto::uuid;
 
-// MARK: - impl ScheduleState
-
-impl ToSql<Integer, Pg> for ScheduleState {
-    fn to_sql<W: Write>(
-        &self,
-        out: &mut diesel::serialize::Output<'_, W, Pg>,
-    ) -> diesel::serialize::Result {
-        ToSql::<Integer, Pg>::to_sql(&(*self as i32), out)
-    }
-}
-
-impl FromSql<Integer, Pg> for ScheduleState {
-    fn from_sql(bytes: Option<&<Pg as Backend>::RawValue>) -> diesel::deserialize::Result<Self> {
-        use ScheduleState::*;
-
-        let value: i32 = FromSql::<Integer, Pg>::from_sql(bytes)?;
-        let range = (Pending as i32)..=(Finished as i32);
-        if range.contains(&value) {
-            unsafe { return Ok(std::mem::transmute(value)) }
-        }
-
-        Err(format!("Unrecognized ScheduleState raw value: {}", value).into())
-    }
-}
-
 // MARK: impl ExternalSource
 
 impl ToSql<Integer, Pg> for ExternalSource {
