@@ -5,8 +5,8 @@ use satelit_import::db::tasks::Tasks;
 
 use super::count_jobs;
 use super::add_schedule;
-use super::{fetch_queued_schedules, fetch_schedule_by_id, fetch_task_by_id};
-use super::delete_task;
+use super::{fetch_task_by_id, fetch_queued_schedules};
+use super::{delete_task, delete_schedules_by_ids};
 
 #[test]
 fn test_job_binding() -> Result<(), QueryError> {
@@ -22,15 +22,10 @@ fn test_job_binding() -> Result<(), QueryError> {
     queue_table.bind(&task.id, 3)?;
     assert_eq!(count_jobs(&pool, &task)?, 3);
 
-    let queued = fetch_queued_schedules(&pool, &task)?;
-    queued.iter().for_each(|s| assert_eq!(s.state, ScheduleState::Processing));
-
     tasks_table.finish(&task.id)?;
     assert_eq!(count_jobs(&pool, &task)?, 0);
 
-    let schedule_ids: Vec<_> = queued.into_iter().map(|s| s.id).collect();
     delete_task(&pool, &task)?;
-    delete_schedules_by_ids(&pool, &schedule_ids)?;
     Ok(())
 }
 
@@ -52,7 +47,6 @@ fn test_job_binding_limit() -> Result<(), QueryError> {
     tasks_table.finish(&task.id)?;
 
     delete_task(&pool, &task)?;
-    delete_schedules_by_ids(&pool, &task.schedule_ids)?;
     Ok(())
 }
 
@@ -70,7 +64,7 @@ fn test_fetching_by_task_id() -> Result<(), QueryError> {
     queue_table.bind(&task.id, 3)?;
 
     let task = fetch_task_by_id(&pool, &task.id)?;
-    let queued = queue_table.for_task_id(&task.id)?;
+    let queued = queue_table.jobs_for_task_id(&task.id)?;
     for (job, schedule) in queued.iter() {
         assert_eq!(task.id, job.task_id);
         assert_eq!(job.schedule_id, schedule.id);
@@ -80,12 +74,71 @@ fn test_fetching_by_task_id() -> Result<(), QueryError> {
     tasks_table.finish(&task.id)?;
 
     delete_task(&pool, &task)?;
-    delete_schedules_by_ids(&pool, &task.schedule_ids)?;
     Ok(())
 }
 
 #[test]
 fn test_pop_job() -> Result<(), QueryError> {
+    let pool = make_pool();
+    let tasks_table = Tasks::new(pool.clone());
+    let queue_table = QueuedJobs::new(pool.clone());
+
+    add_schedule(&pool, 200, ExternalSource::AniDB)?;
+    add_schedule(&pool, 201, ExternalSource::AniDB)?;
+
+    let task = tasks_table.register(ExternalSource::AniDB)?;
+    queue_table.bind(&task.id, 2)?;
+
+    let mut jobs = queue_table.jobs_for_task_id(&task.id)?;
+    queue_table.pop(&jobs[0].0.id)?;
+    jobs.remove(0);
+    assert_eq!(jobs, queue_table.jobs_for_task_id(&task.id)?);
+
+    queue_table.pop(&jobs[0].0.id)?;
+    jobs.remove(0);
+    assert_eq!(jobs, queue_table.jobs_for_task_id(&task.id)?);
+
+    delete_task(&pool, &task)?;
+    Ok(())
+}
+
+#[test]
+fn test_fk_rules() -> Result<(), QueryError> {
+    let pool = make_pool();
+    let tasks_table = Tasks::new(pool.clone());
+    let queue_table = QueuedJobs::new(pool.clone());
+
+    add_schedule(&pool, 1, ExternalSource::ANN)?;
+    add_schedule(&pool, 2, ExternalSource::ANN)?;
+    add_schedule(&pool, 3, ExternalSource::ANN)?;
+    add_schedule(&pool, 4, ExternalSource::ANN)?;
+
+    let task = tasks_table.register(ExternalSource::ANN)?;
+    queue_table.bind(&task.id, 3)?;
+    assert_eq!(count_jobs(&pool, &task)?, 3);
+
+    let mut task = fetch_task_by_id(&pool, &task.id)?;
+    task.schedule_ids.sort();
+
+    let remove_range = 0..2;
+    delete_schedules_by_ids(&pool, &task.schedule_ids[remove_range.clone()])?;
+    remove_range.rev().for_each(|i| {
+        let _ = task.schedule_ids.remove(i);
+    });
+
+    let mut remaining: Vec<_> = fetch_queued_schedules(&pool, &task)?
+        .into_iter()
+        .map(|s| s.id)
+        .collect();
+    remaining.sort();
+
+    // jobs should be deleted automatically when it's schedule is deleted
+    assert_eq!(task.schedule_ids, remaining);
+
+    // jobs should be deleted automatically when it's task deleted
+    delete_task(&pool, &task)?;
+    assert_eq!(count_jobs(&pool, &task)?, 0);
+
     Ok(())
 }
 

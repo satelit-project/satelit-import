@@ -113,7 +113,7 @@ fn make_task(state: &State, options: &scraping::TaskCreate) -> Result<scraping::
 
     state.queued_jobs.bind(&task.id, options.limit)?;
 
-    let queued = state.queued_jobs.for_task_id(&task.id)?;
+    let queued = state.queued_jobs.jobs_for_task_id(&task.id)?;
     let mut jobs = vec![];
 
     for (job, schedule) in queued {
