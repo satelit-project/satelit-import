@@ -1,6 +1,6 @@
+pub mod queued_jobs;
 pub mod schedules;
 pub mod tasks;
-pub mod queued_jobs;
 
 use diesel::prelude::*;
 
@@ -96,14 +96,15 @@ fn fetch_schedule_by_id(pool: &ConnectionPool, schedule_id: i32) -> Result<Sched
     use satelit_import::db::schema::schedules::dsl;
 
     let conn = pool.get()?;
-    let schedule = dsl::schedules
-        .find(schedule_id)
-        .get_result(&conn)?;
+    let schedule = dsl::schedules.find(schedule_id).get_result(&conn)?;
 
     Ok(schedule)
 }
 
-fn fetch_schedule_from_new(pool: &ConnectionPool, new: &NewSchedule) -> Result<Schedule, QueryError> {
+fn fetch_schedule_from_new(
+    pool: &ConnectionPool,
+    new: &NewSchedule,
+) -> Result<Schedule, QueryError> {
     use satelit_import::db::schema::schedules::dsl;
 
     let conn = pool.get()?;
@@ -159,7 +160,7 @@ fn delete_schedule_by_new(pool: &ConnectionPool, new: &NewSchedule) -> Result<()
             .filter(dsl::external_id.eq(new.external_id))
             .filter(dsl::source.eq(new.source)),
     )
-        .execute(&conn)?;
+    .execute(&conn)?;
 
     Ok(())
 }

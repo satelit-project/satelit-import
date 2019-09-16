@@ -3,10 +3,10 @@ use satelit_import::db::queued_jobs::QueuedJobs;
 use satelit_import::db::tasks::Tasks;
 use satelit_import::db::{ConnectionPool, QueryError};
 
-use super::{count_tasks, count_jobs};
 use super::add_schedule;
-use super::{fetch_task_by_id, fetch_queued_schedules};
+use super::{count_jobs, count_tasks};
 use super::{delete_task, delete_task_jobs};
+use super::{fetch_queued_schedules, fetch_task_by_id};
 
 #[test]
 fn test_register_task() -> Result<(), QueryError> {

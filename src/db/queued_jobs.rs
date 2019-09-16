@@ -34,7 +34,10 @@ impl QueuedJobs {
     }
 
     /// Returns all scheduled jobs associated with `task`
-    pub fn jobs_for_task_id(&self, task_id: &Uuid) -> Result<Vec<(QueuedJob, Schedule)>, QueryError> {
+    pub fn jobs_for_task_id(
+        &self,
+        task_id: &Uuid,
+    ) -> Result<Vec<(QueuedJob, Schedule)>, QueryError> {
         use self::queued_jobs::dsl;
 
         let conn = self.pool.get()?;
