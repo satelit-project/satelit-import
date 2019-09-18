@@ -92,15 +92,6 @@ fn fetch_queued_schedules(pool: &ConnectionPool, task: &Task) -> Result<Vec<Sche
     Ok(schedules)
 }
 
-fn fetch_schedule_by_id(pool: &ConnectionPool, schedule_id: i32) -> Result<Schedule, QueryError> {
-    use satelit_import::db::schema::schedules::dsl;
-
-    let conn = pool.get()?;
-    let schedule = dsl::schedules.find(schedule_id).get_result(&conn)?;
-
-    Ok(schedule)
-}
-
 fn fetch_schedule_from_new(
     pool: &ConnectionPool,
     new: &NewSchedule,

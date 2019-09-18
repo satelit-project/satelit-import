@@ -37,7 +37,7 @@ prepare_db() {
 }
 
 main() {
-  local test_files="${REPO_DIR}/tests/db_tests/*.rs"
+  local test_files="${REPO_DIR}/tests/db_tests/*.rs ${REPO_DIR}/tests/rpc_tests/*.rs"
 
   local url
   url="$(postgres_url)"

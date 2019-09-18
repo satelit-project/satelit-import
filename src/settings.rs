@@ -1,21 +1,10 @@
 use config::{Config, ConfigError, File};
-use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 
 use std::time::Duration;
 
-lazy_static! {
-    static ref SHARED: Settings = Settings::new(Profile::Default).expect("failed to read settings");
-}
-
-/// Returns reference to global settings instance
-pub fn shared() -> &'static Settings {
-    &SHARED
-}
-
 /// Settings profile
 ///
-/// Each enum case represents a file in `config` directory.
 /// All profiles are based on `Default`, that is, all settings from `Default`
 /// profile will be available, but may be overridden, will be inherited
 /// by other profiles.
@@ -23,7 +12,7 @@ pub fn shared() -> &'static Settings {
 #[serde(rename_all = "kebab-case")]
 pub enum Profile {
     Default,
-    Test,
+    Named(String),
 }
 
 /// Application settings
@@ -33,8 +22,8 @@ pub struct Settings {
     pub db: Db,
     /// Dump import settings
     pub import: Import,
-    /// RPC ports settings
-    pub ports: Ports,
+    /// RPC services settings
+    pub rpc: Rpc,
 }
 
 /// Database settings
@@ -61,13 +50,13 @@ pub struct Import {
     pub old_extract_path: String,
 }
 
-/// gRPC services ports
+/// Rpc services settings
 #[derive(Debug, Clone, Deserialize)]
-pub struct Ports {
-    /// Port for `ImportService`
-    pub import: i32,
-    /// Port for `ScraperTasksService`
-    pub task: i32,
+pub struct Rpc {
+    /// URL to serve `ImportService`
+    pub import: String,
+    /// URL to serve `ScraperTasksService`
+    pub task: String,
 }
 
 // MARK: impl Profile
@@ -77,10 +66,9 @@ impl Profile {
         let mut files = vec!["config/default.toml".to_string()];
         match self {
             Profile::Default => {}
-            profile => {
-                let name = toml::ser::to_string(profile).unwrap();
-                let trimmed_name = name.trim_matches('"');
-                files.push(format!("config/{}.toml", trimmed_name))
+            Profile::Named(name) => {
+                let path = format!("config/{}.toml", name);
+                files.push(path);
             }
         }
 
@@ -110,8 +98,8 @@ impl Settings {
         &self.import
     }
 
-    pub fn ports(&self) -> &Ports {
-        &self.ports
+    pub fn rpc(&self) -> &Rpc {
+        &self.rpc
     }
 }
 
@@ -151,14 +139,14 @@ impl Import {
     }
 }
 
-// MARK: impl Ports
+// MARK: impl Rpc
 
-impl Ports {
-    pub fn import(&self) -> i32 {
-        self.import
+impl Rpc {
+    pub fn import(&self) -> &str {
+        &self.import
     }
 
-    pub fn task(&self) -> i32 {
-        self.task
+    pub fn task(&self) -> &str {
+        &self.task
     }
 }
