@@ -11,8 +11,8 @@ pub mod settings;
 
 use lazy_static::lazy_static;
 
-use settings::Settings;
 use db::ConnectionPool;
+use settings::Settings;
 
 lazy_static! {
     static ref SHARED_SETTINGS: Settings = {

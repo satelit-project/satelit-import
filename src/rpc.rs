@@ -1,10 +1,10 @@
 pub mod import;
 pub mod task;
 
-use crate::Settings;
 use crate::db::{self, ConnectionPool};
 use crate::proto::import::server::ImportServiceServer;
 use crate::proto::scraping::server::ScraperTasksServiceServer;
+use crate::Settings;
 
 use import::ImportService;
 use task::ScraperTasksService;

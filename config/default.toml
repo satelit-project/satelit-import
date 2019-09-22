@@ -1,7 +1,7 @@
 [db]
 url = "postgres://127.0.0.1:5432/import-dev"
-max_connections = 8
-connection_timeout = 15
+max_connections = 64
+connection_timeout = 30
 
 [import]
 new_download_path = "static/anidb-index/new.gz"

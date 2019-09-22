@@ -20,8 +20,10 @@ db_name() {
 }
 
 # Prints PostgreSQL server url without db path
+# Arguments:
+#   $1 - config name without extension
 postgres_url() {
-  local config="${REPO_DIR}/config/test.toml"
+  local config="${REPO_DIR}/config/${1}.toml"
 
   # shellcheck disable=SC2016
   cat < "${config}" | rg '^url\W+=\W+"(postgres:.+)"\W*$' -r '$1'
@@ -37,20 +39,24 @@ prepare_db() {
 }
 
 main() {
-  local test_files="${REPO_DIR}/tests/db_tests/*.rs ${REPO_DIR}/tests/rpc_tests/*.rs"
+  local suites=( "db_tests" "rpc_tests" )
 
-  local url
-  url="$(postgres_url)"
+  for suite in "${suites[@]}"; do
+    local url
+    url=$(postgres_url "${suite}")
 
-  for tf in ${test_files}; do
-    local name
-    name="$(db_name "${tf}")"
+    local test_files="${REPO_DIR}/tests/${suite}/*.rs"
 
-    if [[ -n "${name}" ]]; then
-      echo 1>&2 "Found database: ${name}"
-      prepare_db "${url}${name}"
-      printf 1>&2 "\n"
-    fi
+    for tf in ${test_files}; do
+      local name
+      name="$(db_name "${tf}")"
+
+      if [[ -n "${name}" ]]; then
+        echo 1>&2 "Found database: ${name}"
+        prepare_db "${url}${name}"
+        printf 1>&2 "\n"
+      fi
+    done
   done
 }
 

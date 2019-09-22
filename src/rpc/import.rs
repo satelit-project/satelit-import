@@ -1,10 +1,10 @@
 use futures::prelude::*;
 use tower_grpc::{Code, Request, Response, Status};
 
-use crate::settings;
-use crate::db::ConnectionPool;
 use crate::anidb::importer;
+use crate::db::ConnectionPool;
 use crate::proto::import::{server, ImportIntent, ImportIntentResult};
+use crate::settings;
 
 #[derive(Clone)]
 pub struct ImportService {
