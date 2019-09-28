@@ -1,4 +1,5 @@
 mod import;
+mod task;
 
 use diesel::prelude::*;
 
@@ -16,10 +17,11 @@ fn all_schedules(pool: &ConnectionPool) -> Result<Vec<Schedule>, QueryError> {
 }
 
 // MARK: rpc
+// TODO: pass type to macros
 
 #[macro_export]
-macro_rules! make_client {
-    ( $type:ty, $ip:expr ) => {{
+macro_rules! make_import_client {
+    ( $ip:expr ) => {{
         use std::time::Duration;
         use tower::MakeService;
         use tower_hyper::util::{Destination, HttpConnector};
@@ -42,6 +44,35 @@ macro_rules! make_client {
                     .unwrap();
 
                 ImportService::new(conn).ready()
+            })
+    }};
+}
+
+#[macro_export]
+macro_rules! make_task_client {
+    ( $ip:expr ) => {{
+        use std::time::Duration;
+        use tower::MakeService;
+        use tower_hyper::util::{Destination, HttpConnector};
+        use tower_hyper::{client, util};
+
+        let uri: hyper::Uri = format!("http://{}/", $ip).parse().unwrap();
+        let dst = Destination::try_from_uri(uri.clone()).unwrap();
+        let mut conn = HttpConnector::new(2);
+        conn.set_keepalive(Some(Duration::new(60, 0)));
+
+        let settings = client::Builder::new().http2_only(true).clone();
+        let mut make = client::Connect::with_builder(util::Connector::new(conn), settings);
+
+        make.make_service(dst)
+            .map_err(|e| panic!(e))
+            .and_then(|conn| {
+                let conn = tower_request_modifier::Builder::new()
+                    .set_origin(uri)
+                    .build(conn)
+                    .unwrap();
+
+                ScraperTasksService::new(conn).ready()
             })
     }};
 }

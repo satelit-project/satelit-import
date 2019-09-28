@@ -11,18 +11,17 @@ use satelit_import::proto::uuid::Uuid;
 use satelit_import::rpc::ServicesBuilder;
 use satelit_import::settings::Settings;
 
+use crate::make_import_client;
 use super::all_schedules;
-use crate::make_client;
 
 #[test]
-fn test_first_import() {
+fn test_happy_path() {
     let mut _rt = Runtime::new().unwrap();
     let settings = make_settings();
     let pool = make_pool();
     start_rpc_server(&mut _rt, settings, pool.clone());
     super::abort_on_panic();
 
-    let client = make_client!(ImportService, service_address());
     let intent = ImportIntent {
         id: Some(Uuid { uuid: vec![] }),
         source: Source::Anidb as i32,
@@ -31,7 +30,7 @@ fn test_first_import() {
         reimport_ids: vec![],
     };
 
-    let run = client
+    let run = make_import_client!(service_address())
         .and_then(move |mut client| client.start_import(Request::new(intent)))
         .map_err(|e| panic!(format!("{:?}", e)))
         .and_then(move |response| {
@@ -81,7 +80,7 @@ fn start_rpc_server(rt: &mut Runtime, settings: Settings, pool: ConnectionPool) 
 }
 
 fn make_pool() -> ConnectionPool {
-    crate::connection_pool("import-dev")
+    crate::connection_pool("import-rpc-tests")
 }
 
 fn make_settings() -> Settings {
