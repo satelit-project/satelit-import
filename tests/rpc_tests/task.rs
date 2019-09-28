@@ -1,18 +1,18 @@
-use futures::prelude::*;
 use diesel::prelude::*;
+use futures::prelude::*;
 use tokio::runtime::Runtime;
 use tower_grpc::Request;
 
 use satelit_import::db::entity::*;
 use satelit_import::db::{ConnectionPool, QueryError};
-use satelit_import::proto::scraping::client::ScraperTasksService;
-use satelit_import::proto::scraping;
 use satelit_import::proto::data;
+use satelit_import::proto::scraping;
+use satelit_import::proto::scraping::client::ScraperTasksService;
 use satelit_import::rpc::ServicesBuilder;
 use satelit_import::settings::Settings;
 
-use crate::make_task_client;
 use super::all_schedules;
+use crate::make_task_client;
 
 // TODO: refactor
 // TODO: compare with actual db data after rpc calls
@@ -29,12 +29,14 @@ fn test_happy_path() -> Result<(), QueryError> {
 
     let run = make_task_client!(service_address())
         .and_then(|mut client| {
-            let intent = scraping::TaskCreate { limit: 10, source: data::Source::Anidb as i32 };
+            let intent = scraping::TaskCreate {
+                limit: 10,
+                source: data::Source::Anidb as i32,
+            };
             let request = Request::new(intent);
-            client.create_task(request)
-                .and_then(move |response| {
-                    Ok((client, response.into_inner()))
-                })
+            client
+                .create_task(request)
+                .and_then(move |response| Ok((client, response.into_inner())))
                 .map_err(|e| panic!(e))
         })
         .and_then(move |(client, task)| {
@@ -58,24 +60,22 @@ fn test_happy_path() -> Result<(), QueryError> {
                 scraping::TaskYield {
                     task_id: id.clone(),
                     job_id: j.id.clone(),
-                    anime: Some(anime)
+                    anime: Some(anime),
                 }
             });
 
             futures::stream::iter_ok(yields)
                 .fold(client, |client, res| {
-                    client.ready()
-                        .and_then(move |mut client| {
-                            let request = Request::new(res);
-                            client.yield_result(request)
-                                .and_then(move |_| {
-                                    Ok(client)
-                                })
-                        })
-                }).join(Ok(task_id))
+                    client.ready().and_then(move |mut client| {
+                        let request = Request::new(res);
+                        client.yield_result(request).and_then(move |_| Ok(client))
+                    })
+                })
+                .join(Ok(task_id))
         })
         .and_then(|(client, task_id)| {
-            client.ready()
+            client
+                .ready()
                 .and_then(move |mut client| {
                     let finish = scraping::TaskFinish { task_id };
                     let req = Request::new(finish);
@@ -105,7 +105,10 @@ fn start_rpc_server(rt: &mut Runtime, settings: Settings, pool: ConnectionPool) 
     rt.spawn(run);
 }
 
-fn fill_schedules(pool: &ConnectionPool, source: ExternalSource) -> Result<Vec<Schedule>, QueryError> {
+fn fill_schedules(
+    pool: &ConnectionPool,
+    source: ExternalSource,
+) -> Result<Vec<Schedule>, QueryError> {
     use satelit_import::db::schema::schedules::dsl;
 
     let new = vec![

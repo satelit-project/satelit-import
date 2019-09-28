@@ -19,7 +19,11 @@ pub struct ImportService {
 impl ImportService {
     pub fn new(settings: settings::Import, db_pool: ConnectionPool) -> Self {
         let is_importing = Arc::new(AtomicBool::new(false));
-        Self { settings, db_pool, is_importing }
+        Self {
+            settings,
+            db_pool,
+            is_importing,
+        }
     }
 }
 

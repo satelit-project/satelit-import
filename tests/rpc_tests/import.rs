@@ -11,8 +11,8 @@ use satelit_import::proto::uuid::Uuid;
 use satelit_import::rpc::ServicesBuilder;
 use satelit_import::settings::Settings;
 
-use crate::make_import_client;
 use super::all_schedules;
+use crate::make_import_client;
 
 #[test]
 fn test_happy_path() {
