@@ -5,7 +5,11 @@
 
 set -euo pipefail
 
-REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)/..";
+if [[ -d ".git" ]]; then
+  REPO_DIR="$(git rev-parse --show-toplevel)"
+else
+  REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)/repo";
+fi
 
 # Prints used database name for provided file
 # Arguments:
@@ -40,6 +44,7 @@ prepare_db() {
 
 main() {
   local suites=( "db_tests" "rpc_tests" )
+  pushd "${REPO_DIR}" >/dev/null
 
   for suite in "${suites[@]}"; do
     local url
@@ -58,6 +63,8 @@ main() {
       fi
     done
   done
+
+  popd >/dev/null
 }
 
 main "$@"

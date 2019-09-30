@@ -25,7 +25,7 @@ fn test_happy_path() -> Result<(), QueryError> {
     super::abort_on_panic();
 
     let schedules = fill_schedules(&pool, ExternalSource::AniDB)?;
-    assert!(all_tasks(&pool)?.len() == 0);
+    assert!(all_tasks(&pool)?.is_empty());
 
     let run = make_task_client!(service_address())
         .and_then(|mut client| {

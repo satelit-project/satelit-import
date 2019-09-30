@@ -10,8 +10,9 @@ VOLUME ["/satelit-import/repo"]
 
 SHELL ["/bin/bash", "-c"]
 
-COPY docker/tests/app/* .
+COPY docker/tests/app/* ./
 
 RUN ./provision.sh
 
+# runs all lints and tests
 CMD ./run-tests.sh

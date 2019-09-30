@@ -33,8 +33,8 @@ impl server::ImportService for ImportService {
 
     fn start_import(&mut self, request: Request<ImportIntent>) -> Self::StartImportFuture {
         let flag = self.is_importing.clone();
-        let old = flag.compare_and_swap(false, true, Ordering::SeqCst);
-        if old != false {
+        let failed = flag.compare_and_swap(false, true, Ordering::SeqCst);
+        if failed {
             let status = Status::new(Code::ResourceExhausted, "import is already in progress");
             return Box::new(futures::failed(status));
         }

@@ -24,7 +24,13 @@ rustup component add rustfmt --toolchain "${nightly_name}"
 
 rustup default stable
 
+# install tools 
+cargo install diesel_cli --force --no-default-features --features "postgres"
+cargo install ripgrep --force
+
+# check installation
 cargo --version
-rustc --version
 cargo clippy --version
 cargo "+${nightly_name}" fmt --version
+diesel --version
+rg --version

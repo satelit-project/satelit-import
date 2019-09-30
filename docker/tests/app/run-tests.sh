@@ -11,7 +11,7 @@ scripts/clippy.sh
 scripts/fmt.sh --check
 
 # prepare db
-./prepare-db.sh
+../prepare-db.sh
 
 # run tests
 cargo test
