@@ -12,7 +12,7 @@ Currently, there're 3 images that are used by the app:
 
 1. [`import-db`](https://github.com/satelit-project/satelit-import/packages/29066) – contains PostgreSQL database suitable for development and integration tests. To build and push new image run:
 
-```
+```bash
 # build new image
 docker build --file docker/tests/postgres.Dockerfile --tag import-db --squash .
 
@@ -27,7 +27,7 @@ Remove `--squash` argument if your Docker daemon does not allow experimental fea
 
 2. [`import-serve`](https://github.com/satelit-project/satelit-import/packages/29042) – contains NGINX which serves files from [static/tests/anidb-index](../static/tests/anidb-index) directory. Those files are AniDB dump samples and are used by integration tests. To build and push new image run:
 
-```
+```bash
 # build new image
 docker build --file docker/tests/nginx.Dockerfile --tag import-serve --squash .
 
@@ -40,7 +40,7 @@ docker push docker.pkg.github.com/satelit-project/satelit-import/import-serve:la
 
 3. [`import-tests`](https://github.com/satelit-project/satelit-import/packages/28797) – a container to build and run unit and integration tests. To build and push new image run:
 
-```
+```bash
 # build new image
 docker build --file docker/tests/app.Dockerfile --tag import-tests --squash .
 
@@ -61,19 +61,19 @@ Here's how you could run those containers:
 
 1. `import-db`:
 
-```
+```bash
 docker run -p 5432:5432 import-db:latest
 ```
 
 2. `import-serve`:
 
-```
+```bash
 docker run -p 8081:8081 --mount "type=bind,source=$(pwd)/static/tests/anidb-index,destination=/usr/share/nginx/anidb" import-serve:latest
 ```
 
 3. `import-tests`:
 
-```
+```bash
 docker run --mount "type=bind,source=$(pwd),destination=/satelit-import/repo" import-tests:latest
 ```
 
