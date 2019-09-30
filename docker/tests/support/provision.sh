@@ -19,10 +19,12 @@ curl https://sh.rustup.rs -sSf | bash -s -- -y --no-modify-path --default-toolch
 rustup toolchain install stable
 rustup component add clippy --toolchain stable
 
-rustup toolchain install ${nightly_name}
-rustup component add rustfmt --toolchain ${nightly_name}
+rustup toolchain install "${nightly_name}"
+rustup component add rustfmt --toolchain "${nightly_name}"
+
+rustup default stable
 
 cargo --version
 rustc --version
 cargo clippy --version
-cargo +${nightly_name} fmt --version
+cargo "+${nightly_name}" fmt --version
