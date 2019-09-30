@@ -1,5 +1,5 @@
 [db]
-url = "postgres://127.0.0.1:5432/import-dev"
+url = "postgres://satelit@127.0.0.1:5432/import-default"
 max_connections = 64
 connection_timeout = 30
 
