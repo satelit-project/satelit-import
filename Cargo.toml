@@ -21,7 +21,7 @@ futures = "0.1.26"
 tokio = "0.1.22"
 rayon = "1.1.0"
 
-tower-grpc = "0.1.0"
+tower-grpc = "0.1.1"
 tower-hyper = "0.1.1"
 prost = { version = "0.5.0", features = ["prost-derive"] }
 bytes = "0.4.12"
