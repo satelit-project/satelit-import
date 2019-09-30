@@ -23,8 +23,6 @@ docker tag import-db docker.pkg.github.com/satelit-project/satelit-import/import
 docker push docker.pkg.github.com/satelit-project/satelit-import/import-db:latest
 ```
 
-Remove `--squash` argument if your Docker daemon does not allow experimental features.
-
 2. [`import-serve`](https://github.com/satelit-project/satelit-import/packages/29042) – contains NGINX which serves files from [static/tests/anidb-index](../static/tests/anidb-index) directory. Those files are AniDB dump samples and are used by integration tests. To build and push new image run:
 
 ```bash
@@ -50,6 +48,8 @@ docker tag import-tests docker.pkg.github.com/satelit-project/satelit-import/imp
 # push to github registry
 docker push docker.pkg.github.com/satelit-project/satelit-import/import-tests:latest
 ```
+
+Remove `--squash` argument if your Docker daemon does not allow experimental features.
 
 ## Running standalone containers
 
