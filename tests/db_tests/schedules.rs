@@ -1,3 +1,5 @@
+use chrono::prelude::*;
+
 use satelit_import::db::entity::*;
 use satelit_import::db::schedules::Schedules;
 use satelit_import::db::{ConnectionPool, QueryError};
@@ -183,8 +185,8 @@ fn default_schedule() -> Schedule {
         has_description: false,
         src_created_at: None,
         src_updated_at: None,
-        created_at: chrono::Utc::now(),
-        updated_at: chrono::Utc::now(),
+        created_at: chrono::Utc::now().trunc_subsecs(0),
+        updated_at: chrono::Utc::now().trunc_subsecs(0),
     }
 }
 
@@ -198,7 +200,7 @@ fn default_update(identity: &NewSchedule) -> UpdatedSchedule {
 
 fn full_update() -> UpdatedSchedule {
     UpdatedSchedule {
-        next_update_at: Some(chrono::Utc::now()),
+        next_update_at: Some(chrono::Utc::now().trunc_subsecs(0)),
         has_poster: true,
         has_start_air_date: true,
         has_end_air_date: true,
@@ -211,8 +213,8 @@ fn full_update() -> UpdatedSchedule {
         has_all_eps: true,
         has_rating: true,
         has_description: true,
-        src_created_at: Some(chrono::Utc::now()),
-        src_updated_at: Some(chrono::Utc::now()),
+        src_created_at: Some(chrono::Utc::now().trunc_subsecs(0)),
+        src_updated_at: Some(chrono::Utc::now().trunc_subsecs(0)),
     }
 }
 

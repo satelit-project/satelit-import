@@ -65,8 +65,9 @@ enum IndexFile {
 }
 
 fn index_url(file: IndexFile) -> String {
+    // TODO: move to settings
     // from nginx.conf
-    format!("http://127.0.0.1:8081/{}", file.name())
+    format!("http://import-serve:8081/{}", file.name())
 }
 
 fn start_rpc_server(rt: &mut Runtime, settings: Settings, pool: ConnectionPool) {

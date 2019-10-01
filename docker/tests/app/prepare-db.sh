@@ -5,10 +5,11 @@
 
 set -euo pipefail
 
-if [[ -d ".git" ]]; then
-  REPO_DIR="$(git rev-parse --show-toplevel)"
-else
+# TODO: don't rely on /.dockerenv to ckeck that we're inside a container
+if [[ -f "/.dockerenv" ]]; then
   REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)/repo";
+else
+  REPO_DIR="$(git rev-parse --show-toplevel)"
 fi
 
 # Prints used database name for provided file
