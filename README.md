@@ -34,11 +34,13 @@ Change your `/etc/hosts` to include following lines:
 To execute all unit and integration tests run:
 
 ```bash
-docker-compose -f docker/tests/docker-compose.yaml up --exit-code-from import-tests
+docker-compose -f docker/tests/docker-compose.yaml up --exit-code-from import-tests # preferred
+# ======= or =======
+docker-compose -f docker/tests/docker-compose.yaml run --rm import-tests # won't reuse previous containers
 ```
 
 To run all required services for integration tests and get into test environment without running any tests run:
 
 ```bash
-docker-compose -f docker/tests/docker-compose.yaml run --rm import-tests bash
+docker-compose -f docker/tests/docker-compose.yaml run --rm import-tests bash # for example, to run tests manually
 ```
