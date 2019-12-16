@@ -14,7 +14,7 @@ lazy_static = "1.4.0"
 chrono = "0.4.7"
 
 diesel = { version = "1.4.2", features = ["postgres", "r2d2", "chrono"] }
-serde = { version = "1.0.94", features = ["derive"] }
+serde = { version = "1.0.104", features = ["derive"] }
 
 reqwest = "0.9.15"
 futures = "0.1.26"
