@@ -5,7 +5,7 @@ authors = ["Igor Nikitin <rabbitinspace@icloud.com>"]
 edition = "2018"
 
 [dependencies]
-quick-xml = "0.16.0"
+quick-xml = "0.17.1"
 flate2 = { version = "1.0.7", features = ["tokio"] }
 
 config = "0.9.2"
