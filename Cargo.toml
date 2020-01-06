@@ -16,7 +16,7 @@ chrono = "0.4.7"
 diesel = { version = "1.4.2", features = ["postgres", "r2d2", "chrono"] }
 serde = { version = "1.0.94", features = ["derive"] }
 
-reqwest = "0.9.15"
+reqwest = "0.10.0"
 futures = "0.1.26"
 tokio = "0.1.22"
 rayon = "1.1.0"
