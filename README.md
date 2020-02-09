@@ -2,6 +2,10 @@
 
 Orchestrates data import from external soruces.
 
+## Warning
+
+The code here is not great and will be refactored during async/await and tokio migration.
+
 ## Dependencies
 
 **Required:**
