@@ -5,26 +5,27 @@ authors = ["Igor Nikitin <rabbitinspace@icloud.com>"]
 edition = "2018"
 
 [dependencies]
-quick-xml = "0.16.0"
-flate2 = { version = "1.0.7", features = ["tokio"] }
+quick-xml = "0.17.2"
+flate2 = { version = "1.0.13", features = ["tokio"] }
 
-config = "0.9.2"
-log = { version = "0.4.7", features = ["std"] }
+config = "0.10.1"
+log = { version = "0.4.8", features = ["std"] }
 lazy_static = "1.4.0"
-chrono = "0.4.7"
+chrono = "0.4.10"
 
-diesel = { version = "1.4.2", features = ["postgres", "r2d2", "chrono"] }
-serde = { version = "1.0.94", features = ["derive"] }
+diesel = { version = "1.4.3", features = ["postgres", "r2d2", "chrono"] }
+serde = { version = "1.0.104", features = ["derive"] }
+tinytemplate = "1.0.3"
 
-reqwest = "0.9.15"
-futures = "0.1.26"
-tokio = "0.1.22"
-rayon = "1.1.0"
+futures = "0.3.4"
+tokio = "0.2.13"
+tracing = "0.1.13"
+tracing-futures = "0.2.3"
+tracing-subscriber = "0.2.3"
 
-tower-grpc = "0.1.0"
-tower-hyper = "0.1.1"
-prost = { version = "0.5.0", features = ["prost-derive"] }
-bytes = "0.4.12"
+tonic = "0.1.1"
+prost = "0.6.1"
+reqwest = "0.10.4"
 
 [dev-dependencies]
 tower = "0.1.1"
