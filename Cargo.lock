@@ -40,6 +40,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-compression"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9d37ca0ddff0c8afe8307cd4cc3636c19f0fa09ecfc642344b1597d08a19d1a2"
+dependencies = [
+ "bytes 0.5.4",
+ "flate2",
+ "futures-core",
+ "memchr",
+ "pin-project-lite",
+]
+
+[[package]]
 name = "async-stream"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1259,6 +1272,7 @@ version = "0.10.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "02b81e49ddec5109a9dcfc5f2a317ff53377c915e9ae9d4f2fb50914b85614e2"
 dependencies = [
+ "async-compression",
  "base64 0.11.0",
  "bytes 0.5.4",
  "encoding_rs",
@@ -1326,7 +1340,6 @@ dependencies = [
  "reqwest",
  "serde 1.0.104",
  "tempfile",
- "tinytemplate",
  "tokio 0.2.13",
  "toml 0.4.10",
  "tonic",
@@ -1558,16 +1571,6 @@ dependencies = [
  "libc",
  "redox_syscall",
  "winapi 0.3.8",
-]
-
-[[package]]
-name = "tinytemplate"
-version = "1.0.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "57a3c6667d3e65eb1bc3aed6fd14011c6cbc3a0665218ab7f5daf040b9ec371a"
-dependencies = [
- "serde 1.0.104",
- "serde_json",
 ]
 
 [[package]]

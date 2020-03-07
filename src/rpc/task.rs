@@ -1,8 +1,7 @@
 mod update;
 
 use futures::prelude::*;
-use log::{error, warn};
-use tower_grpc::{Code, Request, Response, Status};
+use tonic;
 
 use std::{
     convert::{TryFrom, TryInto},

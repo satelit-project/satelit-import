@@ -15,17 +15,16 @@ chrono = "0.4.10"
 
 diesel = { version = "1.4.3", features = ["postgres", "r2d2", "chrono"] }
 serde = { version = "1.0.104", features = ["derive"] }
-tinytemplate = "1.0.3"
 
 futures = "0.3.4"
-tokio = "0.2.13"
+tokio = { version = "0.2.13", features = ["fs"] }
 tracing = "0.1.13"
 tracing-futures = "0.2.3"
 tracing-subscriber = "0.2.3"
 
 tonic = "0.1.1"
 prost = "0.6.1"
-reqwest = "0.10.4"
+reqwest = { version = "0.10.4", features = ["gzip"] }
 
 [dev-dependencies]
 tower = "0.1.1"
