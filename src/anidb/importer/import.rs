@@ -1,15 +1,16 @@
 use futures::prelude::*;
 use log::{debug, warn};
 
-use std::cmp::Ordering;
-use std::collections::HashSet;
-use std::fmt;
-use std::path::Path;
+use std::{cmp::Ordering, collections::HashSet, fmt, path::Path};
 
-use crate::anidb::parser::{Anidb, Anime, XmlError};
-use crate::block::{blocking, BlockingError};
-use crate::db::entity::{ExternalSource, NewSchedule};
-use crate::db::{schedules, ConnectionPool, QueryError};
+use crate::{
+    anidb::parser::{Anidb, Anime, XmlError},
+    block::{blocking, BlockingError},
+    db::{
+        entity::{ExternalSource, NewSchedule},
+        schedules, ConnectionPool, QueryError,
+    },
+};
 
 /// Creates AniDB dump importer configured with global app settings
 ///
@@ -314,8 +315,7 @@ impl std::error::Error for ImportError {}
 
 #[cfg(test)]
 mod tests {
-    use super::super::test_utils::import::*;
-    use super::*;
+    use super::{super::test_utils::import::*, *};
     use std::iter::FromIterator as _;
 
     #[test]

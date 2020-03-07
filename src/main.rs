@@ -1,8 +1,7 @@
 use futures::prelude::*;
 use log::error;
 
-use satelit_import::rpc;
-use satelit_import::{shared_db_pool, shared_settings};
+use satelit_import::{rpc, shared_db_pool, shared_settings};
 
 fn main() -> std::io::Result<()> {
     //    env_logger::init_from_env(env_logger::Env::new().filter_or("SATELIT_LOG", "info"));

@@ -1,11 +1,15 @@
 use futures::prelude::*;
-use reqwest::r#async::{Client, ClientBuilder};
-use reqwest::Method;
+use reqwest::{
+    r#async::{Client, ClientBuilder},
+    Method,
+};
 use tokio::fs::File;
 
-use std::fmt::{self, Debug, Display};
-use std::path::Path;
-use std::time::Duration;
+use std::{
+    fmt::{self, Debug, Display},
+    path::Path,
+    time::Duration,
+};
 
 /// Creates downloader with configuration from global app settings
 pub fn downloader<U, P>(
@@ -148,9 +152,10 @@ impl From<std::io::Error> for DownloadError {
 
 #[cfg(test)]
 mod tests {
-    use super::super::test_utils::download::*;
-    use super::super::test_utils::tokio_run_aborting;
-    use super::*;
+    use super::{
+        super::test_utils::{download::*, tokio_run_aborting},
+        *,
+    };
     use tokio::prelude::*;
 
     #[test]

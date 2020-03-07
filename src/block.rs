@@ -1,5 +1,4 @@
-use futures::prelude::*;
-use futures::sync::oneshot;
+use futures::{prelude::*, sync::oneshot};
 use lazy_static::lazy_static;
 use log::error;
 use rayon::{ThreadPool, ThreadPoolBuilder};

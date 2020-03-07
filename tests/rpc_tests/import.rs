@@ -2,14 +2,16 @@ use futures::prelude::*;
 use tokio::runtime::Runtime;
 use tower_grpc::Request;
 
-use satelit_import::db::entity::*;
-use satelit_import::db::ConnectionPool;
-use satelit_import::proto::data::Source;
-use satelit_import::proto::import::client::ImportService;
-use satelit_import::proto::import::ImportIntent;
-use satelit_import::proto::uuid::Uuid;
-use satelit_import::rpc::ServicesBuilder;
-use satelit_import::settings::Settings;
+use satelit_import::{
+    db::{entity::*, ConnectionPool},
+    proto::{
+        data::Source,
+        import::{client::ImportService, ImportIntent},
+        uuid::Uuid,
+    },
+    rpc::ServicesBuilder,
+    settings::Settings,
+};
 
 use super::all_schedules;
 use crate::make_import_client;

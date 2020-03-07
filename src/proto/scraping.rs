@@ -2,700 +2,507 @@
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ScrapeIntent {
     /// Intent ID
-    #[prost(message, optional, tag="1")]
+    #[prost(message, optional, tag = "1")]
     pub id: ::std::option::Option<super::uuid::Uuid>,
     /// Indicator from where to scrape data
-    #[prost(enumeration="super::data::Source", tag="2")]
+    #[prost(enumeration = "super::data::Source", tag = "2")]
     pub source: i32,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ScrapeIntentResult {
     /// ID of an intent that was used to initiate data scraping
-    #[prost(message, optional, tag="1")]
+    #[prost(message, optional, tag = "1")]
     pub id: ::std::option::Option<super::uuid::Uuid>,
     /// Wherever there's more data to scrape
-    #[prost(bool, tag="2")]
+    #[prost(bool, tag = "2")]
     pub may_continue: bool,
 }
 /// Represents a task for anime pages scraping
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Task {
     /// Task ID
-    #[prost(message, optional, tag="1")]
+    #[prost(message, optional, tag = "1")]
     pub id: ::std::option::Option<super::uuid::Uuid>,
     /// External DB from where to scrape info
-    #[prost(enumeration="super::data::Source", tag="2")]
+    #[prost(enumeration = "super::data::Source", tag = "2")]
     pub source: i32,
     /// Scraping jobs
-    #[prost(message, repeated, tag="3")]
+    #[prost(message, repeated, tag = "3")]
     pub jobs: ::std::vec::Vec<Job>,
 }
 /// Represents a single scraping job for an anime page
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Job {
     /// Job ID
-    #[prost(message, optional, tag="1")]
+    #[prost(message, optional, tag = "1")]
     pub id: ::std::option::Option<super::uuid::Uuid>,
     /// Anime ID
-    #[prost(sint32, tag="2")]
+    #[prost(sint32, tag = "2")]
     pub anime_id: i32,
 }
 /// Scrape task creation request
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TaskCreate {
     /// Maximum number of entities to scrape
-    #[prost(sint32, tag="1")]
+    #[prost(sint32, tag = "1")]
     pub limit: i32,
     /// External data source to scrape data from
-    #[prost(enumeration="super::data::Source", tag="2")]
+    #[prost(enumeration = "super::data::Source", tag = "2")]
     pub source: i32,
 }
 /// Intermediate result of a parse task
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TaskYield {
     /// ID of the related task
-    #[prost(message, optional, tag="1")]
+    #[prost(message, optional, tag = "1")]
     pub task_id: ::std::option::Option<super::uuid::Uuid>,
     /// ID of the related job
-    #[prost(message, optional, tag="2")]
+    #[prost(message, optional, tag = "2")]
     pub job_id: ::std::option::Option<super::uuid::Uuid>,
     /// Parsed anime entity
-    #[prost(message, optional, tag="3")]
+    #[prost(message, optional, tag = "3")]
     pub anime: ::std::option::Option<super::data::Anime>,
 }
 /// Signals that a task has been finished
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TaskFinish {
     /// ID of the related task
-    #[prost(message, optional, tag="1")]
+    #[prost(message, optional, tag = "1")]
     pub task_id: ::std::option::Option<super::uuid::Uuid>,
 }
-pub mod client {
-    use ::tower_grpc::codegen::client::*;
-    use super::{ScrapeIntent, ScrapeIntentResult, TaskCreate, Task, TaskYield, TaskFinish};
-
-    /// A service to start scraping process
-    /// 
-    /// 'Scraper' should implement a server side of the service and
-    /// something from the outside needs to trigger scraping process.
-    #[derive(Debug, Clone)]
-    pub struct ScraperService<T> {
-        inner: grpc::Grpc<T>,
+#[doc = r" Generated client implementations."]
+pub mod scraper_service_client {
+    #![allow(unused_variables, dead_code, missing_docs)]
+    use tonic::codegen::*;
+    #[doc = " A service to start scraping process"]
+    #[doc = ""]
+    #[doc = " 'Scraper' should implement a server side of the service and"]
+    #[doc = " something from the outside needs to trigger scraping process."]
+    pub struct ScraperServiceClient<T> {
+        inner: tonic::client::Grpc<T>,
     }
-
-    impl<T> ScraperService<T> {
+    impl ScraperServiceClient<tonic::transport::Channel> {
+        #[doc = r" Attempt to create a new client by connecting to a given endpoint."]
+        pub async fn connect<D>(dst: D) -> Result<Self, tonic::transport::Error>
+        where
+            D: std::convert::TryInto<tonic::transport::Endpoint>,
+            D::Error: Into<StdError>,
+        {
+            let conn = tonic::transport::Endpoint::new(dst)?.connect().await?;
+            Ok(Self::new(conn))
+        }
+    }
+    impl<T> ScraperServiceClient<T>
+    where
+        T: tonic::client::GrpcService<tonic::body::BoxBody>,
+        T::ResponseBody: Body + HttpBody + Send + 'static,
+        T::Error: Into<StdError>,
+        <T::ResponseBody as HttpBody>::Error: Into<StdError> + Send,
+    {
         pub fn new(inner: T) -> Self {
-            let inner = grpc::Grpc::new(inner);
+            let inner = tonic::client::Grpc::new(inner);
             Self { inner }
         }
-
-        /// Poll whether this client is ready to send another request.
-        pub fn poll_ready<R>(&mut self) -> futures::Poll<(), grpc::Status>
-        where T: grpc::GrpcService<R>,
-        {
-            self.inner.poll_ready()
-        }
-
-        /// Get a `Future` of when this client is ready to send another request.
-        pub fn ready<R>(self) -> impl futures::Future<Item = Self, Error = grpc::Status>
-        where T: grpc::GrpcService<R>,
-        {
-            futures::Future::map(self.inner.ready(), |inner| Self { inner })
-        }
-
-        /// A service to start scraping process
-        /// 
-        /// 'Scraper' should implement a server side of the service and
-        /// something from the outside needs to trigger scraping process.
-        pub fn start_scraping<R>(&mut self, request: grpc::Request<ScrapeIntent>) -> grpc::unary::ResponseFuture<ScrapeIntentResult, T::Future, T::ResponseBody>
-        where T: grpc::GrpcService<R>,
-              grpc::unary::Once<ScrapeIntent>: grpc::Encodable<R>,
-        {
-            let path = http::PathAndQuery::from_static("/scraping.ScraperService/StartScraping");
-            self.inner.unary(request, path)
-        }
-    }
-
-    /// A service that manages creation/destruction of scraping tasks
-    /// 
-    /// 'Scraper' will call those methods to initiate scraping and report it's progress
-    /// and it's expected to be implemented by 'Importer'.
-    #[derive(Debug, Clone)]
-    pub struct ScraperTasksService<T> {
-        inner: grpc::Grpc<T>,
-    }
-
-    impl<T> ScraperTasksService<T> {
-        pub fn new(inner: T) -> Self {
-            let inner = grpc::Grpc::new(inner);
+        pub fn with_interceptor(inner: T, interceptor: impl Into<tonic::Interceptor>) -> Self {
+            let inner = tonic::client::Grpc::with_interceptor(inner, interceptor);
             Self { inner }
         }
-
-        /// Poll whether this client is ready to send another request.
-        pub fn poll_ready<R>(&mut self) -> futures::Poll<(), grpc::Status>
-        where T: grpc::GrpcService<R>,
-        {
-            self.inner.poll_ready()
+        #[doc = " Starts web scraping and returns result of the operation when finished"]
+        pub async fn start_scraping(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ScrapeIntent>,
+        ) -> Result<tonic::Response<super::ScrapeIntentResult>, tonic::Status> {
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::new(
+                    tonic::Code::Unknown,
+                    format!("Service was not ready: {}", e.into()),
+                )
+            })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path =
+                http::uri::PathAndQuery::from_static("/scraping.ScraperService/StartScraping");
+            self.inner.unary(request.into_request(), path, codec).await
         }
-
-        /// Get a `Future` of when this client is ready to send another request.
-        pub fn ready<R>(self) -> impl futures::Future<Item = Self, Error = grpc::Status>
-        where T: grpc::GrpcService<R>,
-        {
-            futures::Future::map(self.inner.ready(), |inner| Self { inner })
-        }
-
-        /// A service that manages creation/destruction of scraping tasks
-        /// 
-        /// 'Scraper' will call those methods to initiate scraping and report it's progress
-        /// and it's expected to be implemented by 'Importer'.
-        pub fn create_task<R>(&mut self, request: grpc::Request<TaskCreate>) -> grpc::unary::ResponseFuture<Task, T::Future, T::ResponseBody>
-        where T: grpc::GrpcService<R>,
-              grpc::unary::Once<TaskCreate>: grpc::Encodable<R>,
-        {
-            let path = http::PathAndQuery::from_static("/scraping.ScraperTasksService/CreateTask");
-            self.inner.unary(request, path)
-        }
-
-        /// A service that manages creation/destruction of scraping tasks
-        /// 
-        /// 'Scraper' will call those methods to initiate scraping and report it's progress
-        /// and it's expected to be implemented by 'Importer'.
-        pub fn yield_result<R>(&mut self, request: grpc::Request<TaskYield>) -> grpc::unary::ResponseFuture<(), T::Future, T::ResponseBody>
-        where T: grpc::GrpcService<R>,
-              grpc::unary::Once<TaskYield>: grpc::Encodable<R>,
-        {
-            let path = http::PathAndQuery::from_static("/scraping.ScraperTasksService/YieldResult");
-            self.inner.unary(request, path)
-        }
-
-        /// A service that manages creation/destruction of scraping tasks
-        /// 
-        /// 'Scraper' will call those methods to initiate scraping and report it's progress
-        /// and it's expected to be implemented by 'Importer'.
-        pub fn complete_task<R>(&mut self, request: grpc::Request<TaskFinish>) -> grpc::unary::ResponseFuture<(), T::Future, T::ResponseBody>
-        where T: grpc::GrpcService<R>,
-              grpc::unary::Once<TaskFinish>: grpc::Encodable<R>,
-        {
-            let path = http::PathAndQuery::from_static("/scraping.ScraperTasksService/CompleteTask");
-            self.inner.unary(request, path)
+    }
+    impl<T: Clone> Clone for ScraperServiceClient<T> {
+        fn clone(&self) -> Self {
+            Self {
+                inner: self.inner.clone(),
+            }
         }
     }
 }
-
-pub mod server {
-    use ::tower_grpc::codegen::server::*;
-    use super::{ScrapeIntent, ScrapeIntentResult, TaskCreate, Task, TaskYield, TaskFinish};
-
-    // Redefine the try_ready macro so that it doesn't need to be explicitly
-    // imported by the user of this generated code.
-    macro_rules! try_ready {
-        ($e:expr) => (match $e {
-            Ok(futures::Async::Ready(t)) => t,
-            Ok(futures::Async::NotReady) => return Ok(futures::Async::NotReady),
-            Err(e) => return Err(From::from(e)),
-        })
+#[doc = r" Generated client implementations."]
+pub mod scraper_tasks_service_client {
+    #![allow(unused_variables, dead_code, missing_docs)]
+    use tonic::codegen::*;
+    #[doc = " A service that manages creation/destruction of scraping tasks"]
+    #[doc = ""]
+    #[doc = " 'Scraper' will call those methods to initiate scraping and report it's progress"]
+    #[doc = " and it's expected to be implemented by 'Importer'."]
+    pub struct ScraperTasksServiceClient<T> {
+        inner: tonic::client::Grpc<T>,
     }
-
-    /// A service to start scraping process
-    /// 
-    /// 'Scraper' should implement a server side of the service and
-    /// something from the outside needs to trigger scraping process.
-    pub trait ScraperService: Clone {
-        type StartScrapingFuture: futures::Future<Item = grpc::Response<ScrapeIntentResult>, Error = grpc::Status>;
-
-        /// Starts web scraping and returns result of the operation when finished
-        fn start_scraping(&mut self, request: grpc::Request<ScrapeIntent>) -> Self::StartScrapingFuture;
-    }
-
-    #[derive(Debug, Clone)]
-    pub struct ScraperServiceServer<T> {
-        scraper_service: T,
-    }
-
-    impl<T> ScraperServiceServer<T>
-    where T: ScraperService,
-    {
-        pub fn new(scraper_service: T) -> Self {
-            Self { scraper_service }
+    impl ScraperTasksServiceClient<tonic::transport::Channel> {
+        #[doc = r" Attempt to create a new client by connecting to a given endpoint."]
+        pub async fn connect<D>(dst: D) -> Result<Self, tonic::transport::Error>
+        where
+            D: std::convert::TryInto<tonic::transport::Endpoint>,
+            D::Error: Into<StdError>,
+        {
+            let conn = tonic::transport::Endpoint::new(dst)?.connect().await?;
+            Ok(Self::new(conn))
         }
     }
-
-    impl<T> tower::Service<http::Request<grpc::BoxBody>> for ScraperServiceServer<T>
-    where T: ScraperService,
+    impl<T> ScraperTasksServiceClient<T>
+    where
+        T: tonic::client::GrpcService<tonic::body::BoxBody>,
+        T::ResponseBody: Body + HttpBody + Send + 'static,
+        T::Error: Into<StdError>,
+        <T::ResponseBody as HttpBody>::Error: Into<StdError> + Send,
     {
-        type Response = http::Response<scraper_service::ResponseBody<T>>;
-        type Error = grpc::Never;
-        type Future = scraper_service::ResponseFuture<T>;
-
-        fn poll_ready(&mut self) -> futures::Poll<(), Self::Error> {
-            Ok(().into())
+        pub fn new(inner: T) -> Self {
+            let inner = tonic::client::Grpc::new(inner);
+            Self { inner }
         }
-
-        fn call(&mut self, request: http::Request<grpc::BoxBody>) -> Self::Future {
-            use self::scraper_service::Kind::*;
-
-            match request.uri().path() {
+        pub fn with_interceptor(inner: T, interceptor: impl Into<tonic::Interceptor>) -> Self {
+            let inner = tonic::client::Grpc::with_interceptor(inner, interceptor);
+            Self { inner }
+        }
+        #[doc = " Creates new scraping task and returns info about target to scrape"]
+        pub async fn create_task(
+            &mut self,
+            request: impl tonic::IntoRequest<super::TaskCreate>,
+        ) -> Result<tonic::Response<super::Task>, tonic::Status> {
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::new(
+                    tonic::Code::Unknown,
+                    format!("Service was not ready: {}", e.into()),
+                )
+            })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path =
+                http::uri::PathAndQuery::from_static("/scraping.ScraperTasksService/CreateTask");
+            self.inner.unary(request.into_request(), path, codec).await
+        }
+        #[doc = " Reports that an atomic piece of data has been scraped"]
+        pub async fn yield_result(
+            &mut self,
+            request: impl tonic::IntoRequest<super::TaskYield>,
+        ) -> Result<tonic::Response<()>, tonic::Status> {
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::new(
+                    tonic::Code::Unknown,
+                    format!("Service was not ready: {}", e.into()),
+                )
+            })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path =
+                http::uri::PathAndQuery::from_static("/scraping.ScraperTasksService/YieldResult");
+            self.inner.unary(request.into_request(), path, codec).await
+        }
+        #[doc = " Reports that scraping has finished and no more work will be done"]
+        pub async fn complete_task(
+            &mut self,
+            request: impl tonic::IntoRequest<super::TaskFinish>,
+        ) -> Result<tonic::Response<()>, tonic::Status> {
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::new(
+                    tonic::Code::Unknown,
+                    format!("Service was not ready: {}", e.into()),
+                )
+            })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path =
+                http::uri::PathAndQuery::from_static("/scraping.ScraperTasksService/CompleteTask");
+            self.inner.unary(request.into_request(), path, codec).await
+        }
+    }
+    impl<T: Clone> Clone for ScraperTasksServiceClient<T> {
+        fn clone(&self) -> Self {
+            Self {
+                inner: self.inner.clone(),
+            }
+        }
+    }
+}
+#[doc = r" Generated server implementations."]
+pub mod scraper_service_server {
+    #![allow(unused_variables, dead_code, missing_docs)]
+    use tonic::codegen::*;
+    #[doc = "Generated trait containing gRPC methods that should be implemented for use with ScraperServiceServer."]
+    #[async_trait]
+    pub trait ScraperService: Send + Sync + 'static {
+        #[doc = " Starts web scraping and returns result of the operation when finished"]
+        async fn start_scraping(
+            &self,
+            request: tonic::Request<super::ScrapeIntent>,
+        ) -> Result<tonic::Response<super::ScrapeIntentResult>, tonic::Status>;
+    }
+    #[doc = " A service to start scraping process"]
+    #[doc = ""]
+    #[doc = " 'Scraper' should implement a server side of the service and"]
+    #[doc = " something from the outside needs to trigger scraping process."]
+    #[derive(Debug)]
+    #[doc(hidden)]
+    pub struct ScraperServiceServer<T: ScraperService> {
+        inner: _Inner<T>,
+    }
+    struct _Inner<T>(Arc<T>, Option<tonic::Interceptor>);
+    impl<T: ScraperService> ScraperServiceServer<T> {
+        pub fn new(inner: T) -> Self {
+            let inner = Arc::new(inner);
+            let inner = _Inner(inner, None);
+            Self { inner }
+        }
+        pub fn with_interceptor(inner: T, interceptor: impl Into<tonic::Interceptor>) -> Self {
+            let inner = Arc::new(inner);
+            let inner = _Inner(inner, Some(interceptor.into()));
+            Self { inner }
+        }
+    }
+    impl<T: ScraperService> Service<http::Request<HyperBody>> for ScraperServiceServer<T> {
+        type Response = http::Response<tonic::body::BoxBody>;
+        type Error = Never;
+        type Future = BoxFuture<Self::Response, Self::Error>;
+        fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+            Poll::Ready(Ok(()))
+        }
+        fn call(&mut self, req: http::Request<HyperBody>) -> Self::Future {
+            let inner = self.inner.clone();
+            match req.uri().path() {
                 "/scraping.ScraperService/StartScraping" => {
-                    let service = scraper_service::methods::StartScraping(self.scraper_service.clone());
-                    let response = grpc::unary(service, request);
-                    scraper_service::ResponseFuture { kind: StartScraping(response) }
-                }
-                _ => {
-                    scraper_service::ResponseFuture { kind: __Generated__Unimplemented(grpc::unimplemented(format!("unknown service: {:?}", request.uri().path()))) }
-                }
-            }
-        }
-    }
-
-    impl<T> tower::Service<()> for ScraperServiceServer<T>
-    where T: ScraperService,
-    {
-        type Response = Self;
-        type Error = grpc::Never;
-        type Future = futures::FutureResult<Self::Response, Self::Error>;
-
-        fn poll_ready(&mut self) -> futures::Poll<(), Self::Error> {
-            Ok(futures::Async::Ready(()))
-        }
-
-        fn call(&mut self, _target: ()) -> Self::Future {
-            futures::ok(self.clone())
-        }
-    }
-
-    impl<T> tower::Service<http::Request<tower_hyper::Body>> for ScraperServiceServer<T>
-    where T: ScraperService,
-    {
-        type Response = <Self as tower::Service<http::Request<grpc::BoxBody>>>::Response;
-        type Error = <Self as tower::Service<http::Request<grpc::BoxBody>>>::Error;
-        type Future = <Self as tower::Service<http::Request<grpc::BoxBody>>>::Future;
-
-        fn poll_ready(&mut self) -> futures::Poll<(), Self::Error> {
-            tower::Service::<http::Request<grpc::BoxBody>>::poll_ready(self)
-        }
-
-        fn call(&mut self, request: http::Request<tower_hyper::Body>) -> Self::Future {
-            let request = request.map(|b| grpc::BoxBody::map_from(b));
-            tower::Service::<http::Request<grpc::BoxBody>>::call(self, request)
-        }
-    }
-
-    pub mod scraper_service {
-        use ::tower_grpc::codegen::server::*;
-        use super::ScraperService;
-        use super::super::ScrapeIntent;
-
-        pub struct ResponseFuture<T>
-        where T: ScraperService,
-        {
-            pub(super) kind: Kind<
-                // StartScraping
-                grpc::unary::ResponseFuture<methods::StartScraping<T>, grpc::BoxBody, ScrapeIntent>,
-                // A generated catch-all for unimplemented service calls
-                grpc::unimplemented::ResponseFuture,
-            >,
-        }
-
-        impl<T> futures::Future for ResponseFuture<T>
-        where T: ScraperService,
-        {
-            type Item = http::Response<ResponseBody<T>>;
-            type Error = grpc::Never;
-
-            fn poll(&mut self) -> futures::Poll<Self::Item, Self::Error> {
-                use self::Kind::*;
-
-                match self.kind {
-                    StartScraping(ref mut fut) => {
-                        let response = try_ready!(fut.poll());
-                        let response = response.map(|body| {
-                            ResponseBody { kind: StartScraping(body) }
-                        });
-                        Ok(response.into())
+                    struct StartScrapingSvc<T: ScraperService>(pub Arc<T>);
+                    impl<T: ScraperService> tonic::server::UnaryService<super::ScrapeIntent> for StartScrapingSvc<T> {
+                        type Response = super::ScrapeIntentResult;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ScrapeIntent>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move { inner.start_scraping(request).await };
+                            Box::pin(fut)
+                        }
                     }
-                    __Generated__Unimplemented(ref mut fut) => {
-                        let response = try_ready!(fut.poll());
-                        let response = response.map(|body| {
-                            ResponseBody { kind: __Generated__Unimplemented(body) }
-                        });
-                        Ok(response.into())
-                    }
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let interceptor = inner.1.clone();
+                        let inner = inner.0;
+                        let method = StartScrapingSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = if let Some(interceptor) = interceptor {
+                            tonic::server::Grpc::with_interceptor(codec, interceptor)
+                        } else {
+                            tonic::server::Grpc::new(codec)
+                        };
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
                 }
-            }
-        }
-
-        pub struct ResponseBody<T>
-        where T: ScraperService,
-        {
-            pub(super) kind: Kind<
-                // StartScraping
-                grpc::Encode<grpc::unary::Once<<methods::StartScraping<T> as grpc::UnaryService<ScrapeIntent>>::Response>>,
-                // A generated catch-all for unimplemented service calls
-                (),
-            >,
-        }
-
-        impl<T> tower::HttpBody for ResponseBody<T>
-        where T: ScraperService,
-        {
-            type Data = <grpc::BoxBody as grpc::Body>::Data;
-            type Error = grpc::Status;
-
-            fn is_end_stream(&self) -> bool {
-                use self::Kind::*;
-
-                match self.kind {
-                    StartScraping(ref v) => v.is_end_stream(),
-                    __Generated__Unimplemented(_) => true,
-                }
-            }
-
-            fn poll_data(&mut self) -> futures::Poll<Option<Self::Data>, Self::Error> {
-                use self::Kind::*;
-
-                match self.kind {
-                    StartScraping(ref mut v) => v.poll_data(),
-                    __Generated__Unimplemented(_) => Ok(None.into()),
-                }
-            }
-
-            fn poll_trailers(&mut self) -> futures::Poll<Option<http::HeaderMap>, Self::Error> {
-                use self::Kind::*;
-
-                match self.kind {
-                    StartScraping(ref mut v) => v.poll_trailers(),
-                    __Generated__Unimplemented(_) => Ok(None.into()),
-                }
-            }
-        }
-
-        #[allow(non_camel_case_types)]
-        #[derive(Debug, Clone)]
-        pub(super) enum Kind<StartScraping, __Generated__Unimplemented> {
-            StartScraping(StartScraping),
-            __Generated__Unimplemented(__Generated__Unimplemented),
-        }
-
-        pub mod methods {
-            use ::tower_grpc::codegen::server::*;
-            use super::super::{ScraperService, ScrapeIntent, ScrapeIntentResult};
-
-            pub struct StartScraping<T>(pub T);
-
-            impl<T> tower::Service<grpc::Request<ScrapeIntent>> for StartScraping<T>
-            where T: ScraperService,
-            {
-                type Response = grpc::Response<ScrapeIntentResult>;
-                type Error = grpc::Status;
-                type Future = T::StartScrapingFuture;
-
-                fn poll_ready(&mut self) -> futures::Poll<(), Self::Error> {
-                    Ok(futures::Async::Ready(()))
-                }
-
-                fn call(&mut self, request: grpc::Request<ScrapeIntent>) -> Self::Future {
-                    self.0.start_scraping(request)
-                }
+                _ => Box::pin(async move {
+                    Ok(http::Response::builder()
+                        .status(200)
+                        .header("grpc-status", "12")
+                        .body(tonic::body::BoxBody::empty())
+                        .unwrap())
+                }),
             }
         }
     }
-
-    // Redefine the try_ready macro so that it doesn't need to be explicitly
-    // imported by the user of this generated code.
-    macro_rules! try_ready {
-        ($e:expr) => (match $e {
-            Ok(futures::Async::Ready(t)) => t,
-            Ok(futures::Async::NotReady) => return Ok(futures::Async::NotReady),
-            Err(e) => return Err(From::from(e)),
-        })
-    }
-
-    /// A service that manages creation/destruction of scraping tasks
-    /// 
-    /// 'Scraper' will call those methods to initiate scraping and report it's progress
-    /// and it's expected to be implemented by 'Importer'.
-    pub trait ScraperTasksService: Clone {
-        type CreateTaskFuture: futures::Future<Item = grpc::Response<Task>, Error = grpc::Status>;
-        type YieldResultFuture: futures::Future<Item = grpc::Response<()>, Error = grpc::Status>;
-        type CompleteTaskFuture: futures::Future<Item = grpc::Response<()>, Error = grpc::Status>;
-
-        /// Creates new scraping task and returns info about target to scrape
-        fn create_task(&mut self, request: grpc::Request<TaskCreate>) -> Self::CreateTaskFuture;
-
-        /// Reports that an atomic piece of data has been scraped
-        fn yield_result(&mut self, request: grpc::Request<TaskYield>) -> Self::YieldResultFuture;
-
-        /// Reports that scraping has finished and no more work will be done
-        fn complete_task(&mut self, request: grpc::Request<TaskFinish>) -> Self::CompleteTaskFuture;
-    }
-
-    #[derive(Debug, Clone)]
-    pub struct ScraperTasksServiceServer<T> {
-        scraper_tasks_service: T,
-    }
-
-    impl<T> ScraperTasksServiceServer<T>
-    where T: ScraperTasksService,
-    {
-        pub fn new(scraper_tasks_service: T) -> Self {
-            Self { scraper_tasks_service }
+    impl<T: ScraperService> Clone for ScraperServiceServer<T> {
+        fn clone(&self) -> Self {
+            let inner = self.inner.clone();
+            Self { inner }
         }
     }
-
-    impl<T> tower::Service<http::Request<grpc::BoxBody>> for ScraperTasksServiceServer<T>
-    where T: ScraperTasksService,
-    {
-        type Response = http::Response<scraper_tasks_service::ResponseBody<T>>;
-        type Error = grpc::Never;
-        type Future = scraper_tasks_service::ResponseFuture<T>;
-
-        fn poll_ready(&mut self) -> futures::Poll<(), Self::Error> {
-            Ok(().into())
+    impl<T: ScraperService> Clone for _Inner<T> {
+        fn clone(&self) -> Self {
+            Self(self.0.clone(), self.1.clone())
         }
-
-        fn call(&mut self, request: http::Request<grpc::BoxBody>) -> Self::Future {
-            use self::scraper_tasks_service::Kind::*;
-
-            match request.uri().path() {
+    }
+    impl<T: std::fmt::Debug> std::fmt::Debug for _Inner<T> {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "{:?}", self.0)
+        }
+    }
+    impl<T: ScraperService> tonic::transport::NamedService for ScraperServiceServer<T> {
+        const NAME: &'static str = "scraping.ScraperService";
+    }
+}
+#[doc = r" Generated server implementations."]
+pub mod scraper_tasks_service_server {
+    #![allow(unused_variables, dead_code, missing_docs)]
+    use tonic::codegen::*;
+    #[doc = "Generated trait containing gRPC methods that should be implemented for use with ScraperTasksServiceServer."]
+    #[async_trait]
+    pub trait ScraperTasksService: Send + Sync + 'static {
+        #[doc = " Creates new scraping task and returns info about target to scrape"]
+        async fn create_task(
+            &self,
+            request: tonic::Request<super::TaskCreate>,
+        ) -> Result<tonic::Response<super::Task>, tonic::Status>;
+        #[doc = " Reports that an atomic piece of data has been scraped"]
+        async fn yield_result(
+            &self,
+            request: tonic::Request<super::TaskYield>,
+        ) -> Result<tonic::Response<()>, tonic::Status>;
+        #[doc = " Reports that scraping has finished and no more work will be done"]
+        async fn complete_task(
+            &self,
+            request: tonic::Request<super::TaskFinish>,
+        ) -> Result<tonic::Response<()>, tonic::Status>;
+    }
+    #[doc = " A service that manages creation/destruction of scraping tasks"]
+    #[doc = ""]
+    #[doc = " 'Scraper' will call those methods to initiate scraping and report it's progress"]
+    #[doc = " and it's expected to be implemented by 'Importer'."]
+    #[derive(Debug)]
+    #[doc(hidden)]
+    pub struct ScraperTasksServiceServer<T: ScraperTasksService> {
+        inner: _Inner<T>,
+    }
+    struct _Inner<T>(Arc<T>, Option<tonic::Interceptor>);
+    impl<T: ScraperTasksService> ScraperTasksServiceServer<T> {
+        pub fn new(inner: T) -> Self {
+            let inner = Arc::new(inner);
+            let inner = _Inner(inner, None);
+            Self { inner }
+        }
+        pub fn with_interceptor(inner: T, interceptor: impl Into<tonic::Interceptor>) -> Self {
+            let inner = Arc::new(inner);
+            let inner = _Inner(inner, Some(interceptor.into()));
+            Self { inner }
+        }
+    }
+    impl<T: ScraperTasksService> Service<http::Request<HyperBody>> for ScraperTasksServiceServer<T> {
+        type Response = http::Response<tonic::body::BoxBody>;
+        type Error = Never;
+        type Future = BoxFuture<Self::Response, Self::Error>;
+        fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+            Poll::Ready(Ok(()))
+        }
+        fn call(&mut self, req: http::Request<HyperBody>) -> Self::Future {
+            let inner = self.inner.clone();
+            match req.uri().path() {
                 "/scraping.ScraperTasksService/CreateTask" => {
-                    let service = scraper_tasks_service::methods::CreateTask(self.scraper_tasks_service.clone());
-                    let response = grpc::unary(service, request);
-                    scraper_tasks_service::ResponseFuture { kind: CreateTask(response) }
+                    struct CreateTaskSvc<T: ScraperTasksService>(pub Arc<T>);
+                    impl<T: ScraperTasksService> tonic::server::UnaryService<super::TaskCreate> for CreateTaskSvc<T> {
+                        type Response = super::Task;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::TaskCreate>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move { inner.create_task(request).await };
+                            Box::pin(fut)
+                        }
+                    }
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let interceptor = inner.1.clone();
+                        let inner = inner.0;
+                        let method = CreateTaskSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = if let Some(interceptor) = interceptor {
+                            tonic::server::Grpc::with_interceptor(codec, interceptor)
+                        } else {
+                            tonic::server::Grpc::new(codec)
+                        };
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
                 }
                 "/scraping.ScraperTasksService/YieldResult" => {
-                    let service = scraper_tasks_service::methods::YieldResult(self.scraper_tasks_service.clone());
-                    let response = grpc::unary(service, request);
-                    scraper_tasks_service::ResponseFuture { kind: YieldResult(response) }
+                    struct YieldResultSvc<T: ScraperTasksService>(pub Arc<T>);
+                    impl<T: ScraperTasksService> tonic::server::UnaryService<super::TaskYield> for YieldResultSvc<T> {
+                        type Response = ();
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::TaskYield>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move { inner.yield_result(request).await };
+                            Box::pin(fut)
+                        }
+                    }
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let interceptor = inner.1.clone();
+                        let inner = inner.0;
+                        let method = YieldResultSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = if let Some(interceptor) = interceptor {
+                            tonic::server::Grpc::with_interceptor(codec, interceptor)
+                        } else {
+                            tonic::server::Grpc::new(codec)
+                        };
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
                 }
                 "/scraping.ScraperTasksService/CompleteTask" => {
-                    let service = scraper_tasks_service::methods::CompleteTask(self.scraper_tasks_service.clone());
-                    let response = grpc::unary(service, request);
-                    scraper_tasks_service::ResponseFuture { kind: CompleteTask(response) }
+                    struct CompleteTaskSvc<T: ScraperTasksService>(pub Arc<T>);
+                    impl<T: ScraperTasksService> tonic::server::UnaryService<super::TaskFinish> for CompleteTaskSvc<T> {
+                        type Response = ();
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::TaskFinish>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move { inner.complete_task(request).await };
+                            Box::pin(fut)
+                        }
+                    }
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let interceptor = inner.1.clone();
+                        let inner = inner.0;
+                        let method = CompleteTaskSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = if let Some(interceptor) = interceptor {
+                            tonic::server::Grpc::with_interceptor(codec, interceptor)
+                        } else {
+                            tonic::server::Grpc::new(codec)
+                        };
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
                 }
-                _ => {
-                    scraper_tasks_service::ResponseFuture { kind: __Generated__Unimplemented(grpc::unimplemented(format!("unknown service: {:?}", request.uri().path()))) }
-                }
+                _ => Box::pin(async move {
+                    Ok(http::Response::builder()
+                        .status(200)
+                        .header("grpc-status", "12")
+                        .body(tonic::body::BoxBody::empty())
+                        .unwrap())
+                }),
             }
         }
     }
-
-    impl<T> tower::Service<()> for ScraperTasksServiceServer<T>
-    where T: ScraperTasksService,
-    {
-        type Response = Self;
-        type Error = grpc::Never;
-        type Future = futures::FutureResult<Self::Response, Self::Error>;
-
-        fn poll_ready(&mut self) -> futures::Poll<(), Self::Error> {
-            Ok(futures::Async::Ready(()))
-        }
-
-        fn call(&mut self, _target: ()) -> Self::Future {
-            futures::ok(self.clone())
+    impl<T: ScraperTasksService> Clone for ScraperTasksServiceServer<T> {
+        fn clone(&self) -> Self {
+            let inner = self.inner.clone();
+            Self { inner }
         }
     }
-
-    impl<T> tower::Service<http::Request<tower_hyper::Body>> for ScraperTasksServiceServer<T>
-    where T: ScraperTasksService,
-    {
-        type Response = <Self as tower::Service<http::Request<grpc::BoxBody>>>::Response;
-        type Error = <Self as tower::Service<http::Request<grpc::BoxBody>>>::Error;
-        type Future = <Self as tower::Service<http::Request<grpc::BoxBody>>>::Future;
-
-        fn poll_ready(&mut self) -> futures::Poll<(), Self::Error> {
-            tower::Service::<http::Request<grpc::BoxBody>>::poll_ready(self)
-        }
-
-        fn call(&mut self, request: http::Request<tower_hyper::Body>) -> Self::Future {
-            let request = request.map(|b| grpc::BoxBody::map_from(b));
-            tower::Service::<http::Request<grpc::BoxBody>>::call(self, request)
+    impl<T: ScraperTasksService> Clone for _Inner<T> {
+        fn clone(&self) -> Self {
+            Self(self.0.clone(), self.1.clone())
         }
     }
-
-    pub mod scraper_tasks_service {
-        use ::tower_grpc::codegen::server::*;
-        use super::ScraperTasksService;
-        use super::super::{TaskCreate, TaskYield, TaskFinish};
-
-        pub struct ResponseFuture<T>
-        where T: ScraperTasksService,
-        {
-            pub(super) kind: Kind<
-                // CreateTask
-                grpc::unary::ResponseFuture<methods::CreateTask<T>, grpc::BoxBody, TaskCreate>,
-                // YieldResult
-                grpc::unary::ResponseFuture<methods::YieldResult<T>, grpc::BoxBody, TaskYield>,
-                // CompleteTask
-                grpc::unary::ResponseFuture<methods::CompleteTask<T>, grpc::BoxBody, TaskFinish>,
-                // A generated catch-all for unimplemented service calls
-                grpc::unimplemented::ResponseFuture,
-            >,
+    impl<T: std::fmt::Debug> std::fmt::Debug for _Inner<T> {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "{:?}", self.0)
         }
-
-        impl<T> futures::Future for ResponseFuture<T>
-        where T: ScraperTasksService,
-        {
-            type Item = http::Response<ResponseBody<T>>;
-            type Error = grpc::Never;
-
-            fn poll(&mut self) -> futures::Poll<Self::Item, Self::Error> {
-                use self::Kind::*;
-
-                match self.kind {
-                    CreateTask(ref mut fut) => {
-                        let response = try_ready!(fut.poll());
-                        let response = response.map(|body| {
-                            ResponseBody { kind: CreateTask(body) }
-                        });
-                        Ok(response.into())
-                    }
-                    YieldResult(ref mut fut) => {
-                        let response = try_ready!(fut.poll());
-                        let response = response.map(|body| {
-                            ResponseBody { kind: YieldResult(body) }
-                        });
-                        Ok(response.into())
-                    }
-                    CompleteTask(ref mut fut) => {
-                        let response = try_ready!(fut.poll());
-                        let response = response.map(|body| {
-                            ResponseBody { kind: CompleteTask(body) }
-                        });
-                        Ok(response.into())
-                    }
-                    __Generated__Unimplemented(ref mut fut) => {
-                        let response = try_ready!(fut.poll());
-                        let response = response.map(|body| {
-                            ResponseBody { kind: __Generated__Unimplemented(body) }
-                        });
-                        Ok(response.into())
-                    }
-                }
-            }
-        }
-
-        pub struct ResponseBody<T>
-        where T: ScraperTasksService,
-        {
-            pub(super) kind: Kind<
-                // CreateTask
-                grpc::Encode<grpc::unary::Once<<methods::CreateTask<T> as grpc::UnaryService<TaskCreate>>::Response>>,
-                // YieldResult
-                grpc::Encode<grpc::unary::Once<<methods::YieldResult<T> as grpc::UnaryService<TaskYield>>::Response>>,
-                // CompleteTask
-                grpc::Encode<grpc::unary::Once<<methods::CompleteTask<T> as grpc::UnaryService<TaskFinish>>::Response>>,
-                // A generated catch-all for unimplemented service calls
-                (),
-            >,
-        }
-
-        impl<T> tower::HttpBody for ResponseBody<T>
-        where T: ScraperTasksService,
-        {
-            type Data = <grpc::BoxBody as grpc::Body>::Data;
-            type Error = grpc::Status;
-
-            fn is_end_stream(&self) -> bool {
-                use self::Kind::*;
-
-                match self.kind {
-                    CreateTask(ref v) => v.is_end_stream(),
-                    YieldResult(ref v) => v.is_end_stream(),
-                    CompleteTask(ref v) => v.is_end_stream(),
-                    __Generated__Unimplemented(_) => true,
-                }
-            }
-
-            fn poll_data(&mut self) -> futures::Poll<Option<Self::Data>, Self::Error> {
-                use self::Kind::*;
-
-                match self.kind {
-                    CreateTask(ref mut v) => v.poll_data(),
-                    YieldResult(ref mut v) => v.poll_data(),
-                    CompleteTask(ref mut v) => v.poll_data(),
-                    __Generated__Unimplemented(_) => Ok(None.into()),
-                }
-            }
-
-            fn poll_trailers(&mut self) -> futures::Poll<Option<http::HeaderMap>, Self::Error> {
-                use self::Kind::*;
-
-                match self.kind {
-                    CreateTask(ref mut v) => v.poll_trailers(),
-                    YieldResult(ref mut v) => v.poll_trailers(),
-                    CompleteTask(ref mut v) => v.poll_trailers(),
-                    __Generated__Unimplemented(_) => Ok(None.into()),
-                }
-            }
-        }
-
-        #[allow(non_camel_case_types)]
-        #[derive(Debug, Clone)]
-        pub(super) enum Kind<CreateTask, YieldResult, CompleteTask, __Generated__Unimplemented> {
-            CreateTask(CreateTask),
-            YieldResult(YieldResult),
-            CompleteTask(CompleteTask),
-            __Generated__Unimplemented(__Generated__Unimplemented),
-        }
-
-        pub mod methods {
-            use ::tower_grpc::codegen::server::*;
-            use super::super::{ScraperTasksService, TaskCreate, Task, TaskYield, TaskFinish};
-
-            pub struct CreateTask<T>(pub T);
-
-            impl<T> tower::Service<grpc::Request<TaskCreate>> for CreateTask<T>
-            where T: ScraperTasksService,
-            {
-                type Response = grpc::Response<Task>;
-                type Error = grpc::Status;
-                type Future = T::CreateTaskFuture;
-
-                fn poll_ready(&mut self) -> futures::Poll<(), Self::Error> {
-                    Ok(futures::Async::Ready(()))
-                }
-
-                fn call(&mut self, request: grpc::Request<TaskCreate>) -> Self::Future {
-                    self.0.create_task(request)
-                }
-            }
-
-            pub struct YieldResult<T>(pub T);
-
-            impl<T> tower::Service<grpc::Request<TaskYield>> for YieldResult<T>
-            where T: ScraperTasksService,
-            {
-                type Response = grpc::Response<()>;
-                type Error = grpc::Status;
-                type Future = T::YieldResultFuture;
-
-                fn poll_ready(&mut self) -> futures::Poll<(), Self::Error> {
-                    Ok(futures::Async::Ready(()))
-                }
-
-                fn call(&mut self, request: grpc::Request<TaskYield>) -> Self::Future {
-                    self.0.yield_result(request)
-                }
-            }
-
-            pub struct CompleteTask<T>(pub T);
-
-            impl<T> tower::Service<grpc::Request<TaskFinish>> for CompleteTask<T>
-            where T: ScraperTasksService,
-            {
-                type Response = grpc::Response<()>;
-                type Error = grpc::Status;
-                type Future = T::CompleteTaskFuture;
-
-                fn poll_ready(&mut self) -> futures::Poll<(), Self::Error> {
-                    Ok(futures::Async::Ready(()))
-                }
-
-                fn call(&mut self, request: grpc::Request<TaskFinish>) -> Self::Future {
-                    self.0.complete_task(request)
-                }
-            }
-        }
+    }
+    impl<T: ScraperTasksService> tonic::transport::NamedService for ScraperTasksServiceServer<T> {
+        const NAME: &'static str = "scraping.ScraperTasksService";
     }
 }

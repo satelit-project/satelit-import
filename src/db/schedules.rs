@@ -1,7 +1,9 @@
 use diesel::prelude::*;
 
-use super::entity::{NewSchedule, UpdatedSchedule};
-use super::{ConnectionPool, QueryError};
+use super::{
+    entity::{NewSchedule, UpdatedSchedule},
+    ConnectionPool, QueryError,
+};
 
 /// Entity that represents *schedule* table in db
 #[derive(Clone)]

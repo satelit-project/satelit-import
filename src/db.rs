@@ -5,12 +5,12 @@ pub mod schedules;
 pub mod schema;
 pub mod tasks;
 
-pub use diesel::r2d2::PoolError;
-pub use diesel::result::DatabaseErrorKind;
-pub use diesel::result::Error as UnderlyingError;
+pub use diesel::{
+    r2d2::PoolError,
+    result::{DatabaseErrorKind, Error as UnderlyingError},
+};
 
-use diesel::prelude::*;
-use diesel::r2d2;
+use diesel::{prelude::*, r2d2};
 
 use std::fmt;
 

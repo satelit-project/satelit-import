@@ -6,13 +6,13 @@ mod test_utils;
 
 use futures::prelude::*;
 
-use std::collections::HashSet;
-use std::error::Error;
-use std::iter::FromIterator;
+use std::{collections::HashSet, error::Error, iter::FromIterator};
 
-use crate::db::ConnectionPool;
-use crate::proto::import::{ImportIntent, ImportIntentResult};
-use crate::settings;
+use crate::{
+    db::ConnectionPool,
+    proto::import::{ImportIntent, ImportIntentResult},
+    settings,
+};
 
 /// Represents dump import task error as a whole
 type ImportError = Box<dyn Error + Send + 'static>;

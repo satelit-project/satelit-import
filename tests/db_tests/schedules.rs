@@ -1,12 +1,8 @@
 use chrono::prelude::*;
 
-use satelit_import::db::entity::*;
-use satelit_import::db::schedules::Schedules;
-use satelit_import::db::{ConnectionPool, QueryError};
+use satelit_import::db::{entity::*, schedules::Schedules, ConnectionPool, QueryError};
 
-use super::count_schedules_by_new;
-use super::delete_schedule_by_new;
-use super::fetch_schedule_from_new;
+use super::{count_schedules_by_new, delete_schedule_by_new, fetch_schedule_from_new};
 
 // MARK: put tests
 

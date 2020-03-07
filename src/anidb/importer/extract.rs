@@ -1,11 +1,11 @@
 use flate2::bufread::GzDecoder;
-use futures::prelude::*;
-use futures::try_ready;
-use tokio::fs::File;
-use tokio::io::{AsyncRead, AsyncWrite};
+use futures::{prelude::*, try_ready};
+use tokio::{
+    fs::File,
+    io::{AsyncRead, AsyncWrite},
+};
 
-use std::io::BufReader;
-use std::path::Path;
+use std::{io::BufReader, path::Path};
 
 pub type ExtractError = std::io::Error;
 
@@ -158,12 +158,9 @@ impl<S: AsyncRead, D: AsyncWrite> Future for AsyncReadWrite<S, D> {
 
 #[cfg(test)]
 mod tests_gz {
-    use super::super::test_utils::tokio_run_aborting;
-    use super::*;
-    use flate2::write::GzEncoder;
-    use flate2::Compression;
-    use std::fs::File;
-    use std::io::prelude::*;
+    use super::{super::test_utils::tokio_run_aborting, *};
+    use flate2::{write::GzEncoder, Compression};
+    use std::{fs::File, io::prelude::*};
 
     #[test]
     fn test_extraction() -> Result<(), std::io::Error> {
@@ -199,9 +196,10 @@ mod tests_gz {
 
 #[cfg(test)]
 mod tests_rw {
-    use super::super::test_utils::extract::*;
-    use super::super::test_utils::tokio_run_aborting;
-    use super::*;
+    use super::{
+        super::test_utils::{extract::*, tokio_run_aborting},
+        *,
+    };
     use std::io::{Read, Seek, SeekFrom, Write};
 
     /// Tests the case when data can be read into buffer all at once

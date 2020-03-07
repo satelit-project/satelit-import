@@ -1,9 +1,10 @@
 use diesel::prelude::*;
 
-use super::entity::Uuid;
-use super::entity::{ExternalSource, Task};
-use super::schema::{queued_jobs, tasks};
-use super::{ConnectionPool, QueryError};
+use super::{
+    entity::{ExternalSource, Task, Uuid},
+    schema::{queued_jobs, tasks},
+    ConnectionPool, QueryError,
+};
 
 /// Represents *tasks* table that contains all created scrapping tasks
 #[derive(Clone)]

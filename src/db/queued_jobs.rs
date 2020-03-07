@@ -1,9 +1,10 @@
 use diesel::prelude::*;
 
-use super::entity::Uuid;
-use super::entity::{QueuedJob, Schedule};
-use super::schema::{queued_jobs, schedules};
-use super::{ConnectionPool, QueryError};
+use super::{
+    entity::{QueuedJob, Schedule, Uuid},
+    schema::{queued_jobs, schedules},
+    ConnectionPool, QueryError,
+};
 
 /// Represents *queued_jobs* table that contains mapping between a task and schedule
 #[derive(Clone)]

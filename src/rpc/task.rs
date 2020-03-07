@@ -4,18 +4,22 @@ use futures::prelude::*;
 use log::{error, warn};
 use tower_grpc::{Code, Request, Response, Status};
 
-use std::convert::{TryFrom, TryInto};
-use std::sync::Arc;
+use std::{
+    convert::{TryFrom, TryInto},
+    sync::Arc,
+};
 
-use crate::db::entity::ExternalSource;
-use crate::db::queued_jobs::QueuedJobs;
-use crate::db::schedules::Schedules;
-use crate::db::tasks::Tasks;
-use crate::db::QueryError;
+use crate::db::{
+    entity::ExternalSource, queued_jobs::QueuedJobs, schedules::Schedules, tasks::Tasks, QueryError,
+};
 
-use crate::block::{blocking, BlockingError};
-use crate::proto::data;
-use crate::proto::scraping::{self, server};
+use crate::{
+    block::{blocking, BlockingError},
+    proto::{
+        data,
+        scraping::{self, server},
+    },
+};
 
 #[derive(Clone)]
 pub struct ScraperTasksService {

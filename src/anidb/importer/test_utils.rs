@@ -3,11 +3,12 @@
 use futures::prelude::*;
 
 pub(crate) mod import {
-    use crate::anidb::importer::import::*;
-    use crate::anidb::parser::*;
-    use std::collections::HashSet;
-    use std::sync::{Arc, Mutex};
-    use std::vec::IntoIter;
+    use crate::anidb::{importer::import::*, parser::*};
+    use std::{
+        collections::HashSet,
+        sync::{Arc, Mutex},
+        vec::IntoIter,
+    };
 
     pub(crate) fn gen_anime<R: AsRef<[i32]>>(ids: R) -> Vec<Anime> {
         let mut anime = vec![];

@@ -1,13 +1,17 @@
 use futures::prelude::*;
 use tower_grpc::{Code, Request, Response, Status};
 
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 
-use crate::anidb::importer;
-use crate::db::ConnectionPool;
-use crate::proto::import::{server, ImportIntent, ImportIntentResult};
-use crate::settings;
+use crate::{
+    anidb::importer,
+    db::ConnectionPool,
+    proto::import::{server, ImportIntent, ImportIntentResult},
+    settings,
+};
 
 #[derive(Clone)]
 pub struct ImportService {
