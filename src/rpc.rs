@@ -20,6 +20,7 @@ impl ServicesBuilder {
     /// Creates new builder instance
     ///
     /// # Arguments
+    ///
     /// * `settings` - app settings
     /// * `db_pool` – db connection pool
     pub fn new(settings: Settings, db_pool: ConnectionPool) -> Self {
