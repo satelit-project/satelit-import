@@ -213,15 +213,3 @@ pub(crate) mod extract {
         }
     }
 }
-
-pub fn tokio_run_aborting<F>(f: F)
-where
-    F: Future<Item = (), Error = ()> + Send + 'static,
-{
-    std::panic::set_hook(Box::new(|panic_info| {
-        eprintln!("{}", panic_info.to_string());
-        std::process::abort();
-    }));
-
-    tokio::run(f)
-}

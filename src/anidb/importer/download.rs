@@ -1,6 +1,5 @@
-use tokio::prelude::*;
-use tokio::fs::File;
 use reqwest::{Client, ClientBuilder};
+use tokio::{fs::File, prelude::*};
 
 use std::{
     fmt::{self, Debug, Display},
@@ -17,7 +16,7 @@ use std::{
 pub async fn download_dump<U, P>(dump_url: U, dest_path: P) -> Result<(), DownloadError>
 where
     U: AsRef<str> + Send,
-    P: AsRef<Path> + Clone + Send + 'static,
+    P: AsRef<Path> + Send,
 {
     let client = ClientBuilder::new()
         .gzip(true)

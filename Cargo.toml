@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 quick-xml = "0.17.2"
-flate2 = { version = "1.0.13", features = ["tokio"] }
+async-compression = { version = "0.3.1", features = ["futures-bufread", "gzip"] }
 
 config = "0.10.1"
 log = { version = "0.4.8", features = ["std"] }
@@ -17,7 +17,8 @@ diesel = { version = "1.4.3", features = ["postgres", "r2d2", "chrono"] }
 serde = { version = "1.0.104", features = ["derive"] }
 
 futures = "0.3.4"
-tokio = { version = "0.2.13", features = ["fs"] }
+tokio = { version = "0.2.13", features = ["fs", "io-util"] }
+tokio-util = { version = "0.3.0", features = ["compat"] }
 tracing = "0.1.13"
 tracing-futures = "0.2.3"
 tracing-subscriber = "0.2.3"
@@ -27,8 +28,5 @@ prost = "0.6.1"
 reqwest = { version = "0.10.4", features = ["gzip"] }
 
 [dev-dependencies]
-tower = "0.1.1"
-hyper = "0.12.33"
-tower-request-modifier = "0.1.0"
 tempfile = "3.1.0"
-toml = "0.4.10"
+toml = "0.5.6"

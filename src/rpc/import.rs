@@ -9,7 +9,7 @@ use std::sync::{
 use crate::{
     anidb::importer,
     db::ConnectionPool,
-    proto::import::{ImportIntent, ImportIntentResult, import_service_server},
+    proto::import::{import_service_server, ImportIntent, ImportIntentResult},
     settings,
 };
 
