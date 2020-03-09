@@ -43,6 +43,8 @@ impl ImportService {
 
 #[tonic::async_trait]
 impl import_service_server::ImportService for ImportService {
+    /// Initiates AniDB database dump import.
+    #[tracing::instrument(skip(self))]
     async fn start_import(
         &self,
         request: Request<ImportIntent>,

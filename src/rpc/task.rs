@@ -2,7 +2,7 @@ mod update;
 
 use futures::prelude::*;
 use tonic::{Request, Response, Status};
-use tracing::{error, warn};
+use tracing::{error, info, warn};
 
 use std::{
     convert::{TryFrom, TryInto},
@@ -18,17 +18,27 @@ use crate::proto::{
     scraping::{self, scraper_tasks_service_server},
 };
 
+/// Service to manage import tasks for scraper service.
 #[derive(Clone)]
 pub struct ScraperTasksService {
+    /// Service state.
     state: Arc<State>,
 }
 
+/// Tasks service state.
 #[derive(Clone)]
 struct State {
+    /// Scrape tasks storage.
     tasks: Tasks,
+
+    /// Storage for anime entities waiting for scraping.
     schedules: Schedules,
+
+    /// Storage for queued task jobs.
     queued_jobs: QueuedJobs,
 }
+
+// MARK: impl ScraperTasksService
 
 impl ScraperTasksService {
     pub fn new(tasks: Tasks, schedules: Schedules, queued_jobs: QueuedJobs) -> Self {
@@ -44,15 +54,16 @@ impl ScraperTasksService {
     }
 }
 
-// MARK: impl ScraperTasksService
-
 #[tonic::async_trait]
 impl scraper_tasks_service_server::ScraperTasksService for ScraperTasksService {
+    /// Creates new task for a scraping service.
     #[tracing::instrument(skip(self))]
     async fn create_task(
         &self,
         request: Request<scraping::TaskCreate>,
     ) -> Result<Response<scraping::Task>, Status> {
+        info!("creating new scraping task");
+
         let state = self.state.clone();
         let result = blocking(move || {
             let data = request.get_ref();
@@ -61,7 +72,10 @@ impl scraper_tasks_service_server::ScraperTasksService for ScraperTasksService {
         .await?;
 
         match result {
-            Ok(task) => Ok(Response::new(task)),
+            Ok(task) => {
+                info!("created new task");
+                Ok(Response::new(task))
+            }
             Err(status) => {
                 error!("failed to create task: {}", &status);
                 Err(status)
@@ -69,16 +83,20 @@ impl scraper_tasks_service_server::ScraperTasksService for ScraperTasksService {
         }
     }
 
+    /// Finishes a job accossiated with a task.
     #[tracing::instrument(skip(self))]
     async fn yield_result(
         &self,
         request: Request<scraping::TaskYield>,
     ) -> Result<Response<()>, Status> {
+        info!("updating task");
+
         let state = self.state.clone();
         let result = blocking(move || {
             let data = request.get_ref();
             update_task(&state, data)
-        }).await?;
+        })
+        .await?;
 
         match result {
             Ok(_) => Ok(Response::new(())),
@@ -89,13 +107,15 @@ impl scraper_tasks_service_server::ScraperTasksService for ScraperTasksService {
         }
     }
 
+    /// Finishes scraping task and all it's assocciated jobs.
     #[tracing::instrument(skip(self))]
     async fn complete_task(
         &self,
         request: Request<scraping::TaskFinish>,
     ) -> Result<Response<()>, Status> {
-        let state = self.state.clone();
+        info!("finalizing task");
 
+        let state = self.state.clone();
         blocking(move || {
             let data: scraping::TaskFinish = request.into_inner();
             let task_id = match data.task_id {
@@ -105,9 +125,13 @@ impl scraper_tasks_service_server::ScraperTasksService for ScraperTasksService {
 
             match state.tasks.finish(&task_id) {
                 Ok(_) => Ok(()),
-                Err(e) => Err(Status::from(e)),
+                Err(e) => {
+                    error!("failed to finish task: {}", e);
+                    Err(Status::from(e))
+                }
             }
-        }).await??;
+        })
+        .await??;
 
         Ok(Response::new(()))
     }
@@ -148,7 +172,7 @@ fn update_task(state: &State, data: &scraping::TaskYield) -> Result<(), Status> 
                 data.task_id
             );
 
-            return Err(Status::invalid_argument("Anime entity is missing"));
+            return Err(Status::invalid_argument("anime entity is missing"));
         }
     };
 

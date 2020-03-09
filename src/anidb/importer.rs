@@ -22,25 +22,21 @@ pub async fn import(
     settings: settings::Import,
     db_pool: ConnectionPool,
 ) -> Result<ImportIntentResult, ImportError> {
-    let download_old = download::download_dump(&intent.old_index_url, &settings.old_download_path);
-    let download_new = download::download_dump(&intent.new_index_url, &settings.new_download_path);
+    let download_old = download::download_dump(&intent.old_index_url, settings.old_download_path());
+    let download_new = download::download_dump(&intent.new_index_url, settings.new_download_path());
     futures::try_join!(download_old, download_new)?;
 
-    let extract_old = extract::extract(&settings.old_download_path, &settings.old_extract_path);
-    let extract_new = extract::extract(&settings.new_download_path, &settings.new_extract_path);
+    let extract_old = extract::extract(settings.old_download_path(), settings.old_extract_path());
+    let extract_new = extract::extract(settings.new_download_path(), settings.new_extract_path());
     futures::try_join!(extract_old, extract_new)?;
 
     let ImportIntent {
         id, reimport_ids, ..
     } = intent;
-    let settings::Import {
-        old_extract_path,
-        new_extract_path,
-        ..
-    } = settings;
+
     let skipped_ids = import::import(
-        old_extract_path,
-        new_extract_path,
+        settings.old_extract_path().to_owned(),
+        settings.new_extract_path().to_owned(),
         HashSet::from_iter(reimport_ids.into_iter()),
         db_pool,
     )

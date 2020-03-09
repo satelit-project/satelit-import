@@ -1,26 +1,33 @@
 use futures::prelude::*;
-use log::error;
+use tonic::transport::Server;
+use tracing::{error, info};
+use tracing_subscriber::{filter::LevelFilter, FmtSubscriber};
 
-use satelit_import::{rpc, shared_db_pool, shared_settings};
+use satelit_import::rpc;
+use satelit_import::settings;
+use satelit_import::db;
 
-fn main() -> std::io::Result<()> {
-    //    env_logger::init_from_env(env_logger::Env::new().filter_or("SATELIT_LOG", "info"));
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let subscriber = FmtSubscriber::builder()
+            .with_max_level(LevelFilter::DEBUG)
+            .finish();
+    tracing::subscriber::set_global_default(subscriber)?;
 
-    let mut rt = tokio::runtime::Runtime::new()?;
-    // serve_services(&mut rt);
+    info!("loading configuration");
+    let config = settings::Settings::new(settings::Profile::Default)?;
 
-    // rt.shutdown_on_idle().wait().unwrap();
+    info!("connecting to database");
+    let pool = db::new_connection_pool(config.db())?;
+
+    info!("starting services");
+    let builder = rpc::ServicesBuilder::new(config.clone(), pool);
+    let addr = format!(":{}", config.rpc().port()).parse()?;
+    Server::builder()
+        .add_service(builder.import_service())
+        .add_service(builder.tasks_service())
+        .serve(addr)
+        .await?;
 
     Ok(())
 }
-
-// fn serve_services(rt: &mut tokio::runtime::Runtime) {
-//     let builder = rpc::ServicesBuilder::new(shared_settings(), shared_db_pool());
-//     let rpc_urls = shared_settings().rpc;
-
-//     let import = satelit_import::serve_service!(builder.import_service(), rpc_urls.import());
-//     let tasks = satelit_import::serve_service!(builder.tasks_service(), rpc_urls.task());
-
-//     rt.spawn(import);
-//     rt.spawn(tasks);
-// }

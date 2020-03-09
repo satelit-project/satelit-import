@@ -10,5 +10,4 @@ new_extract_path = "static/anidb-index/new.xml"
 old_extract_path = "static/anidb-index/old.xml"
 
 [rpc]
-import = "127.0.0.1:10601"
-task = "127.0.0.1:10602"
+port = 9060

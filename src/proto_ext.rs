@@ -1,6 +1,8 @@
 use lazy_static::lazy_static;
 
-use crate::proto::uuid;
+use std::fmt;
+
+use crate::proto::{scraping, uuid};
 
 // MARK: impl uuid::Uuid
 
@@ -56,3 +58,5 @@ impl<'a> From<&'a Option<uuid::Uuid>> for &'a uuid::Uuid {
         }
     }
 }
+
+// MARK: impl Task
