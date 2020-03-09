@@ -1,5 +1,7 @@
 # Docker
 
+**DEPRECATED**
+
 It's recommended that PostgreSQL is running inside a Docker container. The image can be found [in the repository](https://github.com/satelit-project/satelit-import/packages/29066).
 
 To run integration tests Docker is required.
