@@ -34,7 +34,8 @@ where
         let mut importer = AnimeImporter::new(provider, scheduler);
 
         importer.begin()
-    }).await?
+    })
+    .await?
 }
 
 /// Data source for anime records that should be imported.
@@ -298,11 +299,11 @@ impl From<XmlError> for ImportError {
 impl From<tokio::task::JoinError> for ImportError {
     fn from(err: tokio::task::JoinError) -> Self {
         if err.is_cancelled() {
-            ImportError::InternalError(format!("import task was cancelled: {}", err))
+            ImportError::Cancelled
         } else if err.is_panic() {
             ImportError::InternalError(format!("import task paniced: {}", err))
         } else {
-
+            ImportError::InternalError(format!("failed to schedule import"))
         }
     }
 }
@@ -314,6 +315,7 @@ impl fmt::Display for ImportError {
         match self {
             DataSourceFailed(e) => e.fmt(f),
             InternalError(e) => e.fmt(f),
+            Cancelled => write!(f, "Import task was cancelled"),
         }
     }
 }

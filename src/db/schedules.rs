@@ -6,7 +6,7 @@ use super::{
 };
 
 /// Entity that represents *schedule* table in db
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Schedules {
     /// Db connection pool
     pool: ConnectionPool,

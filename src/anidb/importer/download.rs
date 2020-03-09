@@ -67,8 +67,8 @@ where
 
     /// Asynchronously downloads dump at `dump_url` and saves it on disk at `dest_path`
     pub async fn download(&self) -> Result<(), DownloadError> {
-        let file = File::create(self.dest_path.as_ref()).await?;
-        let chunks = self.client.get(self.dump_url.as_ref()).send().await?;
+        let mut file = File::create(self.dest_path.as_ref()).await?;
+        let mut chunks = self.client.get(self.dump_url.as_ref()).send().await?;
 
         while let Some(chunk) = chunks.chunk().await? {
             file.write_all(&chunk).await?;

@@ -1,8 +1,11 @@
 use tonic::{Request, Response, Status};
 
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
+use std::{
+    string::ToString,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
 };
 
 use crate::{
@@ -41,8 +44,8 @@ impl ImportService {
 #[tonic::async_trait]
 impl import_service_server::ImportService for ImportService {
     async fn start_import(
-            &self,
-            request: Request<ImportIntent>,
+        &self,
+        request: Request<ImportIntent>,
     ) -> Result<Response<ImportIntentResult>, Status> {
         let flag = self.is_importing.clone();
         if flag.compare_and_swap(false, true, Ordering::SeqCst) {
