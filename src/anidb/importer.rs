@@ -17,78 +17,44 @@ use crate::{
 /// Represents dump import task error as a whole
 type ImportError = Box<dyn Error + Send + 'static>;
 
-/// Creates new future for importing AniDB dump configured with global app settings
-pub fn importer(
+/// Imports AniDB database dump.
+pub async fn import(
     intent: ImportIntent,
     settings: settings::Import,
     db_pool: ConnectionPool,
-) -> impl Future<Item = ImportIntentResult, Error = ImportError> {
-    let download_settings = settings.clone();
-    let extract_settings = settings.clone();
-    let ImportIntent {
-        id,
-        new_index_url,
-        old_index_url,
-        reimport_ids,
-        ..
-    } = intent;
+) -> Result<ImportIntentResult, ImportError> {
 
-    download(old_index_url, new_index_url, download_settings)
-        .and_then(move |_| extract(extract_settings))
-        .and_then(move |_| import(reimport_ids, db_pool, settings))
-        .and_then(move |skipped_ids| {
-            let result = ImportIntentResult { id, skipped_ids };
-            Ok(result)
-        })
+    let download_old = download::download_dump(&intent.old_index_url, &settings.old_download_path);
+    let download_new = download::download_dump(&intent.new_index_url, &settings.new_download_path);
+    futures::try_join!(download_old, download_new)?;
+
+    let extract_old = extract::extract(&settings.old_download_path, &settings.old_extract_path);
+    let extract_new = extract::extract(&settings.new_download_path, &settings.new_extract_path);
+    futures::try_join!(extract_old, extract_new)?;
+
+    let ImportIntent { id, reimport_ids, .. } = intent;
+    let settings::Import { old_extract_path, new_extract_path, .. } = settings;
+    let skipped_ids = import::import(old_extract_path, new_extract_path, HashSet::from_iter(reimport_ids.into_iter()), db_pool).await?;
+
+    Ok(ImportIntentResult { id, skipped_ids: skipped_ids.into_iter().collect() })
 }
 
-fn download<U>(
-    old_index_url: U,
-    new_index_url: U,
-    settings: settings::Import,
-) -> impl Future<Item = (), Error = ImportError>
-where
-    U: AsRef<str> + Send,
-{
-    let settings::Import {
-        old_download_path,
-        new_download_path,
-        ..
-    } = settings;
+// MARK: impl ImportError
 
-    download::downloader(old_index_url, old_download_path)
-        .join(download::downloader(new_index_url, new_download_path))
-        .map_err(|e| Box::new(e) as ImportError)
-        .map(|_| ())
+impl From<download::DownloadError> for ImportError {
+    fn from(err: download::DownloadError) -> Self {
+        Box::new(err)
+    }
 }
 
-fn extract(settings: settings::Import) -> impl Future<Item = (), Error = ImportError> {
-    let settings::Import {
-        old_download_path,
-        old_extract_path,
-        new_download_path,
-        new_extract_path,
-    } = settings;
-
-    extract::extractor(old_download_path, old_extract_path)
-        .join(extract::extractor(new_download_path, new_extract_path))
-        .map_err(|e| Box::new(e) as ImportError)
-        .map(|_| ())
+impl From<extract::ExtractError> for ImportError {
+    fn from(err: extract::ExtractError) -> Self {
+        Box::new(err)
+    }
 }
 
-fn import(
-    reimport_ids: Vec<i32>,
-    pool: ConnectionPool,
-    settings: settings::Import,
-) -> impl Future<Item = Vec<i32>, Error = ImportError> {
-    let reimport_ids = HashSet::from_iter(reimport_ids.into_iter());
-    let settings::Import {
-        old_extract_path,
-        new_extract_path,
-        ..
-    } = settings;
-
-    import::importer(old_extract_path, new_extract_path, reimport_ids, pool)
-        .map_err(|e| Box::new(e) as ImportError)
-        .map(|reimport| reimport.into_iter().collect())
+impl From<import::ImportError> for ImportError {
+    fn from(err: import::ImportError) -> Self {
+        Box::new(err)
+    }
 }
