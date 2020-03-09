@@ -2,39 +2,37 @@ mod build;
 mod entity;
 
 use log::warn;
-use quick_xml::events::BytesStart;
-use quick_xml::events::BytesText;
-use quick_xml::events::Event;
-use quick_xml::Error as QXError;
-use quick_xml::Reader;
+use quick_xml::{
+    events::{BytesStart, BytesText, Event},
+    Error as QXError, Reader,
+};
 
-use std::fs::File;
-use std::io::{BufRead, BufReader};
-use std::num::ParseIntError;
-use std::path::Path;
-use std::str::FromStr;
-use std::str::Utf8Error;
+use std::{
+    fs::File,
+    io::{BufRead, BufReader},
+    num::ParseIntError,
+    path::Path,
+    str::{FromStr, Utf8Error},
+};
 
-pub use entity::Anime;
-pub use entity::TitleVariation;
+pub use entity::{Anime, TitleVariation};
 
-use build::AnimeBuildError;
-use build::AnimeBuilder;
+use build::{AnimeBuildError, AnimeBuilder};
 
-/// AniDB dumb parser
+/// AniDB dumb parser.
 pub struct Anidb {
     reader: Reader<Box<dyn BufRead>>,
     buffer: Vec<u8>,
 }
 
-/// Represents error that may happen on xml parsing
+/// Represents error that may happen on xml parsing.
 #[derive(Debug)]
 pub enum XmlError {
     Io(std::io::Error),
     InvalidXml(String),
 }
 
-/// Represents error that may happen on xml processing
+/// Represents error that may happen on xml processing.
 #[derive(Debug)]
 pub enum ParseError {
     MalformedAttribute,
@@ -45,7 +43,7 @@ pub enum ParseError {
 // MARK: impl Anidb
 
 impl Anidb {
-    /// Returns parser for file at `path` or `XmlError` if file doesn't contain valid xml
+    /// Returns parser for file at `path` or `XmlError` if file doesn't contain valid xml.
     pub fn new(path: &Path) -> Result<Self, XmlError> {
         let file = File::open(path)?;
         let reader: Box<dyn BufRead> = Box::new(BufReader::new(file));
@@ -55,7 +53,7 @@ impl Anidb {
         Ok(Anidb { reader, buffer })
     }
 
-    /// Returns parser which will not parse anything
+    /// Returns parser which will not parse anything.
     pub fn empty() -> Self {
         Anidb {
             reader: Reader::from_reader(Box::new(std::io::empty())),

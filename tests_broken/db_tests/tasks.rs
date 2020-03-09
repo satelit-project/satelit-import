@@ -1,12 +1,11 @@
-use satelit_import::db::entity::*;
-use satelit_import::db::queued_jobs::QueuedJobs;
-use satelit_import::db::tasks::Tasks;
-use satelit_import::db::{ConnectionPool, QueryError};
+use satelit_import::db::{
+    entity::*, queued_jobs::QueuedJobs, tasks::Tasks, ConnectionPool, QueryError,
+};
 
-use super::add_schedule;
-use super::{count_jobs, count_tasks};
-use super::{delete_task, delete_task_jobs};
-use super::{fetch_queued_schedules, fetch_task_by_id};
+use super::{
+    add_schedule, count_jobs, count_tasks, delete_task, delete_task_jobs, fetch_queued_schedules,
+    fetch_task_by_id,
+};
 
 #[test]
 fn test_register_task() -> Result<(), QueryError> {

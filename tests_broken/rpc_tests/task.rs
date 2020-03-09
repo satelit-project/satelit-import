@@ -3,13 +3,12 @@ use futures::prelude::*;
 use tokio::runtime::Runtime;
 use tower_grpc::Request;
 
-use satelit_import::db::entity::*;
-use satelit_import::db::{ConnectionPool, QueryError};
-use satelit_import::proto::data;
-use satelit_import::proto::scraping;
-use satelit_import::proto::scraping::client::ScraperTasksService;
-use satelit_import::rpc::ServicesBuilder;
-use satelit_import::settings::Settings;
+use satelit_import::{
+    db::{entity::*, ConnectionPool, QueryError},
+    proto::{data, scraping, scraping::client::ScraperTasksService},
+    rpc::ServicesBuilder,
+    settings::Settings,
+};
 
 use super::all_schedules;
 use crate::make_task_client;

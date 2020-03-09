@@ -1,8 +1,7 @@
 use chrono::{DateTime, Utc};
 use diesel::sql_types::Integer;
 
-use super::schema::queued_jobs;
-use super::schema::schedules;
+use super::schema::{queued_jobs, schedules};
 
 /// Represents UUID
 pub use crate::proto::uuid::Uuid;

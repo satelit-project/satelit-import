@@ -4,8 +4,7 @@ pub mod tasks;
 
 use diesel::prelude::*;
 
-use satelit_import::db::entity::*;
-use satelit_import::db::{ConnectionPool, QueryError};
+use satelit_import::db::{entity::*, ConnectionPool, QueryError};
 
 // MARK: count
 
@@ -79,8 +78,7 @@ fn fetch_task_by_id(pool: &ConnectionPool, task_id: &Uuid) -> Result<Task, Query
 }
 
 fn fetch_queued_schedules(pool: &ConnectionPool, task: &Task) -> Result<Vec<Schedule>, QueryError> {
-    use satelit_import::db::schema::queued_jobs::dsl;
-    use satelit_import::db::schema::schedules;
+    use satelit_import::db::schema::{queued_jobs::dsl, schedules};
 
     let conn = pool.get()?;
     let schedules = dsl::queued_jobs

@@ -1,30 +1,33 @@
 use futures::prelude::*;
-use log::{debug, warn};
+use tracing::{debug, warn};
 
-use std::cmp::Ordering;
-use std::collections::HashSet;
-use std::fmt;
-use std::path::Path;
+use std::{cmp::Ordering, collections::HashSet, fmt, path::Path};
 
-use crate::anidb::parser::{Anidb, Anime, XmlError};
-use crate::block::{blocking, BlockingError};
-use crate::db::entity::{ExternalSource, NewSchedule};
-use crate::db::{schedules, ConnectionPool, QueryError};
+use crate::{
+    anidb::parser::{Anidb, Anime, XmlError},
+    db::{
+        entity::{ExternalSource, NewSchedule},
+        schedules, ConnectionPool, QueryError,
+    },
+};
 
-/// Creates AniDB dump importer configured with global app settings
+/// Starts AniDB dump import.
 ///
-/// Returned future will block your current task until it's ready
+/// # Returns
+///
+/// Anime IDs which has not been imported for some reason or `ImportError` if
+/// import failed.
 #[allow(clippy::implicit_hasher)]
-pub fn importer<P>(
+pub async fn import<P>(
     old_dump_path: P,
     new_dump_path: P,
     reimport_ids: HashSet<i32>,
     connection_pool: ConnectionPool,
-) -> impl Future<Item = HashSet<i32>, Error = ImportError> + Send
+) -> Result<HashSet<i32>, ImportError>
 where
     P: AsRef<Path> + Send + 'static,
 {
-    blocking(move || {
+    tokio::task::spawn_blocking(move || {
         let provider = AniDbAnimeProvider::new(old_dump_path, new_dump_path, reimport_ids);
         let schedules = schedules::Schedules::new(connection_pool);
         let scheduler = AniDbImportScheduler::new(schedules);
@@ -32,90 +35,91 @@ where
 
         importer.begin()
     })
-    .from_err()
+    .await?
 }
 
-/// Data source for anime records that should be imported
+/// Data source for anime records that should be imported.
 pub trait AnimeProvider: Send {
     /// Iterator for anime entities that should be processes. Entities should be sorted by id
-    /// and returned in ascended order
+    /// and returned in ascended order.
     type Iterator: Iterator<Item = Anime>;
 
     /// If provider can't return an iterator this error type will be used to determine a cause of
-    /// the error
+    /// the error.
     type Error: Into<ImportError>;
 
-    /// Returns iterator for previously imported anime titles
+    /// Returns iterator for previously imported anime titles.
     ///
     /// It used to build a diff of changed anime entities and process them only. The iterator may
     /// return `None` at any time. In that case all titles returned from `new_anime_titles`
-    /// iterator would be imported as new titles
+    /// iterator would be imported as new titles.
     fn old_anime_titles(&self) -> Result<Self::Iterator, Self::Error>;
 
-    /// Returns iterator for anime titles that should be imported
+    /// Returns iterator for anime titles that should be imported.
     ///
-    /// If non-empty iterator is returned from `old_anime_titles` then only diff will be processes
+    /// If non-empty iterator is returned from `old_anime_titles` then only diff will be processes.
     fn new_anime_titles(&self) -> Result<Self::Iterator, Self::Error>;
 
-    /// Returns `true` if anime title with provided `id` should be imported again
+    /// Returns `true` if anime title with provided `id` should be imported again.
     fn should_reimport(&self, id: i32) -> bool;
 }
 
-/// Processes changes to anime entities storage
+/// Processes changes to anime entities storage.
 pub trait ImportScheduler: Send {
     type Error: std::error::Error;
 
-    /// Adds new anime title to anime storage
+    /// Adds new anime title to anime storage.
     fn add_title(&mut self, anime: &Anime) -> Result<(), Self::Error>;
 
-    /// Removes anime title from anime storage
+    /// Removes anime title from anime storage.
     fn remove_title(&mut self, anime: &Anime) -> Result<(), Self::Error>;
 }
 
 /// Performs anime import with titles from `provider` and schedules changes in `scheduler`.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct AnimeImporter<P, S>
 where
     P: AnimeProvider,
     S: ImportScheduler,
 {
-    /// Data source for anime titles
+    /// Data source for anime titles.
     provider: P,
 
-    /// Scheduler for importing changes to db
+    /// Scheduler for importing changes to db.
     scheduler: S,
 
-    /// Anime IDs that has not been imported
+    /// Anime IDs that has not been imported.
     skipped_ids: HashSet<i32>,
 }
 
-/// Data source for anime entities from AniDB dumps
-#[derive(Clone)]
+/// Data source for anime entities from AniDB dumps.
+#[derive(Debug, Clone)]
 pub struct AniDbAnimeProvider<P> {
     old_dump_path: P,
     new_dump_path: P,
     reimport_ids: HashSet<i32>,
 }
 
-/// Schedules for anime titles from AniDB dump
-#[derive(Clone)]
+/// Schedules for anime titles from AniDB dump.
+#[derive(Debug, Clone)]
 pub struct AniDbImportScheduler {
     /// Db table for scheduled imports
     schedules: schedules::Schedules,
 }
 
-/// Represents an error that may occur during anime import
+/// Represents an error that may occur during anime import.
 #[derive(Debug)]
 pub enum ImportError {
-    /// Failed to read data from data source
+    /// Failed to read data from data source.
     ///
     /// For example, situation where `AnimeProvider` will not be able to provide anime titles
     /// will cause that error.
     DataSourceFailed(String),
 
-    /// Something bad happened and import can't be finished
-    ///
-    /// This is an error that may be caused due to errors with tokio or rayon.
+    /// Import task has been cancelled.
+    Cancelled,
+
+    /// Import task paniced.
     InternalError(String),
 }
 
@@ -126,7 +130,7 @@ where
     P: AnimeProvider,
     S: ImportScheduler,
 {
-    /// Creates new instance with provided parameters
+    /// Creates new instance with provided parameters.
     pub fn new(provider: P, scheduler: S) -> Self {
         AnimeImporter {
             provider,
@@ -136,14 +140,16 @@ where
     }
 
     /// Starts importing anime titles by using id's to determine diff that should be processes.
-    /// This method assumes that id's sorted in ascending order and no duplicates exists
+    /// This method assumes that id's sorted in ascending order and no duplicates exists.
     ///
-    /// ## Returns
+    /// # Returns
+    ///
     /// ID's of anime entries that should be imported but has been skipped because of an scheduler
-    /// error (like failed to write to db) or error in case if import failed to start
+    /// error (like failed to write to db) or error in case if import failed to start.
     ///
-    /// ## Note
-    /// This method will block current thread until import is done
+    /// # Note
+    ///
+    /// This method will block current thread until import is done.
     pub fn begin(&mut self) -> Result<HashSet<i32>, ImportError> {
         let mut iter_old = match self.provider.old_anime_titles() {
             Ok(iter) => iter,
@@ -224,11 +230,13 @@ impl<P> AniDbAnimeProvider<P>
 where
     P: AsRef<Path> + Send,
 {
-    /// Creates instance with AniDB anime dumps
+    /// Creates instance with AniDB anime dumps.
     ///
-    /// * `old_dump_path` – path to previously imported dump
-    /// * `new_dump_path` - path to dump that should be imported
-    /// * `reimport_ids` – IDs of anime titles that should be imported again
+    /// # Arguments
+    ///
+    /// * `old_dump_path` – path to previously imported dump.
+    /// * `new_dump_path` - path to dump that should be imported.
+    /// * `reimport_ids` – IDs of anime titles that should be imported again.
     pub fn new(old_dump_path: P, new_dump_path: P, reimport_ids: HashSet<i32>) -> Self {
         AniDbAnimeProvider {
             old_dump_path,
@@ -288,13 +296,14 @@ impl From<XmlError> for ImportError {
     }
 }
 
-impl<E: std::fmt::Debug> From<BlockingError<E>> for ImportError {
-    fn from(e: BlockingError<E>) -> Self {
-        match e {
-            BlockingError::Error(e) => ImportError::DataSourceFailed(format!("{:?}", e)),
-            BlockingError::Cancelled => {
-                ImportError::InternalError("blocking cancelled".to_string())
-            }
+impl From<tokio::task::JoinError> for ImportError {
+    fn from(err: tokio::task::JoinError) -> Self {
+        if err.is_cancelled() {
+            ImportError::Cancelled
+        } else if err.is_panic() {
+            ImportError::InternalError(format!("import task paniced: {}", err))
+        } else {
+            ImportError::InternalError(format!("failed to schedule import"))
         }
     }
 }
@@ -306,6 +315,7 @@ impl fmt::Display for ImportError {
         match self {
             DataSourceFailed(e) => e.fmt(f),
             InternalError(e) => e.fmt(f),
+            Cancelled => write!(f, "Import task was cancelled"),
         }
     }
 }
@@ -314,8 +324,7 @@ impl std::error::Error for ImportError {}
 
 #[cfg(test)]
 mod tests {
-    use super::super::test_utils::import::*;
-    use super::*;
+    use super::{super::test_utils::import::*, *};
     use std::iter::FromIterator as _;
 
     #[test]

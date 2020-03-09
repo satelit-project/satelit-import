@@ -1,114 +1,87 @@
-use futures::prelude::*;
-use reqwest::r#async::{Client, ClientBuilder};
-use reqwest::Method;
-use tokio::fs::File;
+use reqwest::{Client, ClientBuilder};
+use tokio::{fs::File, prelude::*};
 
-use std::fmt::{self, Debug, Display};
-use std::path::Path;
-use std::time::Duration;
+use std::{
+    fmt::{self, Debug, Display},
+    path::Path,
+    time::Duration,
+};
 
-/// Creates downloader with configuration from global app settings
-pub fn downloader<U, P>(
-    dump_url: U,
-    dest_path: P,
-) -> impl Future<Item = (), Error = DownloadError> + Send
+/// Downloads AniDB database dump.
+///
+/// # Arguments
+///
+/// * dump_url: URL of the database dump to download.
+/// * dest_path: database dump path where to save it.
+pub async fn download_dump<U, P>(dump_url: U, dest_path: P) -> Result<(), DownloadError>
 where
     U: AsRef<str> + Send,
-    P: AsRef<Path> + Clone + Send + 'static,
+    P: AsRef<Path> + Send,
 {
     let client = ClientBuilder::new()
         .gzip(true)
         .connect_timeout(Duration::new(60, 0)) // TODO: from config
-        .build();
+        .build()?;
 
-    futures::future::result(client)
-        .from_err()
-        .and_then(move |client| DumpDownloader::new(client, dump_url, dest_path).download())
+    let downloader = DumpDownloader::new(client, dump_url, dest_path);
+    downloader.download().await
 }
 
-/// Asynchronous file downloading client
-pub trait FileDownload: Send {
-    /// Type of chunks of data stream
-    type Chunk: AsRef<[u8]>;
-    /// Stream of data chunks
-    type Bytes: Stream<Item = Self::Chunk, Error = DownloadError>;
+/// AniDB dump downloader.
+#[derive(Debug)]
+pub struct DumpDownloader<U, P> {
+    /// Files downloading client.
+    client: Client,
 
-    /// Asynchronously starts downloading file at specified `url`
-    fn download(&self, url: &str) -> Self::Bytes;
-}
-
-/// AniDB dump downloader
-pub struct DumpDownloader<D, U, P> {
-    /// Files downloading client
-    downloader: D,
-    /// URL where dump is hosted
+    /// URL where dump is hosted.
     dump_url: U,
-    /// Path where to save dump
+
+    /// Path where to save dump.
     dest_path: P,
 }
 
-/// Represents an error that may happen during dump download
+/// Represents an error that may happen during dump download.
 pub enum DownloadError {
-    /// Request or download has failed
+    /// Request or download has failed.
     Net(reqwest::Error),
-    /// Failed to write dump on disk
-    Fs(std::io::Error),
+
+    /// Failed to write dump on disk.
+    Fs(tokio::io::Error),
 }
 
 // MARK: impl DumpDownloader
 
-impl<D, U, P> DumpDownloader<D, U, P>
+impl<U, P> DumpDownloader<U, P>
 where
-    D: FileDownload,
     U: AsRef<str>,
-    P: AsRef<Path> + Clone + Send + 'static,
+    P: AsRef<Path>,
 {
     /// Creates new instance
-    pub fn new(downloader: D, dump_url: U, dest_path: P) -> Self {
+    pub fn new(client: Client, dump_url: U, dest_path: P) -> Self {
         DumpDownloader {
-            downloader,
+            client,
             dump_url,
             dest_path,
         }
     }
 
     /// Asynchronously downloads dump at `dump_url` and saves it on disk at `dest_path`
-    pub fn download(&self) -> impl Future<Item = (), Error = DownloadError> {
-        let dump = self.downloader.download(self.dump_url.as_ref());
-        let file = File::create(self.dest_path.clone()).map_err(DownloadError::from);
+    pub async fn download(&self) -> Result<(), DownloadError> {
+        let mut file = File::create(self.dest_path.as_ref()).await?;
+        let mut chunks = self.client.get(self.dump_url.as_ref()).send().await?;
 
-        file.and_then(move |f| {
-            dump.fold(f, |f, chunk| {
-                tokio::io::write_all(f, chunk)
-                    .map_err(DownloadError::Fs)
-                    .map(|(f, _)| f)
-            })
-            .and_then(|_| Ok(()))
-        })
-    }
-}
+        while let Some(chunk) = chunks.chunk().await? {
+            file.write_all(&chunk).await?;
+        }
 
-// MARK: impl FileDownload
-
-impl FileDownload for Client {
-    type Chunk = reqwest::r#async::Chunk;
-    type Bytes = Box<dyn Stream<Item = Self::Chunk, Error = DownloadError> + Send>;
-
-    fn download(&self, url: &str) -> Self::Bytes {
-        let bytes = self
-            .request(Method::GET, url)
-            .send()
-            .into_stream()
-            .take(1)
-            .map(|r| r.into_body())
-            .flatten()
-            .from_err();
-
-        Box::new(bytes)
+        file.sync_data().await?;
+        Ok(())
     }
 }
 
 // MARK: impl DownloadError
+
+impl std::error::Error for DownloadError {}
 
 impl Debug for DownloadError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -132,57 +105,14 @@ impl Display for DownloadError {
     }
 }
 
-impl std::error::Error for DownloadError {}
-
 impl From<reqwest::Error> for DownloadError {
     fn from(e: reqwest::Error) -> Self {
         DownloadError::Net(e)
     }
 }
 
-impl From<std::io::Error> for DownloadError {
-    fn from(e: std::io::Error) -> Self {
+impl From<tokio::io::Error> for DownloadError {
+    fn from(e: tokio::io::Error) -> Self {
         DownloadError::Fs(e)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::super::test_utils::download::*;
-    use super::super::test_utils::tokio_run_aborting;
-    use super::*;
-    use tokio::prelude::*;
-
-    #[test]
-    fn test_download() -> Result<(), std::io::Error> {
-        let mut dst = tempfile::Builder::new().tempfile()?;
-
-        let chunks = vec![
-            Chunk([1, 2]),
-            Chunk([3, 4]),
-            Chunk([5, 6]),
-            Chunk([7, 8]),
-            Chunk([9, 10]),
-        ];
-
-        let downloader = FakeDownloader {
-            content: chunks.clone(),
-        };
-
-        let fut = DumpDownloader::new(downloader, "", dst.path().to_path_buf());
-        tokio_run_aborting(
-            fut.download()
-                .map_err(|e| panic!("failed to save data: {}", e)),
-        );
-
-        let mut expected: Vec<u8> = vec![];
-        let mut got = vec![];
-
-        chunks.iter().for_each(|c| expected.extend(c.0.iter()));
-        dst.read_to_end(&mut got)?;
-
-        assert_eq!(expected, got);
-
-        Ok(())
     }
 }

@@ -1,33 +1,44 @@
 mod update;
 
 use futures::prelude::*;
-use log::{error, warn};
-use tower_grpc::{Code, Request, Response, Status};
+use tonic::{Request, Response, Status};
+use tracing::{error, info, warn};
 
-use std::convert::{TryFrom, TryInto};
-use std::sync::Arc;
+use std::{
+    convert::{TryFrom, TryInto},
+    sync::Arc,
+};
 
-use crate::db::entity::ExternalSource;
-use crate::db::queued_jobs::QueuedJobs;
-use crate::db::schedules::Schedules;
-use crate::db::tasks::Tasks;
-use crate::db::QueryError;
+use crate::db::{
+    entity::ExternalSource, queued_jobs::QueuedJobs, schedules::Schedules, tasks::Tasks, QueryError,
+};
 
-use crate::block::{blocking, BlockingError};
-use crate::proto::data;
-use crate::proto::scraping::{self, server};
+use crate::proto::{
+    data,
+    scraping::{self, scraper_tasks_service_server},
+};
 
+/// Service to manage import tasks for scraper service.
 #[derive(Clone)]
 pub struct ScraperTasksService {
-    state: Arc<State>, // TODO: will Rc be enough?
+    /// Service state.
+    state: Arc<State>,
 }
 
+/// Tasks service state.
 #[derive(Clone)]
 struct State {
+    /// Scrape tasks storage.
     tasks: Tasks,
+
+    /// Storage for anime entities waiting for scraping.
     schedules: Schedules,
+
+    /// Storage for queued task jobs.
     queued_jobs: QueuedJobs,
 }
+
+// MARK: impl ScraperTasksService
 
 impl ScraperTasksService {
     pub fn new(tasks: Tasks, schedules: Schedules, queued_jobs: QueuedJobs) -> Self {
@@ -43,68 +54,90 @@ impl ScraperTasksService {
     }
 }
 
-impl server::ScraperTasksService for ScraperTasksService {
-    type CreateTaskFuture = Box<dyn Future<Item = Response<scraping::Task>, Error = Status> + Send>;
-    type YieldResultFuture = Box<dyn Future<Item = Response<()>, Error = Status> + Send>;
-    type CompleteTaskFuture = Box<dyn Future<Item = Response<()>, Error = Status> + Send>;
+#[tonic::async_trait]
+impl scraper_tasks_service_server::ScraperTasksService for ScraperTasksService {
+    /// Creates new task for a scraping service.
+    #[tracing::instrument(skip(self))]
+    async fn create_task(
+        &self,
+        request: Request<scraping::TaskCreate>,
+    ) -> Result<Response<scraping::Task>, Status> {
+        info!("creating new scraping task");
 
-    fn create_task(&mut self, request: Request<scraping::TaskCreate>) -> Self::CreateTaskFuture {
         let state = self.state.clone();
-
-        let response = blocking(move || {
+        let result = blocking(move || {
             let data = request.get_ref();
             make_task(&state, data)
         })
-        .then(|result| match result {
-            Ok(task) => Ok(Response::new(task)),
-            Err(e) => {
-                error!("Failed to create new scrape task: {}", e);
-                Err(e.into())
-            }
-        });
+        .await?;
 
-        Box::new(response)
+        match result {
+            Ok(task) => {
+                info!("created new task");
+                Ok(Response::new(task))
+            }
+            Err(status) => {
+                error!("failed to create task: {}", &status);
+                Err(status)
+            }
+        }
     }
 
-    fn yield_result(&mut self, request: Request<scraping::TaskYield>) -> Self::YieldResultFuture {
-        let state = self.state.clone();
+    /// Finishes a job accossiated with a task.
+    #[tracing::instrument(skip(self))]
+    async fn yield_result(
+        &self,
+        request: Request<scraping::TaskYield>,
+    ) -> Result<Response<()>, Status> {
+        info!("updating task");
 
-        let response = blocking(move || {
+        let state = self.state.clone();
+        let result = blocking(move || {
             let data = request.get_ref();
             update_task(&state, data)
         })
-        .then(|result| match result {
-            Ok(_) => Ok(Response::new(())),
-            Err(e) => {
-                error!("Failed to update yielded entity: {}", e);
-                Err(e.into())
-            }
-        });
+        .await?;
 
-        Box::new(response)
+        match result {
+            Ok(_) => Ok(Response::new(())),
+            Err(status) => {
+                error!("failed to update task: {}", &status);
+                Err(status)
+            }
+        }
     }
 
-    fn complete_task(
-        &mut self,
+    /// Finishes scraping task and all it's assocciated jobs.
+    #[tracing::instrument(skip(self))]
+    async fn complete_task(
+        &self,
         request: Request<scraping::TaskFinish>,
-    ) -> Self::CompleteTaskFuture {
+    ) -> Result<Response<()>, Status> {
+        info!("finalizing task");
+
         let state = self.state.clone();
+        blocking(move || {
+            let data: scraping::TaskFinish = request.into_inner();
+            let task_id = match data.task_id {
+                Some(task_id) => task_id,
+                None => return Err(Status::invalid_argument("task_id is required")),
+            };
 
-        let response = blocking(move || {
-            let data = request.into_inner();
-            state.tasks.finish(&data.task_id.into())
-        })
-        .then(|result| match result {
-            Ok(()) => Ok(Response::new(())),
-            Err(e) => {
-                error!("Failed to finish task: {}", e);
-                Err(e.into())
+            match state.tasks.finish(&task_id) {
+                Ok(_) => Ok(()),
+                Err(e) => {
+                    error!("failed to finish task: {}", e);
+                    Err(Status::from(e))
+                }
             }
-        });
+        })
+        .await??;
 
-        Box::new(response)
+        Ok(Response::new(()))
     }
 }
+
+// MARK: tasks
 
 fn make_task(state: &State, options: &scraping::TaskCreate) -> Result<scraping::Task, Status> {
     let source = data::Source::from_i32(options.source).unwrap_or(data::Source::Unknown);
@@ -139,10 +172,7 @@ fn update_task(state: &State, data: &scraping::TaskYield) -> Result<(), Status> 
                 data.task_id
             );
 
-            return Err(Status::new(
-                Code::InvalidArgument,
-                "Anime entity is missing",
-            ));
+            return Err(Status::invalid_argument("anime entity is missing"));
         }
     };
 
@@ -153,44 +183,37 @@ fn update_task(state: &State, data: &scraping::TaskYield) -> Result<(), Status> 
     Ok(())
 }
 
-impl From<QueryError> for Status {
-    fn from(e: QueryError) -> Self {
-        Status::new(Code::Internal, e.to_string())
-    }
+// MARK: blocking
+
+async fn blocking<F, R>(f: F) -> Result<R, Status>
+where
+    F: FnOnce() -> R + Send + 'static,
+    R: Send + 'static,
+{
+    tokio::task::spawn_blocking(f)
+        .map_err(|err| Status::internal(err.to_string()))
+        .await
 }
 
-impl From<BlockingError<QueryError>> for Status {
-    fn from(e: BlockingError<QueryError>) -> Self {
-        use BlockingError::*;
-
-        match e {
-            Error(e) => Status::new(Code::Internal, e.to_string()),
-            Cancelled => Status::new(Code::Cancelled, "Job was cancelled"),
-        }
-    }
-}
-
-impl From<BlockingError<Status>> for Status {
-    fn from(e: BlockingError<Status>) -> Self {
-        use BlockingError::*;
-
-        match e {
-            Error(status) => status,
-            Cancelled => Status::new(Code::Cancelled, "Job was cancelled"),
-        }
-    }
-}
+// MARK: impl ExternalSource
 
 impl TryFrom<data::Source> for ExternalSource {
     type Error = Status;
 
     fn try_from(value: data::Source) -> Result<Self, Self::Error> {
         match value {
-            data::Source::Unknown => Err(Status::new(
-                Code::InvalidArgument,
-                "scraping source is not supported",
-            )),
+            data::Source::Unknown => {
+                Err(Status::invalid_argument("scraping source is not supported"))
+            }
             data::Source::Anidb => Ok(ExternalSource::AniDB),
         }
+    }
+}
+
+// MARK: impl Status
+
+impl From<QueryError> for Status {
+    fn from(err: QueryError) -> Self {
+        Status::internal(err.to_string())
     }
 }

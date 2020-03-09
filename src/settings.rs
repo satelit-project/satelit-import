@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use std::time::Duration;
 
-/// Settings profile
+/// Settings profile.
 ///
 /// All profiles are based on `Default`, that is, all settings from `Default`
 /// profile will be available, but may be overridden, will be inherited
@@ -15,48 +15,53 @@ pub enum Profile {
     Named(String),
 }
 
-/// Application settings
+/// Application settings.
 #[derive(Debug, Clone, Deserialize)]
 pub struct Settings {
-    /// Database settings
-    pub db: Db,
-    /// Dump import settings
-    pub import: Import,
-    /// RPC services settings
-    pub rpc: Rpc,
+    /// Database settings.
+    db: Db,
+
+    /// Dump import settings.
+    import: Import,
+
+    /// RPC services settings.
+    rpc: Rpc,
 }
 
-/// Database settings
+/// Database settings.
 #[derive(Debug, Clone, Deserialize)]
 pub struct Db {
-    /// Path to database
-    pub url: String,
-    /// Number of maximum simultaneous connections
-    pub max_connections: u32,
-    /// DB connection timeout
-    pub connection_timeout: u64,
+    /// Path to database.
+    url: String,
+
+    /// Number of maximum simultaneous connections.
+    max_connections: u32,
+
+    /// DB connection timeout.
+    connection_timeout: u64,
 }
 
-/// Anime index import settings
+/// Anime index import settings.
 #[derive(Debug, Clone, Deserialize)]
 pub struct Import {
-    /// Path to download new anime dump
-    pub new_download_path: String,
-    /// Path to download old anime dump
-    pub old_download_path: String,
-    /// Path to extract new anime dump
-    pub new_extract_path: String,
-    /// Path to extract old anime dump
-    pub old_extract_path: String,
+    /// Path to download new anime dump.
+    new_download_path: String,
+
+    /// Path to download old anime dump.
+    old_download_path: String,
+
+    /// Path to extract new anime dump.
+    new_extract_path: String,
+
+    /// Path to extract old anime dump.
+    old_extract_path: String,
 }
 
-/// Rpc services settings
+/// Rpc services settings.
 #[derive(Debug, Clone, Deserialize)]
 pub struct Rpc {
-    /// URL to serve `ImportService`
-    pub import: String,
-    /// URL to serve `ScraperTasksService`
-    pub task: String,
+    /// Port for serving RPC services.
+    port: u32,
 }
 
 // MARK: impl Profile
@@ -142,11 +147,7 @@ impl Import {
 // MARK: impl Rpc
 
 impl Rpc {
-    pub fn import(&self) -> &str {
-        &self.import
-    }
-
-    pub fn task(&self) -> &str {
-        &self.task
+    pub fn port(&self) -> u32 {
+        self.port
     }
 }

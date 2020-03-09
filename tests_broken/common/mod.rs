@@ -1,5 +1,4 @@
-use satelit_import::db;
-use satelit_import::settings;
+use satelit_import::{db, settings};
 
 pub fn settings(profile: &str) -> settings::Settings {
     let profile = settings::Profile::Named(profile.to_string());

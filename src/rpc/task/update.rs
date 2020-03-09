@@ -1,13 +1,12 @@
 use chrono::{Date, DateTime, Duration, TimeZone, Timelike, Utc};
 use log::{error, warn};
 
-use std::cmp::min;
-use std::ops::Deref;
+use std::{cmp::min, ops::Deref};
 
-use crate::db::entity::UpdatedSchedule;
-use crate::proto::data::anime::Type as AnimeType;
-use crate::proto::data::episode::Type as EpisodeType;
-use crate::proto::data::Anime;
+use crate::{
+    db::entity::UpdatedSchedule,
+    proto::data::{anime::Type as AnimeType, episode::Type as EpisodeType, Anime},
+};
 
 pub trait Strategy {
     fn accepts(&self, anime: &Anime) -> bool;

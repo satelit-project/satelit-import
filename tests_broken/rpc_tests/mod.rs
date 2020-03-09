@@ -3,8 +3,7 @@ mod task;
 
 use diesel::prelude::*;
 
-use satelit_import::db::entity::Schedule;
-use satelit_import::db::{ConnectionPool, QueryError};
+use satelit_import::db::{entity::Schedule, ConnectionPool, QueryError};
 
 // MARK: db
 
@@ -24,8 +23,10 @@ macro_rules! make_import_client {
     ( $ip:expr ) => {{
         use std::time::Duration;
         use tower::MakeService;
-        use tower_hyper::util::{Destination, HttpConnector};
-        use tower_hyper::{client, util};
+        use tower_hyper::{
+            client, util,
+            util::{Destination, HttpConnector},
+        };
 
         let uri: hyper::Uri = format!("http://{}/", $ip).parse().unwrap();
         let dst = Destination::try_from_uri(uri.clone()).unwrap();
@@ -53,8 +54,10 @@ macro_rules! make_task_client {
     ( $ip:expr ) => {{
         use std::time::Duration;
         use tower::MakeService;
-        use tower_hyper::util::{Destination, HttpConnector};
-        use tower_hyper::{client, util};
+        use tower_hyper::{
+            client, util,
+            util::{Destination, HttpConnector},
+        };
 
         let uri: hyper::Uri = format!("http://{}/", $ip).parse().unwrap();
         let dst = Destination::try_from_uri(uri.clone()).unwrap();

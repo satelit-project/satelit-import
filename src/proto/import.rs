@@ -2,292 +2,193 @@
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ImportIntent {
     /// Intent ID
-    #[prost(message, optional, tag="1")]
+    #[prost(message, optional, tag = "1")]
     pub id: ::std::option::Option<super::uuid::Uuid>,
     /// External data source to which index files belongs to
-    #[prost(enumeration="super::data::Source", tag="2")]
+    #[prost(enumeration = "super::data::Source", tag = "2")]
     pub source: i32,
     /// URL of latest anime titles index
-    #[prost(string, tag="3")]
+    #[prost(string, tag = "3")]
     pub new_index_url: std::string::String,
     /// URL of previous anime titles index
-    #[prost(string, tag="4")]
+    #[prost(string, tag = "4")]
     pub old_index_url: std::string::String,
     /// Identifiers of anime titles that should be re-imported
-    #[prost(sint32, repeated, tag="5")]
+    #[prost(sint32, repeated, tag = "5")]
     pub reimport_ids: ::std::vec::Vec<i32>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ImportIntentResult {
     /// Intent ID
-    #[prost(message, optional, tag="1")]
+    #[prost(message, optional, tag = "1")]
     pub id: ::std::option::Option<super::uuid::Uuid>,
     /// IDs of anime titles that was not imported
-    #[prost(sint32, repeated, tag="2")]
+    #[prost(sint32, repeated, tag = "2")]
     pub skipped_ids: ::std::vec::Vec<i32>,
 }
-pub mod client {
-    use ::tower_grpc::codegen::client::*;
-    use super::{ImportIntent, ImportIntentResult};
-
-    /// A service to start raw data import
-    /// 
-    /// 'Importer' should implement the service and start importing a raw data when requested
-    /// such as AniDB database dump that will be used to produce scraping tasks.
-    #[derive(Debug, Clone)]
-    pub struct ImportService<T> {
-        inner: grpc::Grpc<T>,
+#[doc = r" Generated client implementations."]
+pub mod import_service_client {
+    #![allow(unused_variables, dead_code, missing_docs)]
+    use tonic::codegen::*;
+    #[doc = " A service to start raw data import"]
+    #[doc = ""]
+    #[doc = " 'Importer' should implement the service and start importing a raw data when requested"]
+    #[doc = " such as AniDB database dump that will be used to produce scraping tasks."]
+    pub struct ImportServiceClient<T> {
+        inner: tonic::client::Grpc<T>,
     }
-
-    impl<T> ImportService<T> {
+    impl ImportServiceClient<tonic::transport::Channel> {
+        #[doc = r" Attempt to create a new client by connecting to a given endpoint."]
+        pub async fn connect<D>(dst: D) -> Result<Self, tonic::transport::Error>
+        where
+            D: std::convert::TryInto<tonic::transport::Endpoint>,
+            D::Error: Into<StdError>,
+        {
+            let conn = tonic::transport::Endpoint::new(dst)?.connect().await?;
+            Ok(Self::new(conn))
+        }
+    }
+    impl<T> ImportServiceClient<T>
+    where
+        T: tonic::client::GrpcService<tonic::body::BoxBody>,
+        T::ResponseBody: Body + HttpBody + Send + 'static,
+        T::Error: Into<StdError>,
+        <T::ResponseBody as HttpBody>::Error: Into<StdError> + Send,
+    {
         pub fn new(inner: T) -> Self {
-            let inner = grpc::Grpc::new(inner);
+            let inner = tonic::client::Grpc::new(inner);
             Self { inner }
         }
-
-        /// Poll whether this client is ready to send another request.
-        pub fn poll_ready<R>(&mut self) -> futures::Poll<(), grpc::Status>
-        where T: grpc::GrpcService<R>,
-        {
-            self.inner.poll_ready()
+        pub fn with_interceptor(inner: T, interceptor: impl Into<tonic::Interceptor>) -> Self {
+            let inner = tonic::client::Grpc::with_interceptor(inner, interceptor);
+            Self { inner }
         }
-
-        /// Get a `Future` of when this client is ready to send another request.
-        pub fn ready<R>(self) -> impl futures::Future<Item = Self, Error = grpc::Status>
-        where T: grpc::GrpcService<R>,
-        {
-            futures::Future::map(self.inner.ready(), |inner| Self { inner })
+        #[doc = " Start import process of raw data and returns result of the operation when finished"]
+        pub async fn start_import(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ImportIntent>,
+        ) -> Result<tonic::Response<super::ImportIntentResult>, tonic::Status> {
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::new(
+                    tonic::Code::Unknown,
+                    format!("Service was not ready: {}", e.into()),
+                )
+            })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static("/import.ImportService/StartImport");
+            self.inner.unary(request.into_request(), path, codec).await
         }
-
-        /// A service to start raw data import
-        /// 
-        /// 'Importer' should implement the service and start importing a raw data when requested
-        /// such as AniDB database dump that will be used to produce scraping tasks.
-        pub fn start_import<R>(&mut self, request: grpc::Request<ImportIntent>) -> grpc::unary::ResponseFuture<ImportIntentResult, T::Future, T::ResponseBody>
-        where T: grpc::GrpcService<R>,
-              grpc::unary::Once<ImportIntent>: grpc::Encodable<R>,
-        {
-            let path = http::PathAndQuery::from_static("/import.ImportService/StartImport");
-            self.inner.unary(request, path)
+    }
+    impl<T: Clone> Clone for ImportServiceClient<T> {
+        fn clone(&self) -> Self {
+            Self {
+                inner: self.inner.clone(),
+            }
         }
     }
 }
-
-pub mod server {
-    use ::tower_grpc::codegen::server::*;
-    use super::{ImportIntent, ImportIntentResult};
-
-    // Redefine the try_ready macro so that it doesn't need to be explicitly
-    // imported by the user of this generated code.
-    macro_rules! try_ready {
-        ($e:expr) => (match $e {
-            Ok(futures::Async::Ready(t)) => t,
-            Ok(futures::Async::NotReady) => return Ok(futures::Async::NotReady),
-            Err(e) => return Err(From::from(e)),
-        })
+#[doc = r" Generated server implementations."]
+pub mod import_service_server {
+    #![allow(unused_variables, dead_code, missing_docs)]
+    use tonic::codegen::*;
+    #[doc = "Generated trait containing gRPC methods that should be implemented for use with ImportServiceServer."]
+    #[async_trait]
+    pub trait ImportService: Send + Sync + 'static {
+        #[doc = " Start import process of raw data and returns result of the operation when finished"]
+        async fn start_import(
+            &self,
+            request: tonic::Request<super::ImportIntent>,
+        ) -> Result<tonic::Response<super::ImportIntentResult>, tonic::Status>;
     }
-
-    /// A service to start raw data import
-    /// 
-    /// 'Importer' should implement the service and start importing a raw data when requested
-    /// such as AniDB database dump that will be used to produce scraping tasks.
-    pub trait ImportService: Clone {
-        type StartImportFuture: futures::Future<Item = grpc::Response<ImportIntentResult>, Error = grpc::Status>;
-
-        /// Start import process of raw data and returns result of the operation when finished
-        fn start_import(&mut self, request: grpc::Request<ImportIntent>) -> Self::StartImportFuture;
+    #[doc = " A service to start raw data import"]
+    #[doc = ""]
+    #[doc = " 'Importer' should implement the service and start importing a raw data when requested"]
+    #[doc = " such as AniDB database dump that will be used to produce scraping tasks."]
+    #[derive(Debug)]
+    #[doc(hidden)]
+    pub struct ImportServiceServer<T: ImportService> {
+        inner: _Inner<T>,
     }
-
-    #[derive(Debug, Clone)]
-    pub struct ImportServiceServer<T> {
-        import_service: T,
-    }
-
-    impl<T> ImportServiceServer<T>
-    where T: ImportService,
-    {
-        pub fn new(import_service: T) -> Self {
-            Self { import_service }
+    struct _Inner<T>(Arc<T>, Option<tonic::Interceptor>);
+    impl<T: ImportService> ImportServiceServer<T> {
+        pub fn new(inner: T) -> Self {
+            let inner = Arc::new(inner);
+            let inner = _Inner(inner, None);
+            Self { inner }
+        }
+        pub fn with_interceptor(inner: T, interceptor: impl Into<tonic::Interceptor>) -> Self {
+            let inner = Arc::new(inner);
+            let inner = _Inner(inner, Some(interceptor.into()));
+            Self { inner }
         }
     }
-
-    impl<T> tower::Service<http::Request<grpc::BoxBody>> for ImportServiceServer<T>
-    where T: ImportService,
-    {
-        type Response = http::Response<import_service::ResponseBody<T>>;
-        type Error = grpc::Never;
-        type Future = import_service::ResponseFuture<T>;
-
-        fn poll_ready(&mut self) -> futures::Poll<(), Self::Error> {
-            Ok(().into())
+    impl<T: ImportService> Service<http::Request<HyperBody>> for ImportServiceServer<T> {
+        type Response = http::Response<tonic::body::BoxBody>;
+        type Error = Never;
+        type Future = BoxFuture<Self::Response, Self::Error>;
+        fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+            Poll::Ready(Ok(()))
         }
-
-        fn call(&mut self, request: http::Request<grpc::BoxBody>) -> Self::Future {
-            use self::import_service::Kind::*;
-
-            match request.uri().path() {
+        fn call(&mut self, req: http::Request<HyperBody>) -> Self::Future {
+            let inner = self.inner.clone();
+            match req.uri().path() {
                 "/import.ImportService/StartImport" => {
-                    let service = import_service::methods::StartImport(self.import_service.clone());
-                    let response = grpc::unary(service, request);
-                    import_service::ResponseFuture { kind: StartImport(response) }
-                }
-                _ => {
-                    import_service::ResponseFuture { kind: __Generated__Unimplemented(grpc::unimplemented(format!("unknown service: {:?}", request.uri().path()))) }
-                }
-            }
-        }
-    }
-
-    impl<T> tower::Service<()> for ImportServiceServer<T>
-    where T: ImportService,
-    {
-        type Response = Self;
-        type Error = grpc::Never;
-        type Future = futures::FutureResult<Self::Response, Self::Error>;
-
-        fn poll_ready(&mut self) -> futures::Poll<(), Self::Error> {
-            Ok(futures::Async::Ready(()))
-        }
-
-        fn call(&mut self, _target: ()) -> Self::Future {
-            futures::ok(self.clone())
-        }
-    }
-
-    impl<T> tower::Service<http::Request<tower_hyper::Body>> for ImportServiceServer<T>
-    where T: ImportService,
-    {
-        type Response = <Self as tower::Service<http::Request<grpc::BoxBody>>>::Response;
-        type Error = <Self as tower::Service<http::Request<grpc::BoxBody>>>::Error;
-        type Future = <Self as tower::Service<http::Request<grpc::BoxBody>>>::Future;
-
-        fn poll_ready(&mut self) -> futures::Poll<(), Self::Error> {
-            tower::Service::<http::Request<grpc::BoxBody>>::poll_ready(self)
-        }
-
-        fn call(&mut self, request: http::Request<tower_hyper::Body>) -> Self::Future {
-            let request = request.map(|b| grpc::BoxBody::map_from(b));
-            tower::Service::<http::Request<grpc::BoxBody>>::call(self, request)
-        }
-    }
-
-    pub mod import_service {
-        use ::tower_grpc::codegen::server::*;
-        use super::ImportService;
-        use super::super::ImportIntent;
-
-        pub struct ResponseFuture<T>
-        where T: ImportService,
-        {
-            pub(super) kind: Kind<
-                // StartImport
-                grpc::unary::ResponseFuture<methods::StartImport<T>, grpc::BoxBody, ImportIntent>,
-                // A generated catch-all for unimplemented service calls
-                grpc::unimplemented::ResponseFuture,
-            >,
-        }
-
-        impl<T> futures::Future for ResponseFuture<T>
-        where T: ImportService,
-        {
-            type Item = http::Response<ResponseBody<T>>;
-            type Error = grpc::Never;
-
-            fn poll(&mut self) -> futures::Poll<Self::Item, Self::Error> {
-                use self::Kind::*;
-
-                match self.kind {
-                    StartImport(ref mut fut) => {
-                        let response = try_ready!(fut.poll());
-                        let response = response.map(|body| {
-                            ResponseBody { kind: StartImport(body) }
-                        });
-                        Ok(response.into())
+                    struct StartImportSvc<T: ImportService>(pub Arc<T>);
+                    impl<T: ImportService> tonic::server::UnaryService<super::ImportIntent> for StartImportSvc<T> {
+                        type Response = super::ImportIntentResult;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ImportIntent>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move { inner.start_import(request).await };
+                            Box::pin(fut)
+                        }
                     }
-                    __Generated__Unimplemented(ref mut fut) => {
-                        let response = try_ready!(fut.poll());
-                        let response = response.map(|body| {
-                            ResponseBody { kind: __Generated__Unimplemented(body) }
-                        });
-                        Ok(response.into())
-                    }
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let interceptor = inner.1.clone();
+                        let inner = inner.0;
+                        let method = StartImportSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = if let Some(interceptor) = interceptor {
+                            tonic::server::Grpc::with_interceptor(codec, interceptor)
+                        } else {
+                            tonic::server::Grpc::new(codec)
+                        };
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
                 }
+                _ => Box::pin(async move {
+                    Ok(http::Response::builder()
+                        .status(200)
+                        .header("grpc-status", "12")
+                        .body(tonic::body::BoxBody::empty())
+                        .unwrap())
+                }),
             }
         }
-
-        pub struct ResponseBody<T>
-        where T: ImportService,
-        {
-            pub(super) kind: Kind<
-                // StartImport
-                grpc::Encode<grpc::unary::Once<<methods::StartImport<T> as grpc::UnaryService<ImportIntent>>::Response>>,
-                // A generated catch-all for unimplemented service calls
-                (),
-            >,
+    }
+    impl<T: ImportService> Clone for ImportServiceServer<T> {
+        fn clone(&self) -> Self {
+            let inner = self.inner.clone();
+            Self { inner }
         }
-
-        impl<T> tower::HttpBody for ResponseBody<T>
-        where T: ImportService,
-        {
-            type Data = <grpc::BoxBody as grpc::Body>::Data;
-            type Error = grpc::Status;
-
-            fn is_end_stream(&self) -> bool {
-                use self::Kind::*;
-
-                match self.kind {
-                    StartImport(ref v) => v.is_end_stream(),
-                    __Generated__Unimplemented(_) => true,
-                }
-            }
-
-            fn poll_data(&mut self) -> futures::Poll<Option<Self::Data>, Self::Error> {
-                use self::Kind::*;
-
-                match self.kind {
-                    StartImport(ref mut v) => v.poll_data(),
-                    __Generated__Unimplemented(_) => Ok(None.into()),
-                }
-            }
-
-            fn poll_trailers(&mut self) -> futures::Poll<Option<http::HeaderMap>, Self::Error> {
-                use self::Kind::*;
-
-                match self.kind {
-                    StartImport(ref mut v) => v.poll_trailers(),
-                    __Generated__Unimplemented(_) => Ok(None.into()),
-                }
-            }
+    }
+    impl<T: ImportService> Clone for _Inner<T> {
+        fn clone(&self) -> Self {
+            Self(self.0.clone(), self.1.clone())
         }
-
-        #[allow(non_camel_case_types)]
-        #[derive(Debug, Clone)]
-        pub(super) enum Kind<StartImport, __Generated__Unimplemented> {
-            StartImport(StartImport),
-            __Generated__Unimplemented(__Generated__Unimplemented),
+    }
+    impl<T: std::fmt::Debug> std::fmt::Debug for _Inner<T> {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "{:?}", self.0)
         }
-
-        pub mod methods {
-            use ::tower_grpc::codegen::server::*;
-            use super::super::{ImportService, ImportIntent, ImportIntentResult};
-
-            pub struct StartImport<T>(pub T);
-
-            impl<T> tower::Service<grpc::Request<ImportIntent>> for StartImport<T>
-            where T: ImportService,
-            {
-                type Response = grpc::Response<ImportIntentResult>;
-                type Error = grpc::Status;
-                type Future = T::StartImportFuture;
-
-                fn poll_ready(&mut self) -> futures::Poll<(), Self::Error> {
-                    Ok(futures::Async::Ready(()))
-                }
-
-                fn call(&mut self, request: grpc::Request<ImportIntent>) -> Self::Future {
-                    self.0.start_import(request)
-                }
-            }
-        }
+    }
+    impl<T: ImportService> tonic::transport::NamedService for ImportServiceServer<T> {
+        const NAME: &'static str = "import.ImportService";
     }
 }

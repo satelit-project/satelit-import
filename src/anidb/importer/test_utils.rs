@@ -3,11 +3,12 @@
 use futures::prelude::*;
 
 pub(crate) mod import {
-    use crate::anidb::importer::import::*;
-    use crate::anidb::parser::*;
-    use std::collections::HashSet;
-    use std::sync::{Arc, Mutex};
-    use std::vec::IntoIter;
+    use crate::anidb::{importer::import::*, parser::*};
+    use std::{
+        collections::HashSet,
+        sync::{Arc, Mutex},
+        vec::IntoIter,
+    };
 
     pub(crate) fn gen_anime<R: AsRef<[i32]>>(ids: R) -> Vec<Anime> {
         let mut anime = vec![];
@@ -121,106 +122,4 @@ pub(crate) mod import {
             Ok(())
         }
     }
-}
-
-pub(crate) mod download {
-    use crate::anidb::importer::download::*;
-    use futures::stream::{self, IterOk};
-
-    #[derive(Clone)]
-    pub struct Chunk(pub [u8; 2]);
-
-    impl AsRef<[u8]> for Chunk {
-        fn as_ref(&self) -> &[u8] {
-            &self.0
-        }
-    }
-
-    pub struct FakeDownloader {
-        pub content: Vec<Chunk>,
-    }
-
-    impl FileDownload for FakeDownloader {
-        type Chunk = Chunk;
-        type Bytes = IterOk<std::vec::IntoIter<Chunk>, DownloadError>;
-
-        fn download(&self, _url: &str) -> Self::Bytes {
-            stream::iter_ok(self.content.clone().into_iter())
-        }
-    }
-}
-
-pub(crate) mod extract {
-    use std::ops::Deref;
-
-    #[derive(Debug)]
-    pub struct StringMut(String);
-
-    pub trait ToMut {
-        fn to_mut(&self) -> StringMut;
-    }
-
-    // String helpers implementations
-
-    impl ToMut for String {
-        fn to_mut(&self) -> StringMut {
-            StringMut(self.clone())
-        }
-    }
-
-    impl ToMut for str {
-        fn to_mut(&self) -> StringMut {
-            StringMut(self.to_owned())
-        }
-    }
-
-    impl AsMut<[u8]> for StringMut {
-        fn as_mut(&mut self) -> &mut [u8] {
-            unsafe { self.0.as_bytes_mut() }
-        }
-    }
-
-    impl From<Vec<u8>> for StringMut {
-        fn from(bytes: Vec<u8>) -> Self {
-            unsafe { StringMut(String::from_utf8_unchecked(bytes)) }
-        }
-    }
-
-    impl Deref for StringMut {
-        type Target = str;
-
-        fn deref(&self) -> &Self::Target {
-            &self.0
-        }
-    }
-
-    impl std::cmp::PartialEq for StringMut {
-        fn eq(&self, other: &StringMut) -> bool {
-            self.0 == other.0
-        }
-    }
-
-    impl std::cmp::PartialEq<String> for StringMut {
-        fn eq(&self, other: &String) -> bool {
-            &self.0 == other
-        }
-    }
-
-    impl std::cmp::PartialEq<&str> for StringMut {
-        fn eq(&self, other: &&str) -> bool {
-            &self.0 == other
-        }
-    }
-}
-
-pub fn tokio_run_aborting<F>(f: F)
-where
-    F: Future<Item = (), Error = ()> + Send + 'static,
-{
-    std::panic::set_hook(Box::new(|panic_info| {
-        eprintln!("{}", panic_info.to_string());
-        std::process::abort();
-    }));
-
-    tokio::run(f)
 }

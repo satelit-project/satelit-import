@@ -1,8 +1,7 @@
 mod common;
 mod rpc_tests;
 
-use satelit_import::db;
-use satelit_import::settings;
+use satelit_import::{db, settings};
 
 pub fn settings() -> settings::Settings {
     common::settings("rpc_tests")
