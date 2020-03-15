@@ -7,7 +7,7 @@ use std::path::Path;
 pub type ExtractError = std::io::Error;
 
 /// Extracts gzip archive at `src_path` to `dst_path`.
-pub async fn extract<P>(src_path: P, dst_path: P) -> Result<(), ExtractError>
+pub async fn extract_gzip<P>(src_path: P, dst_path: P) -> Result<(), ExtractError>
 where
     P: AsRef<Path> + Send,
 {

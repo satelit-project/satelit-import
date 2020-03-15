@@ -1,13 +1,7 @@
 [db]
-url = "postgres://postgres@localhost/import-default"
+url = "postgres://postgres@localhost/satelit-import"
 max_connections = 64
 connection_timeout = 30
-
-[import]
-new_download_path = "static/anidb-index/new.gz"
-old_download_path = "static/anidb-index/old.gz"
-new_extract_path = "static/anidb-index/new.xml"
-old_extract_path = "static/anidb-index/old.xml"
 
 [rpc]
 port = 9060

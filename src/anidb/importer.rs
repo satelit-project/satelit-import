@@ -4,30 +4,38 @@ pub mod import;
 
 mod test_utils;
 
+use tempfile;
+
+use std::path::PathBuf;
 use std::{collections::HashSet, error::Error, fmt, iter::FromIterator};
 
 use crate::{
     db::ConnectionPool,
     proto::import::{ImportIntent, ImportIntentResult},
-    settings,
 };
 
 /// Represents dump import task error as a whole
 #[derive(Debug)]
 pub struct ImportError(Box<dyn Error + Send + 'static>);
 
+/// Common file paths used during dump import.
+#[derive(Debug)]
+struct Paths {
+    dir: tempfile::TempDir,
+}
+
 /// Imports AniDB database dump.
 pub async fn import(
     intent: ImportIntent,
-    settings: settings::Import,
     db_pool: ConnectionPool,
 ) -> Result<ImportIntentResult, ImportError> {
-    let download_old = download::download_dump(&intent.old_index_url, settings.old_download_path());
-    let download_new = download::download_dump(&intent.new_index_url, settings.new_download_path());
+    let paths = Paths::new()?;
+    let download_old = download::download_dump(&intent.old_index_url, paths.store_old());
+    let download_new = download::download_dump(&intent.new_index_url, paths.store_new());
     futures::try_join!(download_old, download_new)?;
 
-    let extract_old = extract::extract(settings.old_download_path(), settings.old_extract_path());
-    let extract_new = extract::extract(settings.new_download_path(), settings.new_extract_path());
+    let extract_old = extract::extract_gzip(paths.store_old(), paths.extract_old());
+    let extract_new = extract::extract_gzip(paths.store_new(), paths.extract_new());
     futures::try_join!(extract_old, extract_new)?;
 
     let ImportIntent {
@@ -35,8 +43,8 @@ pub async fn import(
     } = intent;
 
     let skipped_ids = import::import(
-        settings.old_extract_path().to_owned(),
-        settings.new_extract_path().to_owned(),
+        paths.extract_old(),
+        paths.extract_new(),
         HashSet::from_iter(reimport_ids.into_iter()),
         db_pool,
     )
@@ -46,6 +54,36 @@ pub async fn import(
         id,
         skipped_ids: skipped_ids.into_iter().collect(),
     })
+}
+
+// MARK: impl Paths
+
+impl Paths {
+    fn new() -> std::io::Result<Self> {
+        Ok(Paths { dir: tempfile::tempdir()? })
+    }
+
+    fn store_old(&self) -> PathBuf {
+        self.path_with_file("archived.dump.old")
+    }
+
+    fn store_new(&self) -> PathBuf {
+        self.path_with_file("archived.dump.new")
+    }
+
+    fn extract_old(&self) -> PathBuf {
+        self.path_with_file("dump.old")
+    }
+
+    fn extract_new(&self) -> PathBuf {
+        self.path_with_file("dump.new")
+    }
+
+    fn path_with_file(&self, name: &str) -> PathBuf {
+        let mut path = self.dir.path().to_path_buf();
+        path.push(name);
+        path
+    }
 }
 
 // MARK: impl ImportError

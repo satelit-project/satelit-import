@@ -12,15 +12,11 @@ use crate::{
     anidb::importer,
     db::ConnectionPool,
     proto::import::{import_service_server, ImportIntent, ImportIntentResult},
-    settings,
 };
 
 /// RPC service for importing AniDB database dumps on demand.
 #[derive(Debug, Clone)]
 pub struct ImportService {
-    /// Import service settings.
-    settings: settings::Import,
-
     /// Database connection pool.
     db_pool: ConnectionPool,
 
@@ -31,10 +27,9 @@ pub struct ImportService {
 // MARK: impl ImportService
 
 impl ImportService {
-    pub fn new(settings: settings::Import, db_pool: ConnectionPool) -> Self {
+    pub fn new(db_pool: ConnectionPool) -> Self {
         let is_importing = Arc::new(AtomicBool::new(false));
         Self {
-            settings,
             db_pool,
             is_importing,
         }
@@ -56,7 +51,7 @@ impl import_service_server::ImportService for ImportService {
         }
 
         let intent = request.into_inner();
-        let result = importer::import(intent, self.settings.clone(), self.db_pool.clone()).await;
+        let result = importer::import(intent, self.db_pool.clone()).await;
 
         flag.store(false, Ordering::SeqCst);
         match result {

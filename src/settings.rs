@@ -21,9 +21,6 @@ pub struct Settings {
     /// Database settings.
     db: Db,
 
-    /// Dump import settings.
-    import: Import,
-
     /// RPC services settings.
     rpc: Rpc,
 }
@@ -39,22 +36,6 @@ pub struct Db {
 
     /// DB connection timeout.
     connection_timeout: u64,
-}
-
-/// Anime index import settings.
-#[derive(Debug, Clone, Deserialize)]
-pub struct Import {
-    /// Path to download new anime dump.
-    new_download_path: String,
-
-    /// Path to download old anime dump.
-    old_download_path: String,
-
-    /// Path to extract new anime dump.
-    new_extract_path: String,
-
-    /// Path to extract old anime dump.
-    old_extract_path: String,
 }
 
 /// Rpc services settings.
@@ -99,10 +80,6 @@ impl Settings {
         &self.db
     }
 
-    pub fn import(&self) -> &Import {
-        &self.import
-    }
-
     pub fn rpc(&self) -> &Rpc {
         &self.rpc
     }
@@ -121,26 +98,6 @@ impl Db {
 
     pub fn connection_timeout(&self) -> Duration {
         Duration::new(self.connection_timeout, 0)
-    }
-}
-
-// MARK: impl Import
-
-impl Import {
-    pub fn new_download_path(&self) -> &str {
-        &self.new_download_path
-    }
-
-    pub fn old_download_path(&self) -> &str {
-        &self.old_download_path
-    }
-
-    pub fn new_extract_path(&self) -> &str {
-        &self.new_extract_path
-    }
-
-    pub fn old_extract_path(&self) -> &str {
-        &self.old_extract_path
     }
 }
 

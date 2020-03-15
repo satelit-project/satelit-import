@@ -14,6 +14,7 @@ use import::ImportService;
 use task::ScraperTasksService;
 
 /// Builder for server-side gRPC services.
+#[derive(Debug)]
 pub struct ServicesBuilder {
     settings: Settings,
     db_pool: ConnectionPool,
@@ -32,7 +33,7 @@ impl ServicesBuilder {
 
     /// Creates and returns an `ImportService` gRPC service.
     pub fn import_service(&self) -> ImportServiceServer<ImportService> {
-        let service = ImportService::new(self.settings.import().clone(), self.db_pool.clone());
+        let service = ImportService::new(self.db_pool.clone());
         ImportServiceServer::new(service)
     }
 
