@@ -5,7 +5,7 @@ authors = ["Igor Nikitin <rabbitinspace@icloud.com>"]
 edition = "2018"
 
 [dependencies]
-quick-xml = "0.17.2"
+quick-xml = "0.18.1"
 async-compression = { version = "0.3.1", features = ["futures-bufread", "gzip"] }
 tempfile = "3.1.0"
 
