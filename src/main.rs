@@ -1,6 +1,5 @@
-use futures::prelude::*;
 use tonic::transport::Server;
-use tracing::{error, info};
+use tracing::info;
 use tracing_subscriber::{filter::LevelFilter, FmtSubscriber};
 
 use satelit_import::rpc;

@@ -2,7 +2,7 @@ use lazy_static::lazy_static;
 
 use std::fmt;
 
-use crate::proto::{scraping, uuid};
+use crate::proto::uuid;
 
 // MARK: impl uuid::Uuid
 
@@ -59,4 +59,33 @@ impl<'a> From<&'a Option<uuid::Uuid>> for &'a uuid::Uuid {
     }
 }
 
-// MARK: impl Task
+impl fmt::Display for uuid::Uuid {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        const HEX: [u8; 16] = [
+            b'0', b'1', b'2', b'3', b'4', b'5', b'6', b'7', b'8', b'9', b'a', b'b',
+            b'c', b'd', b'e', b'f',
+        ];
+        const BYTE_POS: [usize; 6] = [0, 4, 6, 8, 10, 16];
+        const HYPHEN_POS: [usize; 4] = [8, 13, 18, 23];
+
+        let mut buf = [0u8; 36];
+        let bytes = self.uuid.as_slice();
+        for group in 0..5 {
+            for idx in BYTE_POS[group]..BYTE_POS[group + 1] {
+                let b = bytes[idx];
+                let out_idx = group + 2 * idx;
+                buf[out_idx] = HEX[(b >> 4) as usize];
+                buf[out_idx + 1] = HEX[(b & 0b1111) as usize];
+            }
+
+            if group != 4 {
+                buf[HYPHEN_POS[group]] = b'-';
+            }
+        }
+
+        match std::str::from_utf8_mut(&mut buf) {
+            Ok(hex) => hex.fmt(f),
+            Err(_) => Err(fmt::Error)
+        }
+    }
+}

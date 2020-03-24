@@ -12,7 +12,7 @@ use std::time::Duration;
 #[serde(rename_all = "kebab-case")]
 pub enum Profile {
     Default,
-    Named(String),
+    Test(String),
 }
 
 /// Application settings.
@@ -52,8 +52,8 @@ impl Profile {
         let mut files = vec!["config/default.toml".to_string()];
         match self {
             Profile::Default => {}
-            Profile::Named(name) => {
-                let path = format!("config/{}.toml", name);
+            Profile::Test(name) => {
+                let path = format!("config/tests/{}.toml", name);
                 files.push(path);
             }
         }

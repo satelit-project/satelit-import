@@ -1,4 +1,0 @@
-[db]
-url = "postgres://satelit@import-db:5432/"
-max_connections = 1
-connection_timeout = 10

@@ -1,0 +1,4 @@
+[db]
+url = "postgres://postgres@localhost/test-tasks-db"
+max_connections = 1
+connection_timeout = 10
