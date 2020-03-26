@@ -1,9 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tinytemplate as tt;
 
-use std::path::Path;
-use std::fs;
-use std::{io::Read, env};
+use std::{env, fs, io::Read, path::Path};
 
 /// Represents a template configuration file.
 #[derive(Debug)]
@@ -55,7 +53,7 @@ pub struct Db {
 
 impl<P> TemplateConfig<P>
 where
-    P: AsRef<Path> + 'static
+    P: AsRef<Path> + 'static,
 {
     /// Creates new configuration file.
     pub fn new(path: P) -> Self {
@@ -101,7 +99,13 @@ impl Storage {
         let key = env::var("DO_SPACES_KEY").ok()?;
         let secret = env::var("DO_SPACES_SECRET").ok()?;
 
-        Some(Storage { host, bucket, region, key, secret })
+        Some(Storage {
+            host,
+            bucket,
+            region,
+            key,
+            secret,
+        })
     }
 }
 

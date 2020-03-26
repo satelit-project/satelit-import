@@ -6,8 +6,7 @@ mod test_utils;
 
 use tempfile;
 
-use std::path::PathBuf;
-use std::{collections::HashSet, error::Error, fmt, iter::FromIterator};
+use std::{collections::HashSet, error::Error, fmt, iter::FromIterator, path::PathBuf};
 
 use crate::{
     db::ConnectionPool,
@@ -30,7 +29,7 @@ pub async fn import(
     db_pool: ConnectionPool,
 ) -> Result<ImportIntentResult, ImportError> {
     let paths = Paths::new()?;
-    let has_old_dump = *&intent.old_index_url.len() > 0;
+    let has_old_dump = intent.old_index_url.len() > 0;
 
     let download_new = download::download_dump(&intent.new_index_url, paths.store_new());
     if has_old_dump {
@@ -73,7 +72,9 @@ pub async fn import(
 
 impl Paths {
     fn new() -> std::io::Result<Self> {
-        Ok(Paths { dir: tempfile::tempdir()? })
+        Ok(Paths {
+            dir: tempfile::tempdir()?,
+        })
     }
 
     fn store_old(&self) -> PathBuf {

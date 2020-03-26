@@ -62,8 +62,8 @@ impl<'a> From<&'a Option<uuid::Uuid>> for &'a uuid::Uuid {
 impl fmt::Display for uuid::Uuid {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         const HEX: [u8; 16] = [
-            b'0', b'1', b'2', b'3', b'4', b'5', b'6', b'7', b'8', b'9', b'a', b'b',
-            b'c', b'd', b'e', b'f',
+            b'0', b'1', b'2', b'3', b'4', b'5', b'6', b'7', b'8', b'9', b'a', b'b', b'c', b'd',
+            b'e', b'f',
         ];
         const BYTE_POS: [usize; 6] = [0, 4, 6, 8, 10, 16];
         const HYPHEN_POS: [usize; 4] = [8, 13, 18, 23];
@@ -85,7 +85,7 @@ impl fmt::Display for uuid::Uuid {
 
         match std::str::from_utf8_mut(&mut buf) {
             Ok(hex) => hex.fmt(f),
-            Err(_) => Err(fmt::Error)
+            Err(_) => Err(fmt::Error),
         }
     }
 }

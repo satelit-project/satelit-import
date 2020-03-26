@@ -1,6 +1,6 @@
 mod template;
 
-use config::{Config, ConfigError, File, FileSourceString, FileFormat};
+use config::{Config, ConfigError, File, FileFormat, FileSourceString};
 use serde::{Deserialize, Serialize};
 
 use std::time::Duration;

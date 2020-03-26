@@ -2,15 +2,13 @@ use tonic::transport::Server;
 use tracing::info;
 use tracing_subscriber::{filter::LevelFilter, FmtSubscriber};
 
-use satelit_import::rpc;
-use satelit_import::settings;
-use satelit_import::db;
+use satelit_import::{db, rpc, settings};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let subscriber = FmtSubscriber::builder()
-            .with_max_level(LevelFilter::DEBUG)
-            .finish();
+        .with_max_level(LevelFilter::DEBUG)
+        .finish();
     tracing::subscriber::set_global_default(subscriber)?;
 
     info!("loading configuration");

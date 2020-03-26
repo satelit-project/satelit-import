@@ -1,7 +1,5 @@
 #![cfg(test)]
 
-use futures::prelude::*;
-
 pub(crate) mod import {
     use crate::anidb::{importer::import::*, parser::*};
     use std::{
