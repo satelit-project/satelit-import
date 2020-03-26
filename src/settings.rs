@@ -1,7 +1,11 @@
-use config::{Config, ConfigError, File};
+mod template;
+
+use config::{Config, ConfigError, File, FileSourceString, FileFormat};
 use serde::{Deserialize, Serialize};
 
 use std::time::Duration;
+
+use template::TemplateConfig;
 
 /// Settings profile.
 ///
@@ -48,7 +52,7 @@ pub struct Rpc {
 // MARK: impl Profile
 
 impl Profile {
-    fn files(&self) -> Vec<String> {
+    fn files(&self) -> Result<Vec<File<FileSourceString>>, ConfigError> {
         let mut files = vec!["config/default.toml".to_string()];
         match self {
             Profile::Default => {}
@@ -58,7 +62,16 @@ impl Profile {
             }
         }
 
-        files
+        let rendered = files
+            .into_iter()
+            .map(|p| TemplateConfig::new(p).render())
+            .collect::<Result<Vec<String>, _>>()
+            .map_err(|e| ConfigError::Foreign(e))?
+            .iter()
+            .map(|r| File::from_str(&r, FileFormat::Toml))
+            .collect();
+
+        Ok(rendered)
     }
 }
 
@@ -67,9 +80,7 @@ impl Profile {
 impl Settings {
     pub fn new(profile: Profile) -> Result<Self, ConfigError> {
         let mut s = Config::new();
-
-        for name in profile.files() {
-            let file = File::with_name(&name);
+        for file in profile.files()? {
             s.merge(file)?;
         }
 

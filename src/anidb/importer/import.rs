@@ -1,4 +1,3 @@
-use futures::prelude::*;
 use tracing::{debug, warn};
 
 use std::{cmp::Ordering, collections::HashSet, fmt, path::Path};
