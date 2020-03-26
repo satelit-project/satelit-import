@@ -7,3 +7,4 @@ pub mod proto;
 pub mod proto_ext;
 pub mod rpc;
 pub mod settings;
+pub mod store;

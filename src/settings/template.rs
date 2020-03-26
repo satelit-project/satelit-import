@@ -34,6 +34,9 @@ pub struct Storage {
     /// S3 bucket name.
     bucket: String,
 
+    /// S3 bucket region.
+    region: String,
+
     /// AWS access key.
     key: String,
 
@@ -94,10 +97,11 @@ impl Storage {
     fn from_env() -> Option<Self> {
         let host = env::var("DO_SPACES_HOST").ok()?;
         let bucket = env::var("DO_BUCKET").ok()?;
+        let region = env::var("DO_SPACES_REGION").ok()?;
         let key = env::var("DO_SPACES_KEY").ok()?;
         let secret = env::var("DO_SPACES_SECRET").ok()?;
 
-        Some(Storage { host, bucket, key, secret })
+        Some(Storage { host, bucket, region, key, secret })
     }
 }
 

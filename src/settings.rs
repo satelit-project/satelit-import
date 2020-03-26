@@ -27,6 +27,9 @@ pub struct Settings {
 
     /// RPC services settings.
     rpc: Rpc,
+
+    /// External storage settings.
+    storage: Option<Storage>,
 }
 
 /// Database settings.
@@ -47,6 +50,16 @@ pub struct Db {
 pub struct Rpc {
     /// Port for serving RPC services.
     port: u32,
+}
+
+/// Represents external S3-compatible storage settings.
+#[derive(Debug, Clone, Deserialize)]
+pub struct Storage {
+    host: String,
+    bucket: String,
+    region: String,
+    key: String,
+    secret: String,
 }
 
 // MARK: impl Profile
@@ -94,6 +107,10 @@ impl Settings {
     pub fn rpc(&self) -> &Rpc {
         &self.rpc
     }
+
+    pub fn storage(&self) -> Option<&Storage> {
+        self.storage.as_ref()
+    }
 }
 
 // MARK: impl Db
@@ -117,5 +134,29 @@ impl Db {
 impl Rpc {
     pub fn port(&self) -> u32 {
         self.port
+    }
+}
+
+// MARK: impl Storage
+
+impl Storage {
+    pub fn host(&self) -> &str {
+        &self.host
+    }
+
+    pub fn bucket(&self) -> &str {
+        &self.bucket
+    }
+
+    pub fn region(&self) -> &str {
+        &self.region
+    }
+
+    pub fn key(&self) -> &str {
+        &self.key
+    }
+
+    pub fn secret(&self) -> &str {
+        &self.secret
     }
 }

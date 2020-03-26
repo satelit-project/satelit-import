@@ -20,6 +20,9 @@ host = { storage.host }
 # DO_BUCKET
 bucket = { storage.bucket }
 
+# DO_SPACES_REGION
+region = { storage.region }
+
 # DO_SPACES_KEY
 key = { storage.key }
 

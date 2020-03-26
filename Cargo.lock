@@ -1381,6 +1381,7 @@ name = "satelit-import"
 version = "0.1.0"
 dependencies = [
  "async-compression",
+ "bytes",
  "chrono",
  "config",
  "diesel",
