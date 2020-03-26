@@ -18,7 +18,7 @@ use crate::{
 /// import failed.
 #[allow(clippy::implicit_hasher)]
 pub async fn import<P>(
-    old_dump_path: P,
+    old_dump_path: Option<P>,
     new_dump_path: P,
     reimport_ids: HashSet<i32>,
     connection_pool: ConnectionPool,
@@ -94,7 +94,7 @@ where
 /// Data source for anime entities from AniDB dumps.
 #[derive(Debug, Clone)]
 pub struct AniDbAnimeProvider<P> {
-    old_dump_path: P,
+    old_dump_path: Option<P>,
     new_dump_path: P,
     reimport_ids: HashSet<i32>,
 }
@@ -236,7 +236,7 @@ where
     /// * `old_dump_path` – path to previously imported dump.
     /// * `new_dump_path` - path to dump that should be imported.
     /// * `reimport_ids` – IDs of anime titles that should be imported again.
-    pub fn new(old_dump_path: P, new_dump_path: P, reimport_ids: HashSet<i32>) -> Self {
+    pub fn new(old_dump_path: Option<P>, new_dump_path: P, reimport_ids: HashSet<i32>) -> Self {
         AniDbAnimeProvider {
             old_dump_path,
             new_dump_path,
@@ -253,7 +253,10 @@ where
     type Error = XmlError;
 
     fn old_anime_titles(&self) -> Result<Self::Iterator, Self::Error> {
-        Anidb::new(self.old_dump_path.as_ref())
+        match self.old_dump_path.as_ref() {
+            Some(path) => Anidb::new(path.as_ref()),
+            None => Ok(Anidb::empty()),
+        }
     }
 
     fn new_anime_titles(&self) -> Result<Self::Iterator, Self::Error> {

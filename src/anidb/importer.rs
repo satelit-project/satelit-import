@@ -30,20 +30,33 @@ pub async fn import(
     db_pool: ConnectionPool,
 ) -> Result<ImportIntentResult, ImportError> {
     let paths = Paths::new()?;
-    let download_old = download::download_dump(&intent.old_index_url, paths.store_old());
-    let download_new = download::download_dump(&intent.new_index_url, paths.store_new());
-    futures::try_join!(download_old, download_new)?;
+    let has_old_dump = *&intent.old_index_url.len() > 0;
 
-    let extract_old = extract::extract_gzip(paths.store_old(), paths.extract_old());
+    let download_new = download::download_dump(&intent.new_index_url, paths.store_new());
+    if has_old_dump {
+        let download_old = download::download_dump(&intent.old_index_url, paths.store_old());
+        futures::try_join!(download_old, download_new)?;
+    } else {
+        download_new.await?;
+    }
+
     let extract_new = extract::extract_gzip(paths.store_new(), paths.extract_new());
-    futures::try_join!(extract_old, extract_new)?;
+    let old_path: Option<PathBuf>;
+    if has_old_dump {
+        let extract_old = extract::extract_gzip(paths.store_old(), paths.extract_old());
+        futures::try_join!(extract_old, extract_new)?;
+        old_path = Some(paths.extract_old());
+    } else {
+        extract_new.await?;
+        old_path = None;
+    }
 
     let ImportIntent {
         id, reimport_ids, ..
     } = intent;
 
     let skipped_ids = import::import(
-        paths.extract_old(),
+        old_path,
         paths.extract_new(),
         HashSet::from_iter(reimport_ids.into_iter()),
         db_pool,
