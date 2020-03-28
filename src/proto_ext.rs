@@ -3,6 +3,7 @@ use lazy_static::lazy_static;
 use std::fmt;
 
 use crate::proto::uuid;
+use crate::proto::import;
 
 // MARK: impl uuid::Uuid
 
@@ -87,6 +88,17 @@ impl fmt::Display for uuid::Uuid {
         match std::str::from_utf8_mut(&mut buf) {
             Ok(hex) => hex.fmt(f),
             Err(_) => Err(fmt::Error),
+        }
+    }
+}
+
+// MARK: impl import::ImportIntent
+
+impl fmt::Display for import::ImportIntent {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self.id {
+            Some(uuid) => write!(f, "ImportIntent: {}", uuid),
+            None => write!(f, "ImportIntent: source {}", self.source),
         }
     }
 }
