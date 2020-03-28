@@ -5,12 +5,13 @@ authors = ["Igor Nikitin <rabbitinspace@icloud.com>"]
 edition = "2018"
 
 [dependencies]
-async-compression = { version = "0.3.1", features = ["futures-bufread", "gzip"] }
+config = "0.10.1"
+tinytemplate = "1.0.3"
 tempfile = "3.1.0"
 log = { version = "0.4.8", features = ["std"] }
 lazy_static = "1.4.0"
-config = "0.10.1"
-tinytemplate = "1.0.3"
+
+async-compression = { version = "0.3.1", features = ["futures-bufread", "gzip"] }
 chrono = "0.4.10"
 quick-xml = "0.18.1"
 rust-s3 = "0.19.0"
@@ -28,7 +29,6 @@ tracing-subscriber = "0.2.3"
 tonic = "0.1.1"
 prost = "0.6.1"
 bytes = "0.5.4"
-reqwest = { version = "0.10.4", features = ["gzip"] }
 
 [dev-dependencies]
 toml = "0.5.6"

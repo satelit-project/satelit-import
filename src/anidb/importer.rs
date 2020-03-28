@@ -1,4 +1,3 @@
-pub mod download;
 pub mod extract;
 pub mod import;
 
@@ -11,6 +10,7 @@ use std::{collections::HashSet, error::Error, fmt, iter::FromIterator, path::Pat
 use crate::{
     db::ConnectionPool,
     proto::import::{ImportIntent, ImportIntentResult},
+    store::{IndexStore, StoreError},
 };
 
 /// Represents dump import task error as a whole
@@ -27,13 +27,14 @@ struct Paths {
 pub async fn import(
     intent: ImportIntent,
     db_pool: ConnectionPool,
+    store: &IndexStore,
 ) -> Result<ImportIntentResult, ImportError> {
     let paths = Paths::new()?;
     let has_old_dump = intent.old_index_url.len() > 0;
 
-    let download_new = download::download_dump(&intent.new_index_url, paths.store_new());
+    let download_new = store.get(&intent.new_index_url, paths.store_new());
     if has_old_dump {
-        let download_old = download::download_dump(&intent.old_index_url, paths.store_old());
+        let download_old = store.get(&intent.old_index_url, paths.store_old());
         futures::try_join!(download_old, download_new)?;
     } else {
         download_new.await?;
@@ -102,8 +103,8 @@ impl Paths {
 
 // MARK: impl ImportError
 
-impl From<download::DownloadError> for ImportError {
-    fn from(err: download::DownloadError) -> Self {
+impl From<StoreError> for ImportError {
+    fn from(err: StoreError) -> Self {
         ImportError(Box::new(err))
     }
 }

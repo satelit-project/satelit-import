@@ -1,9 +1,9 @@
 [db]
 {{ if db }}
 # PG_DB_URL
-url = { db.url }
+url = "{ db.url }"
 {{ else }}
-url = "postgres://postgres@localhost/satelit-import"
+url = "postgres://postgres@localhost/satelit_import"
 {{ endif }}
 
 max_connections = 64
@@ -12,20 +12,18 @@ connection_timeout = 30
 [rpc]
 port = 9060
 
-{{ if storage }}
 [storage]
 # DO_SPACES_HOST
-host = { storage.host }
+host = "{ storage.host }"
 
 # DO_BUCKET
-bucket = { storage.bucket }
+bucket = "{ storage.bucket }"
 
 # DO_SPACES_REGION
-region = { storage.region }
+region = "{ storage.region }"
 
 # DO_SPACES_KEY
-key = { storage.key }
+key = "{ storage.key }"
 
 # DO_SPACES_SECRET
-secret = { storage.secret }
-{{ endif }}
+secret = "{ storage.secret }"

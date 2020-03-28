@@ -9,13 +9,16 @@ use std::{
     sync::Arc,
 };
 
-use crate::db::{
-    entity::ExternalSource, queued_jobs::QueuedJobs, schedules::Schedules, tasks::Tasks, QueryError,
-};
-
-use crate::proto::{
-    data,
-    scraping::{self, scraper_tasks_service_server},
+use crate::{
+    db::{
+        entity::ExternalSource, queued_jobs::QueuedJobs, schedules::Schedules, tasks::Tasks,
+        QueryError,
+    },
+    proto::{
+        data,
+        scraping::{self, scraper_tasks_service_server},
+    },
+    store::{AnimeStore, StoreError},
 };
 
 /// Service to manage import tasks for scraper service.
@@ -36,16 +39,25 @@ struct State {
 
     /// Storage for queued task jobs.
     queued_jobs: QueuedJobs,
+
+    /// External anime storage.
+    store: AnimeStore,
 }
 
 // MARK: impl ScraperTasksService
 
 impl ScraperTasksService {
-    pub fn new(tasks: Tasks, schedules: Schedules, queued_jobs: QueuedJobs) -> Self {
+    pub fn new(
+        tasks: Tasks,
+        schedules: Schedules,
+        queued_jobs: QueuedJobs,
+        store: AnimeStore,
+    ) -> Self {
         let state = State {
             tasks,
             schedules,
             queued_jobs,
+            store,
         };
 
         Self {
@@ -92,11 +104,14 @@ impl scraper_tasks_service_server::ScraperTasksService for ScraperTasksService {
         info!("updating task");
 
         let state = self.state.clone();
-        let result = blocking(move || {
-            let data = request.get_ref();
-            update_task(&state, data)
-        })
-        .await?;
+        let data = request.into_inner();
+
+        if let Some(anime) = data.anime.as_ref() {
+            let path = self.state.store.upload(anime, data::Source::Anidb).await?;
+            info!("uploaded anime: {}", path);
+        }
+
+        let result = blocking(move || update_task(&state, &data)).await?;
 
         match result {
             Ok(_) => Ok(Response::new(())),
@@ -214,6 +229,12 @@ impl TryFrom<data::Source> for ExternalSource {
 
 impl From<QueryError> for Status {
     fn from(err: QueryError) -> Self {
+        Status::internal(err.to_string())
+    }
+}
+
+impl From<StoreError> for Status {
+    fn from(err: StoreError) -> Self {
         Status::internal(err.to_string())
     }
 }

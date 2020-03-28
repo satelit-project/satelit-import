@@ -29,7 +29,7 @@ pub struct Settings {
     rpc: Rpc,
 
     /// External storage settings.
-    storage: Option<Storage>,
+    storage: Storage,
 }
 
 /// Database settings.
@@ -108,8 +108,8 @@ impl Settings {
         &self.rpc
     }
 
-    pub fn storage(&self) -> Option<&Storage> {
-        self.storage.as_ref()
+    pub fn storage(&self) -> &Storage {
+        &self.storage
     }
 }
 

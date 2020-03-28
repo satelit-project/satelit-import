@@ -1,6 +1,8 @@
 pub mod import;
 pub mod task;
 
+use std::error;
+
 use crate::{
     db::{self, ConnectionPool},
     proto::{
@@ -8,8 +10,8 @@ use crate::{
         scraping::scraper_tasks_service_server::ScraperTasksServiceServer,
     },
     settings::Settings,
+    store::{AnimeStore, IndexStore},
 };
-
 use import::ImportService;
 use task::ScraperTasksService;
 
@@ -32,18 +34,24 @@ impl ServicesBuilder {
     }
 
     /// Creates and returns an `ImportService` gRPC service.
-    pub fn import_service(&self) -> ImportServiceServer<ImportService> {
-        let service = ImportService::new(self.db_pool.clone());
-        ImportServiceServer::new(service)
+    pub fn import_service(
+        &self,
+    ) -> Result<ImportServiceServer<ImportService>, Box<dyn error::Error>> {
+        let store = IndexStore::new(self.settings.storage())?;
+        let service = ImportService::new(self.db_pool.clone(), store);
+        Ok(ImportServiceServer::new(service))
     }
 
     /// Creates and returns an `ScraperTasksService` gRPC service.
-    pub fn tasks_service(&self) -> ScraperTasksServiceServer<ScraperTasksService> {
+    pub fn tasks_service(
+        &self,
+    ) -> Result<ScraperTasksServiceServer<ScraperTasksService>, Box<dyn error::Error>> {
         let tasks = db::tasks::Tasks::new(self.db_pool.clone());
         let schedules = db::schedules::Schedules::new(self.db_pool.clone());
         let scheduled_tasks = db::queued_jobs::QueuedJobs::new(self.db_pool.clone());
+        let store = AnimeStore::new(self.settings.storage())?;
 
-        let service = ScraperTasksService::new(tasks, schedules, scheduled_tasks);
-        ScraperTasksServiceServer::new(service)
+        let service = ScraperTasksService::new(tasks, schedules, scheduled_tasks, store);
+        Ok(ScraperTasksServiceServer::new(service))
     }
 }
