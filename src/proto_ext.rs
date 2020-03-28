@@ -60,6 +60,7 @@ impl<'a> From<&'a Option<uuid::Uuid>> for &'a uuid::Uuid {
 }
 
 impl fmt::Display for uuid::Uuid {
+    #[allow(clippy::needless_range_loop)]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         const HEX: [u8; 16] = [
             b'0', b'1', b'2', b'3', b'4', b'5', b'6', b'7', b'8', b'9', b'a', b'b', b'c', b'd',

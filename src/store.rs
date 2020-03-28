@@ -126,7 +126,7 @@ fn storage_path(anime: &Anime, source: Source) -> String {
             .source
             .as_ref()
             .and_then(|s| s.anidb_ids.first())
-            .map(|&s| s)
+            .copied()
             .unwrap_or(0),
         Source::Unknown => 0,
     };

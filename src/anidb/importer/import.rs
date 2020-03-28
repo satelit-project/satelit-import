@@ -305,7 +305,7 @@ impl From<tokio::task::JoinError> for ImportError {
         } else if err.is_panic() {
             ImportError::InternalError(format!("import task paniced: {}", err))
         } else {
-            ImportError::InternalError(format!("failed to schedule import"))
+            ImportError::InternalError("failed to schedule import".to_string())
         }
     }
 }
@@ -346,7 +346,7 @@ mod tests {
         let provider = FakeProvider::new(gen_anime([1, 3, 5]), gen_anime([1, 2, 3, 4, 5]));
         let scheduler = FakeScheduler::empty();
 
-        let mut importer = AnimeImporter::new(provider.clone(), scheduler.clone());
+        let mut importer = AnimeImporter::new(provider, scheduler.clone());
         importer.begin().unwrap();
 
         assert!(scheduler.removed.lock().unwrap().is_empty());
@@ -358,7 +358,7 @@ mod tests {
         let provider = FakeProvider::new(gen_anime([1, 2, 3, 4, 5]), gen_anime([1, 3, 5]));
         let scheduler = FakeScheduler::empty();
 
-        let mut importer = AnimeImporter::new(provider.clone(), scheduler.clone());
+        let mut importer = AnimeImporter::new(provider, scheduler.clone());
         importer.begin().unwrap();
 
         assert!(scheduler.added.lock().unwrap().is_empty());
@@ -370,7 +370,7 @@ mod tests {
         let provider = FakeProvider::new(gen_anime([1, 3, 5]), gen_anime([2, 4, 5, 7]));
         let scheduler = FakeScheduler::empty();
 
-        let mut importer = AnimeImporter::new(provider.clone(), scheduler.clone());
+        let mut importer = AnimeImporter::new(provider, scheduler.clone());
         importer.begin().unwrap();
 
         assert_eq!(*scheduler.removed.lock().unwrap(), gen_anime([1, 3]));
@@ -396,7 +396,7 @@ mod tests {
         let provider = FakeProvider::new_reimporting(
             gen_anime(reimport.clone()),
             gen_anime([1, 2, 3, 4, 5]),
-            HashSet::from_iter(reimport.clone()),
+            HashSet::from_iter(reimport),
         );
         let scheduler = FakeScheduler::empty();
 
