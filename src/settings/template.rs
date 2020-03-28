@@ -17,7 +17,7 @@ pub struct TemplateConfig<P> {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Env {
     /// External storage configuration.
-    storage: Storage,
+    storage: Option<Storage>,
 
     /// Database configuration.
     db: Option<Db>,
@@ -83,7 +83,7 @@ where
 impl Default for Env {
     fn default() -> Self {
         Env {
-            storage: Storage::from_env().expect("[storage] config expect environment variables"),
+            storage: Storage::from_env(),
             db: Db::from_env(),
         }
     }

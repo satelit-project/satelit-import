@@ -101,9 +101,15 @@ impl From<io::Error> for StoreError {
 // MARK: helpers
 
 fn get_bucket(cfg: &settings::Storage) -> s3::error::Result<bucket::Bucket> {
+    let host = if cfg.host().starts_with("localhost") || cfg.host().starts_with("127.0.0.1") {
+        format!("http://{}", cfg.host())
+    } else {
+        cfg.host().to_owned()
+    };
+
     let region = region::Region::Custom {
         region: cfg.region().to_owned(),
-        endpoint: cfg.host().to_owned(),
+        endpoint: host,
     };
     let creds = credentials::Credentials::new(
         Some(cfg.key().to_owned()),

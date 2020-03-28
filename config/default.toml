@@ -13,6 +13,7 @@ connection_timeout = 30
 port = 9060
 
 [storage]
+{{ if storage }}
 # DO_SPACES_HOST
 host = "{ storage.host }"
 
@@ -27,3 +28,10 @@ key = "{ storage.key }"
 
 # DO_SPACES_SECRET
 secret = "{ storage.secret }"
+{{ else }}
+host = "localhost:9000"
+bucket = "satelit"
+region = "local"
+key = "AKIAIOSFODNN7EXAMPLE"
+secret = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+{{ endif }}
