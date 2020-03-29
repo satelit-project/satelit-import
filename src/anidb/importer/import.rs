@@ -1,4 +1,5 @@
-use tracing::{debug, error};
+use tracing::{debug, error, Span};
+use tracing_futures::Instrument;
 
 use std::{cmp::Ordering, collections::HashSet, fmt, path::Path};
 
@@ -27,13 +28,14 @@ where
     P: AsRef<Path> + Send + 'static,
 {
     tokio::task::spawn_blocking(move || {
-        let provider = AniDbAnimeProvider::new(old_dump_path, new_dump_path, reimport_ids);
+        let provider = AnidbAnimeProvider::new(old_dump_path, new_dump_path, reimport_ids);
         let schedules = schedules::Schedules::new(connection_pool);
-        let scheduler = AniDbImportScheduler::new(schedules);
+        let scheduler = AnidbImportScheduler::new(schedules);
         let mut importer = AnimeImporter::new(provider, scheduler);
 
         importer.begin()
     })
+    .instrument(Span::current())
     .await?
 }
 
@@ -93,7 +95,7 @@ where
 
 /// Data source for anime entities from AniDB dumps.
 #[derive(Debug, Clone)]
-pub struct AniDbAnimeProvider<P> {
+pub struct AnidbAnimeProvider<P> {
     old_dump_path: Option<P>,
     new_dump_path: P,
     reimport_ids: HashSet<i32>,
@@ -101,7 +103,7 @@ pub struct AniDbAnimeProvider<P> {
 
 /// Schedules for anime titles from AniDB dump.
 #[derive(Debug, Clone)]
-pub struct AniDbImportScheduler {
+pub struct AnidbImportScheduler {
     /// Db table for scheduled imports
     schedules: schedules::Schedules,
 }
@@ -225,7 +227,7 @@ where
 
 // MARK: impl AnidbAnimeProvider
 
-impl<P> AniDbAnimeProvider<P>
+impl<P> AnidbAnimeProvider<P>
 where
     P: AsRef<Path> + Send,
 {
@@ -237,7 +239,7 @@ where
     /// * `new_dump_path` - path to dump that should be imported.
     /// * `reimport_ids` – IDs of anime titles that should be imported again.
     pub fn new(old_dump_path: Option<P>, new_dump_path: P, reimport_ids: HashSet<i32>) -> Self {
-        AniDbAnimeProvider {
+        AnidbAnimeProvider {
             old_dump_path,
             new_dump_path,
             reimport_ids,
@@ -245,7 +247,7 @@ where
     }
 }
 
-impl<P> AnimeProvider for AniDbAnimeProvider<P>
+impl<P> AnimeProvider for AnidbAnimeProvider<P>
 where
     P: AsRef<Path> + Send,
 {
@@ -270,13 +272,13 @@ where
 
 // MARK: impl AnidbImportScheduler
 
-impl AniDbImportScheduler {
+impl AnidbImportScheduler {
     pub fn new(schedules: schedules::Schedules) -> Self {
-        AniDbImportScheduler { schedules }
+        AnidbImportScheduler { schedules }
     }
 }
 
-impl ImportScheduler for AniDbImportScheduler {
+impl ImportScheduler for AnidbImportScheduler {
     type Error = QueryError;
 
     fn add_title(&mut self, anime: &Anime) -> Result<(), Self::Error> {

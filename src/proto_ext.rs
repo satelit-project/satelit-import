@@ -2,8 +2,7 @@ use lazy_static::lazy_static;
 
 use std::fmt;
 
-use crate::proto::uuid;
-use crate::proto::import;
+use crate::proto::{import, uuid};
 
 // MARK: impl uuid::Uuid
 

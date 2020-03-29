@@ -4,7 +4,7 @@ pub mod import;
 mod test_utils;
 
 use tempfile;
-use tracing::{info, debug_span, info_span};
+use tracing::{debug_span, info, info_span};
 use tracing_futures::Instrument;
 
 use std::{collections::HashSet, error::Error, fmt, iter::FromIterator, path::PathBuf};
@@ -47,13 +47,17 @@ pub async fn import(
 
     info!("starting index import");
     let skipped_ids = import::import(
-        if with_diff { Some(paths.extract_old()) } else { None },
+        if with_diff {
+            Some(paths.extract_old())
+        } else {
+            None
+        },
         paths.extract_new(),
         HashSet::from_iter(reimport_ids.into_iter()),
         db_pool,
     )
-        .instrument(debug_span!("import::import"))
-        .await?;
+    .instrument(debug_span!("import::import"))
+    .await?;
 
     Ok(ImportIntentResult {
         id,
@@ -61,7 +65,11 @@ pub async fn import(
     })
 }
 
-async fn download(intent: &ImportIntent, paths: &Paths, store: &IndexStore) -> Result<(), ImportError> {
+async fn download(
+    intent: &ImportIntent,
+    paths: &Paths,
+    store: &IndexStore,
+) -> Result<(), ImportError> {
     let download_new = store
         .get(&intent.new_index_url, paths.store_new())
         .instrument(debug_span!("store::get::new"));

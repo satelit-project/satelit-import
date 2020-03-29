@@ -1,5 +1,5 @@
 use tonic::{Request, Response, Status};
-use tracing::{info, debug, info_span, error};
+use tracing::{debug, error, info, info_span};
 use tracing_futures::Instrument;
 
 use std::{
@@ -64,9 +64,11 @@ impl import_service_server::ImportService for ImportService {
             return Err(status);
         }
 
-
         info!("starting import for {}", intent.source);
-        debug!("old: {}, new: {}", intent.new_index_url, intent.old_index_url);
+        debug!(
+            "old: {}, new: {}",
+            intent.new_index_url, intent.old_index_url
+        );
         let result = importer::import(intent, self.db_pool.clone(), &self.store)
             .instrument(info_span!("importer::import"))
             .await;
