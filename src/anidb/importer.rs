@@ -4,6 +4,8 @@ pub mod import;
 mod test_utils;
 
 use tempfile;
+use tracing::{info, debug_span, info_span};
+use tracing_futures::Instrument;
 
 use std::{collections::HashSet, error::Error, fmt, iter::FromIterator, path::PathBuf};
 
@@ -30,42 +32,71 @@ pub async fn import(
     store: &IndexStore,
 ) -> Result<ImportIntentResult, ImportError> {
     let paths = Paths::new()?;
-    let has_old_dump = !intent.old_index_url.is_empty();
+    let with_diff = intent.has_old_dump();
 
-    let download_new = store.get(&intent.new_index_url, paths.store_new());
-    if has_old_dump {
-        let download_old = store.get(&intent.old_index_url, paths.store_old());
-        futures::try_join!(download_old, download_new)?;
-    } else {
-        download_new.await?;
-    }
-
-    let extract_new = extract::extract_gzip(paths.store_new(), paths.extract_new());
-    let old_path = if has_old_dump {
-        let extract_old = extract::extract_gzip(paths.store_old(), paths.extract_old());
-        futures::try_join!(extract_old, extract_new)?;
-        Some(paths.extract_old())
-    } else {
-        extract_new.await?;
-        None
-    };
+    download(&intent, &paths, store)
+        .instrument(info_span!("importer::download"))
+        .await?;
+    extract(&intent, &paths)
+        .instrument(info_span!("importer::extract"))
+        .await?;
 
     let ImportIntent {
         id, reimport_ids, ..
     } = intent;
 
+    info!("starting index import");
     let skipped_ids = import::import(
-        old_path,
+        if with_diff { Some(paths.extract_old()) } else { None },
         paths.extract_new(),
         HashSet::from_iter(reimport_ids.into_iter()),
         db_pool,
     )
-    .await?;
+        .instrument(debug_span!("import::import"))
+        .await?;
 
     Ok(ImportIntentResult {
         id,
         skipped_ids: skipped_ids.into_iter().collect(),
     })
+}
+
+async fn download(intent: &ImportIntent, paths: &Paths, store: &IndexStore) -> Result<(), ImportError> {
+    let download_new = store
+        .get(&intent.new_index_url, paths.store_new())
+        .instrument(debug_span!("store::get::new"));
+
+    if intent.has_old_dump() {
+        let download_old = store
+            .get(&intent.old_index_url, paths.store_old())
+            .instrument(debug_span!("store::get::old"));
+
+        info!("downloading old and new indexes");
+        futures::try_join!(download_old, download_new)?;
+    } else {
+        info!("downloading new index");
+        download_new.await?;
+    }
+
+    Ok(())
+}
+
+async fn extract(intent: &ImportIntent, paths: &Paths) -> Result<(), ImportError> {
+    let extract_new = extract::extract_gzip(paths.store_new(), paths.extract_new())
+        .instrument(debug_span!("extract::gzip::new"));
+
+    if intent.has_old_dump() {
+        let extract_old = extract::extract_gzip(paths.store_old(), paths.extract_old())
+            .instrument(debug_span!("extract::gzip::old"));
+
+        info!("extracting old and new indexes");
+        futures::try_join!(extract_old, extract_new)?;
+    } else {
+        info!("extracting new index");
+        extract_new.await?;
+    };
+
+    Ok(())
 }
 
 // MARK: impl Paths
@@ -127,3 +158,11 @@ impl fmt::Display for ImportError {
 }
 
 impl std::error::Error for ImportError {}
+
+// MARK: helpers
+
+impl ImportIntent {
+    fn has_old_dump(&self) -> bool {
+        !self.old_index_url.is_empty()
+    }
+}

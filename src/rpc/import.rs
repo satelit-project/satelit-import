@@ -1,4 +1,6 @@
 use tonic::{Request, Response, Status};
+use tracing::{info, debug, info_span, error};
+use tracing_futures::Instrument;
 
 use std::{
     string::ToString,
@@ -44,24 +46,42 @@ impl ImportService {
 #[tonic::async_trait]
 impl import_service_server::ImportService for ImportService {
     /// Initiates AniDB database dump import.
-    #[tracing::instrument(skip(self))]
     async fn start_import(
         &self,
         request: Request<ImportIntent>,
     ) -> Result<Response<ImportIntentResult>, Status> {
+        let intent = request.into_inner();
+        let span = match intent.id.as_ref() {
+            Some(id) => info_span!("rpc::import::start_import", id = display(id)),
+            None => return Err(Status::invalid_argument("import intent id expected")),
+        };
+        let _enter = span.enter();
+
         let flag = self.is_importing.clone();
         if flag.compare_and_swap(false, true, Ordering::SeqCst) {
+            debug!("import already in progress, skipping...");
             let status = Status::already_exists("import is already in progress");
             return Err(status);
         }
 
-        let intent = request.into_inner();
-        let result = importer::import(intent, self.db_pool.clone(), &self.store).await;
+
+        info!("starting import for {}", intent.source);
+        debug!("old: {}, new: {}", intent.new_index_url, intent.old_index_url);
+        let result = importer::import(intent, self.db_pool.clone(), &self.store)
+            .instrument(info_span!("importer::import"))
+            .await;
 
         flag.store(false, Ordering::SeqCst);
         match result {
-            Ok(r) => Ok(Response::new(r)),
-            Err(e) => Err(Status::internal(e.to_string())),
+            Ok(r) => {
+                info!("import succeeded, skipped: {:?}", &r.skipped_ids);
+                Ok(Response::new(r))
+            }
+            Err(e) => {
+                let msg = e.to_string();
+                error!("import failed: {}", &msg);
+                Err(Status::internal(msg))
+            }
         }
     }
 }

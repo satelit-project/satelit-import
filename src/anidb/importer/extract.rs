@@ -1,6 +1,7 @@
 use async_compression::futures::bufread::GzipDecoder;
 use tokio::{fs::File, io::BufReader};
 use tokio_util::compat::{FuturesAsyncReadCompatExt, Tokio02AsyncReadCompatExt};
+use tracing::debug;
 
 use std::path::Path;
 
@@ -37,10 +38,12 @@ impl<P: AsRef<Path> + Send> GzipExtractor<P> {
 
     /// Asynchronously extracts gzip archive.
     pub async fn extract(&self) -> Result<(), ExtractError> {
+        debug!("opening files for extraction");
         let src = File::open(&self.src_path);
         let dst = File::create(&self.dest_path);
         let (src_file, mut dst_file) = futures::try_join!(src, dst)?;
 
+        debug!("extracting archive to {:?}", self.dest_path.as_ref());
         let reader = BufReader::new(src_file);
         let mut decoder = GzipDecoder::new(reader.compat()).compat();
         tokio::io::copy(&mut decoder, &mut dst_file).await?;

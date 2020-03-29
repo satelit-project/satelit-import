@@ -2,6 +2,8 @@ use bytes::BytesMut;
 use prost::Message;
 use s3::{self, bucket, credentials, region};
 use tokio::{fs::File, io::AsyncWriteExt};
+use tracing::{debug, debug_span};
+use tracing_futures::Instrument;
 
 use std::{error, fmt, io, path};
 
@@ -42,9 +44,13 @@ impl AnimeStore {
             .expect("not enough space for encoding");
 
         let path = storage_path(anime, source);
+        debug!("will upload anime to {}", &path);
+
         self.bucket
             .put_object(&path, buf.as_ref(), "application/octet-stream")
+            .instrument(debug_span!("s3::put_object"))
             .await?;
+
         Ok(path)
     }
 }

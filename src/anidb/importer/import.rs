@@ -1,4 +1,4 @@
-use tracing::{debug, warn};
+use tracing::{debug, error};
 
 use std::{cmp::Ordering, collections::HashSet, fmt, path::Path};
 
@@ -201,7 +201,7 @@ where
     fn add_title(&mut self, anime: &Anime) {
         match self.scheduler.add_title(anime) {
             Err(e) => {
-                warn!("adding schedule failed for id:{}: {}", anime.id, e);
+                error!("adding schedule failed for id:{}: {}", anime.id, e);
                 self.skipped_ids.insert(anime.id);
             }
             Ok(()) => {
@@ -214,7 +214,7 @@ where
     fn remove_title(&mut self, anime: &Anime) {
         match self.scheduler.remove_title(anime) {
             Err(e) => {
-                warn!("removing schedule failed for id:{}: {}", anime.id, e);
+                error!("removing schedule failed for id:{}: {}", anime.id, e);
             }
             Ok(()) => {
                 debug!("removed old schedule for id:{}", anime.id);
