@@ -1,4 +1,4 @@
-use bytes::{buf::ext::BufMutExt, BytesMut};
+use bytes::BytesMut;
 use prost::Message;
 use s3::{self, bucket, credentials, region};
 use tokio::{fs::File, io::AsyncWriteExt};
@@ -63,14 +63,11 @@ impl IndexStore {
     where
         P: AsRef<path::Path>,
     {
-        let buf = BytesMut::default();
-        let mut writer = buf.writer();
-
-        self.bucket.get_object_stream(path, &mut writer).await?;
+        let mut buf = vec![];
+        self.bucket.get_object_stream(path, &mut buf).await?;
 
         let mut file = File::create(out.as_ref()).await?;
-        let mut buf = writer.into_inner();
-        file.write_buf(&mut buf).await?;
+        file.write_all(&mut buf).await?;
 
         Ok(())
     }

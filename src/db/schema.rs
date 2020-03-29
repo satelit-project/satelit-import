@@ -15,6 +15,7 @@ table! {
         priority -> Int4,
         next_update_at -> Nullable<Timestamptz>,
         update_count -> Int4,
+        queued_count -> Int4,
         has_poster -> Bool,
         has_start_air_date -> Bool,
         has_end_air_date -> Bool,

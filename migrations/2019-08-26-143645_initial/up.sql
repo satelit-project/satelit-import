@@ -6,8 +6,9 @@ create table schedules
     external_id        int                       not null,
     source             int                       not null,
     priority           int         default 1000  not null,
-    next_update_at     timestamptz default null,
+    next_update_at     timestamptz default now(),
     update_count       int         default 0     not null,
+    queued_count       int         default 0     not null,
     has_poster         boolean     default false not null,
     has_start_air_date boolean     default false not null,
     has_end_air_date   bool        default false not null,
@@ -84,30 +85,64 @@ alter table queued_jobs
     add constraint queued_jobs_pk
         primary key (id);
 
--- update parent rows
-create function queued_jobs_update_parent_rows()
+-- associate a job with it's task
+create function queued_jobs_associate_with_task()
     returns trigger as
 $$
 begin
-    -- put schedule id to task
     update tasks
     set schedule_ids = array_append(schedule_ids, new.schedule_id)
     where new.task_id = id;
-
-    -- increment update_count
-    update schedules
-    set update_count = update_count + 1
-    where new.schedule_id = id;
 
     return null;
 end;
 $$ language plpgsql;
 
-create trigger queued_jobs_update_parent_rows_after_insert
+create trigger queued_jobs_associate_with_task_after_insert
     after insert
     on queued_jobs
     for each row
-execute procedure queued_jobs_update_parent_rows();
+execute procedure queued_jobs_associate_with_task();
+
+-- increment update_count for a schedule
+create function schedules_increment_update_count()
+    returns trigger as
+$$
+begin
+    update schedules
+    set update_count = update_count + 1,
+        priority = 1000
+    where new.id = id;
+
+    return null;
+end;
+$$ language plpgsql;
+
+create trigger schedules_increment_update_count_after_update
+    after update of next_update_at
+    on schedules
+    for each row
+execute procedure schedules_increment_update_count();
+
+-- increment queued_count for a schedule
+
+create function queued_jobs_increment_queued_count()
+    returns trigger as
+$$
+begin
+    update schedules
+    set queued_count = queued_count + 1
+    where old.schedule_id = id;
+
+    return null;
+end;
+$$ language plpgsql;
+
+create trigger queued_jobs_increment_queued_count_after_delete
+    after delete
+    on queued_jobs
+    for each row
+execute procedure queued_jobs_increment_queued_count();
 
 -- schedules binding
 create function queued_jobs_bind_schedules_for_task(uuid, int)
@@ -119,12 +154,15 @@ begin
     insert into queued_jobs (task_id, schedule_id)
     select $1, id
     from schedules
-    where not exists(
+    where
+        next_update_at is not null
+        and next_update_at <= now()
+        and not exists(
             select true
             from queued_jobs
             where schedule_id = schedules.id
         )
-    order by priority desc
+    order by priority desc, queued_count, next_update_at
     limit $2;
 end;
 $$ language plpgsql;

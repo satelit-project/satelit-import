@@ -15,6 +15,7 @@ pub struct Schedule {
     pub priority: i32,
     pub next_update_at: Option<DateTime<Utc>>,
     pub update_count: i32,
+    pub queued_count: i32,
     pub has_poster: bool,
     pub has_start_air_date: bool,
     pub has_end_air_date: bool,
@@ -64,6 +65,7 @@ impl NewSchedule {
 
 #[derive(Debug, PartialEq, AsChangeset)]
 #[table_name = "schedules"]
+#[changeset_options(treat_none_as_null = "true")]
 pub struct UpdatedSchedule {
     pub next_update_at: Option<DateTime<Utc>>,
     pub has_poster: bool,
@@ -108,9 +110,9 @@ impl Default for UpdatedSchedule {
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, FromSqlRow, AsExpression)]
 pub enum ExternalSource {
-    AniDB = 0,
-    MAL = 1,
-    ANN = 2,
+    AniDB = 1,
+    MAL = 2,
+    ANN = 3,
 }
 
 #[derive(Debug, PartialEq, Queryable)]

@@ -38,7 +38,7 @@ impl<P: AsRef<Path> + Send> GzipExtractor<P> {
     /// Asynchronously extracts gzip archive.
     pub async fn extract(&self) -> Result<(), ExtractError> {
         let src = File::open(&self.src_path);
-        let dst = File::open(&self.dest_path);
+        let dst = File::create(&self.dest_path);
         let (src_file, mut dst_file) = futures::try_join!(src, dst)?;
 
         let reader = BufReader::new(src_file);
