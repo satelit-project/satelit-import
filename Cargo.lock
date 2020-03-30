@@ -112,6 +112,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8aac770f1885fd7e387acedd76065302551364496e46b3dd00860b2f8359b9d"
 
 [[package]]
+name = "aws-creds"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "22da48e4ed176cf0ae046be8a43eb9d087bbc4234eb3c4e9555a339cbd250135"
+dependencies = [
+ "dirs",
+ "reqwest",
+ "rust-ini 0.15.2",
+ "simpl",
+ "tokio",
+]
+
+[[package]]
+name = "aws-region"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f6bc82757b564511ed96024fbe8705ba2dabe049a1afb1c71ec405c45fce1b0c"
+dependencies = [
+ "simpl",
+]
+
+[[package]]
 name = "base64"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1336,20 +1358,20 @@ dependencies = [
 
 [[package]]
 name = "rust-s3"
-version = "0.19.3"
+version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "27b21038391e0534f73c09ce7ffff79e78579c09697a7811c3dfb5a3cd47e44f"
+checksum = "81b680dec6b6c9bb0f9afbd85cbba618b0fdb2ca0f93248a2e7edcf61c70729c"
 dependencies = [
+ "aws-creds",
+ "aws-region",
  "base64 0.12.0",
  "chrono",
- "dirs",
  "futures",
  "hex",
  "hmac",
  "md5",
  "rand",
  "reqwest",
- "rust-ini 0.15.2",
  "serde 1.0.105",
  "serde-xml-rs",
  "serde_derive",
