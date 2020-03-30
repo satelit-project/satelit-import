@@ -181,7 +181,7 @@ impl UnairedStrategy {
 
 impl Strategy for UnairedStrategy {
     fn name(&self) -> &str {
-        return "unaired"
+        "unaired"
     }
 
     fn accepts(&self, anime: &Anime) -> bool {
@@ -291,7 +291,7 @@ impl AiringStrategy {
 
 impl Strategy for AiringStrategy {
     fn name(&self) -> &str {
-        return "airing"
+        "airing"
     }
 
     fn accepts(&self, anime: &Anime) -> bool {
@@ -348,7 +348,7 @@ impl JustAiredStrategy {
 
 impl Strategy for JustAiredStrategy {
     fn name(&self) -> &str {
-        return "just_aired"
+        "just_aired"
     }
 
     fn accepts(&self, anime: &Anime) -> bool {
@@ -397,7 +397,7 @@ impl AiredStrategy {
 
 impl Strategy for AiredStrategy {
     fn name(&self) -> &str {
-        return "aired"
+        "aired"
     }
 
     fn accepts(&self, anime: &Anime) -> bool {
@@ -427,7 +427,7 @@ impl Strategy for AiredStrategy {
 
 impl Strategy for NeverStrategy {
     fn name(&self) -> &str {
-        return "never"
+        "never"
     }
 
     fn accepts(&self, _anime: &Anime) -> bool {
@@ -789,6 +789,10 @@ mod builder_tests {
 
     struct TodayStrategy;
     impl Strategy for TodayStrategy {
+        fn name(&self) -> &str {
+            "today"
+        }
+
         fn accepts(&self, _anime: &Anime) -> bool {
             true
         }

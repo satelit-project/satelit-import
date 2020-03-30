@@ -73,7 +73,7 @@ impl IndexStore {
         self.bucket.get_object_stream(path, &mut buf).await?;
 
         let mut file = File::create(out.as_ref()).await?;
-        file.write_all(&mut buf).await?;
+        file.write_all(&buf).await?;
 
         Ok(())
     }
