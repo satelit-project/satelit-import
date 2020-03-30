@@ -81,11 +81,9 @@ impl scraper_tasks_service_server::ScraperTasksService for ScraperTasksService {
 
         info!("creating new scraping task");
         let state = self.state.clone();
-        let result = blocking(move || {
-            make_task(&state, data)
-        })
-        .instrument(span.clone())
-        .await?;
+        let result = blocking(move || make_task(&state, data))
+            .instrument(span.clone())
+            .await?;
 
         match result {
             Ok(task) => {
@@ -115,10 +113,12 @@ impl scraper_tasks_service_server::ScraperTasksService for ScraperTasksService {
         info!("yielding task job");
         let state = self.state.clone();
         if let Some(anime) = data.anime.as_ref() {
-            let path = self.state.store
-                                 .upload(anime, data::Source::Anidb)
-                                 .instrument(info_span!("rpc::task::yield::upload"))
-                                 .await?;
+            let path = self
+                .state
+                .store
+                .upload(anime, data::Source::Anidb)
+                .instrument(info_span!("rpc::task::yield::upload"))
+                .await?;
             info!("uploaded anime: {}", path);
         }
 

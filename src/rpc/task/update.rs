@@ -1,5 +1,5 @@
 use chrono::{Date, DateTime, Duration, TimeZone, Timelike, Utc};
-use log::{error, warn, info};
+use log::{error, info, warn};
 
 use std::{cmp::min, ops::Deref};
 
