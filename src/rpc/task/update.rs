@@ -1,5 +1,5 @@
 use chrono::{Date, DateTime, Duration, TimeZone, Timelike, Utc};
-use log::{error, warn};
+use log::{error, warn, info};
 
 use std::{cmp::min, ops::Deref};
 
@@ -9,6 +9,7 @@ use crate::{
 };
 
 pub trait Strategy {
+    fn name(&self) -> &str;
     fn accepts(&self, anime: &Anime) -> bool;
     fn next_update_date(&self, anime: &Anime) -> Option<Date<Utc>>;
 }
@@ -44,6 +45,7 @@ pub fn make_update(anime: &Anime) -> UpdatedSchedule {
 
     for strategy in strategies {
         if strategy.accepts(anime) {
+            info!("using {} strategy", strategy.name());
             return UpdateBuilder::new(anime, strategy).build();
         }
     }
@@ -178,6 +180,10 @@ impl UnairedStrategy {
 }
 
 impl Strategy for UnairedStrategy {
+    fn name(&self) -> &str {
+        return "unaired"
+    }
+
     fn accepts(&self, anime: &Anime) -> bool {
         // if start date is unknown
         if anime.start_date == 0 {
@@ -284,6 +290,10 @@ impl AiringStrategy {
 }
 
 impl Strategy for AiringStrategy {
+    fn name(&self) -> &str {
+        return "airing"
+    }
+
     fn accepts(&self, anime: &Anime) -> bool {
         if anime.start_date == 0 {
             return false;
@@ -337,6 +347,10 @@ impl JustAiredStrategy {
 }
 
 impl Strategy for JustAiredStrategy {
+    fn name(&self) -> &str {
+        return "just_aired"
+    }
+
     fn accepts(&self, anime: &Anime) -> bool {
         // if end air date is unknown
         if anime.end_date == 0 {
@@ -382,6 +396,10 @@ impl AiredStrategy {
 }
 
 impl Strategy for AiredStrategy {
+    fn name(&self) -> &str {
+        return "aired"
+    }
+
     fn accepts(&self, anime: &Anime) -> bool {
         // if end air date is unknown
         if anime.end_date == 0 {
@@ -408,12 +426,16 @@ impl Strategy for AiredStrategy {
 // MARK: impl NeverStrategy
 
 impl Strategy for NeverStrategy {
+    fn name(&self) -> &str {
+        return "never"
+    }
+
     fn accepts(&self, _anime: &Anime) -> bool {
         true
     }
 
     fn next_update_date(&self, _anime: &Anime) -> Option<Date<Utc>> {
-        // TODO: log as error
+        error!("don't call next_update_date for never strategy");
         None
     }
 }
@@ -421,6 +443,10 @@ impl Strategy for NeverStrategy {
 // MARK: impl Strategy
 
 impl Strategy for Box<dyn Strategy> {
+    fn name(&self) -> &str {
+        self.deref().name()
+    }
+
     fn accepts(&self, anime: &Anime) -> bool {
         self.deref().accepts(anime)
     }

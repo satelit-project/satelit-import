@@ -52,7 +52,7 @@ impl import_service_server::ImportService for ImportService {
     ) -> Result<Response<ImportIntentResult>, Status> {
         let intent = request.into_inner();
         let span = match intent.id.as_ref() {
-            Some(id) => info_span!("rpc::import::start_import", id = display(id)),
+            Some(id) => info_span!("rpc::import::start_import", id = %id),
             None => return Err(Status::invalid_argument("import intent id expected")),
         };
         let _enter = span.enter();
