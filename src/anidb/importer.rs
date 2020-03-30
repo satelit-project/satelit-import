@@ -35,10 +35,10 @@ pub async fn import(
     let with_diff = intent.has_old_dump();
 
     download(&intent, &paths, store)
-        .instrument(info_span!("importer::download"))
+        .instrument(info_span!("download"))
         .await?;
     extract(&intent, &paths)
-        .instrument(info_span!("importer::extract"))
+        .instrument(info_span!("extract"))
         .await?;
 
     let ImportIntent {
@@ -56,7 +56,7 @@ pub async fn import(
         HashSet::from_iter(reimport_ids.into_iter()),
         db_pool,
     )
-    .instrument(debug_span!("import::import"))
+    .instrument(debug_span!("import"))
     .await?;
 
     Ok(ImportIntentResult {
@@ -72,12 +72,12 @@ async fn download(
 ) -> Result<(), ImportError> {
     let download_new = store
         .get(&intent.new_index_url, paths.store_new())
-        .instrument(debug_span!("store::get::new"));
+        .instrument(debug_span!("get::new"));
 
     if intent.has_old_dump() {
         let download_old = store
             .get(&intent.old_index_url, paths.store_old())
-            .instrument(debug_span!("store::get::old"));
+            .instrument(debug_span!("get::old"));
 
         info!("downloading old and new indexes");
         futures::try_join!(download_old, download_new)?;
@@ -91,11 +91,11 @@ async fn download(
 
 async fn extract(intent: &ImportIntent, paths: &Paths) -> Result<(), ImportError> {
     let extract_new = extract::extract_gzip(paths.store_new(), paths.extract_new())
-        .instrument(debug_span!("extract::gzip::new"));
+        .instrument(debug_span!("gzip::new"));
 
     if intent.has_old_dump() {
         let extract_old = extract::extract_gzip(paths.store_old(), paths.extract_old())
-            .instrument(debug_span!("extract::gzip::old"));
+            .instrument(debug_span!("gzip::old"));
 
         info!("extracting old and new indexes");
         futures::try_join!(extract_old, extract_new)?;

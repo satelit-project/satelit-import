@@ -76,7 +76,7 @@ impl scraper_tasks_service_server::ScraperTasksService for ScraperTasksService {
     ) -> Result<Response<scraping::Task>, Status> {
         let data = request.into_inner();
 
-        let span = info_span!("rpc::task::create", source = data.source);
+        let span = info_span!("task::create", source = data.source);
         let _enter = span.enter();
 
         info!("creating new scraping task");
@@ -105,7 +105,7 @@ impl scraper_tasks_service_server::ScraperTasksService for ScraperTasksService {
     ) -> Result<Response<()>, Status> {
         let data = request.into_inner();
         let span = match (data.task_id.as_ref(), data.job_id.as_ref()) {
-            (Some(id), Some(jid)) => info_span!("rpc::task::yield", id = %id, job_id = %jid),
+            (Some(id), Some(jid)) => info_span!("task::yield", id = %id, job_id = %jid),
             _ => return Err(Status::invalid_argument("task and job ids are required")),
         };
         let _enter = span.enter();
@@ -117,7 +117,7 @@ impl scraper_tasks_service_server::ScraperTasksService for ScraperTasksService {
                 .state
                 .store
                 .upload(anime, data::Source::Anidb)
-                .instrument(info_span!("rpc::task::yield::upload"))
+                .instrument(info_span!("upload"))
                 .await?;
             info!("uploaded anime: {}", path);
         }

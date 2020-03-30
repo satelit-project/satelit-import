@@ -1,11 +1,11 @@
 mod build;
 mod entity;
 
-use log::warn;
 use quick_xml::{
     events::{BytesStart, BytesText, Event},
     Error as QXError, Reader,
 };
+use tracing::warn;
 
 use std::{
     fs::File,

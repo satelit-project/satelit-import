@@ -52,7 +52,7 @@ impl import_service_server::ImportService for ImportService {
     ) -> Result<Response<ImportIntentResult>, Status> {
         let intent = request.into_inner();
         let span = match intent.id.as_ref() {
-            Some(id) => info_span!("rpc::import::start_import", id = %id),
+            Some(id) => info_span!("import::start", id = %id),
             None => return Err(Status::invalid_argument("import intent id expected")),
         };
         let _enter = span.enter();
@@ -70,7 +70,7 @@ impl import_service_server::ImportService for ImportService {
             intent.new_index_url, intent.old_index_url
         );
         let result = importer::import(intent, self.db_pool.clone(), &self.store)
-            .instrument(info_span!("importer::import"))
+            .instrument(info_span!("importer"))
             .await;
 
         flag.store(false, Ordering::SeqCst);
