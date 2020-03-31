@@ -70,7 +70,7 @@ impl import_service_server::ImportService for ImportService {
             intent.new_index_url, intent.old_index_url
         );
         let result = importer::import(intent, self.db_pool.clone(), &self.store)
-            .instrument(info_span!("importer"))
+            .in_current_span()
             .await;
 
         flag.store(false, Ordering::SeqCst);

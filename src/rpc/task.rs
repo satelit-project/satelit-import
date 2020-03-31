@@ -2,7 +2,7 @@ mod update;
 
 use futures::prelude::*;
 use tonic::{Request, Response, Status};
-use tracing::{debug, error, info, info_span};
+use tracing::{debug, error, info, info_span, Span};
 use tracing_futures::Instrument;
 
 use std::{
@@ -82,7 +82,7 @@ impl scraper_tasks_service_server::ScraperTasksService for ScraperTasksService {
         info!("creating new scraping task");
         let state = self.state.clone();
         let result = blocking(move || make_task(&state, data))
-            .instrument(span.clone())
+            .in_current_span()
             .await?;
 
         match result {
@@ -117,18 +117,21 @@ impl scraper_tasks_service_server::ScraperTasksService for ScraperTasksService {
                 .state
                 .store
                 .upload(anime, data::Source::Anidb)
-                .instrument(info_span!("upload"))
+                .in_current_span()
                 .await?;
             info!("uploaded anime: {}", path);
         }
 
         let result = blocking(move || update_task(&state, &data))
-            .instrument(span.clone())
+            .in_current_span()
             .await?;
         match result {
-            Ok(_) => Ok(Response::new(())),
+            Ok(_) => {
+                info!("job accepted");
+                Ok(Response::new(()))
+            }
             Err(status) => {
-                error!("failed to update task: {}", &status);
+                error!("job declined: {}", &status);
                 Err(status)
             }
         }
@@ -158,7 +161,7 @@ impl scraper_tasks_service_server::ScraperTasksService for ScraperTasksService {
                 }
             }
         })
-        .instrument(span.clone())
+        .in_current_span()
         .await??;
 
         Ok(Response::new(()))
@@ -221,9 +224,17 @@ where
     F: FnOnce() -> R + Send + 'static,
     R: Send + 'static,
 {
-    tokio::task::spawn_blocking(f)
-        .map_err(|err| Status::internal(err.to_string()))
-        .await
+    let span = Span::current();
+    tokio::task::spawn_blocking(move || {
+        let _enter = span.enter();
+        f()
+    })
+    .map_err(|err| {
+        let msg = err.to_string();
+        error!(err = msg.as_str());
+        Status::internal(msg)
+    })
+    .await
 }
 
 // MARK: impl ExternalSource

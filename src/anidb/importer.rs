@@ -4,7 +4,7 @@ pub mod import;
 mod test_utils;
 
 use tempfile;
-use tracing::{debug_span, info, info_span};
+use tracing::{debug_span, info};
 use tracing_futures::Instrument;
 
 use std::{collections::HashSet, error::Error, fmt, iter::FromIterator, path::PathBuf};
@@ -34,12 +34,8 @@ pub async fn import(
     let paths = Paths::new()?;
     let with_diff = intent.has_old_dump();
 
-    download(&intent, &paths, store)
-        .instrument(info_span!("download"))
-        .await?;
-    extract(&intent, &paths)
-        .instrument(info_span!("extract"))
-        .await?;
+    download(&intent, &paths, store).in_current_span().await?;
+    extract(&intent, &paths).in_current_span().await?;
 
     let ImportIntent {
         id, reimport_ids, ..
@@ -56,7 +52,7 @@ pub async fn import(
         HashSet::from_iter(reimport_ids.into_iter()),
         db_pool,
     )
-    .instrument(debug_span!("import"))
+    .in_current_span()
     .await?;
 
     Ok(ImportIntentResult {

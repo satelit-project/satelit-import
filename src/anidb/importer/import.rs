@@ -1,5 +1,4 @@
 use tracing::{debug, error, Span};
-use tracing_futures::Instrument;
 
 use std::{cmp::Ordering, collections::HashSet, fmt, path::Path};
 
@@ -27,7 +26,10 @@ pub async fn import<P>(
 where
     P: AsRef<Path> + Send + 'static,
 {
+    let span = Span::current();
     tokio::task::spawn_blocking(move || {
+        let _enter = span.enter();
+
         let provider = AnidbAnimeProvider::new(old_dump_path, new_dump_path, reimport_ids);
         let schedules = schedules::Schedules::new(connection_pool);
         let scheduler = AnidbImportScheduler::new(schedules);
@@ -35,7 +37,6 @@ where
 
         importer.begin()
     })
-    .instrument(Span::current())
     .await?
 }
 
