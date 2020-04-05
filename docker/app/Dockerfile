@@ -9,4 +9,4 @@ EXPOSE 9060
 COPY --from=builder /satelit-import/satelit-import.tar.gz /satelit-import/
 RUN ["tar", "-xvf", "satelit-import.tar.gz"]
 ENTRYPOINT ["/satelit-import/entry.sh"]
-HEALTHCHECK --interval=1m --start-period=10s CMD cat /etc/services | grep 9060 >/dev/null || exit 1
+HEALTHCHECK --interval=1m --start-period=10s CMD ps cax | grep satelit-import >/dev/null || exit 1

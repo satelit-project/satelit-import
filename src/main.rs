@@ -21,7 +21,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     info!("starting services");
     let builder = rpc::ServicesBuilder::new(config.clone(), pool);
-    let addr = format!("127.0.0.1:{}", config.rpc().port()).parse()?;
+    let addr = format!("0.0.0.0:{}", config.rpc().port()).parse()?;
     Server::builder()
         .add_service(builder.import_service()?)
         .add_service(builder.tasks_service()?)
