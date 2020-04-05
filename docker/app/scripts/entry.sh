@@ -46,7 +46,7 @@ main() {
     DO_SPACES_SECRET="$DO_SPACES_SECRET" \
     DO_SPACES_HOST="$DO_SPACES_HOST" \
     DO_BUCKET="$DO_BUCKET" \
-    DO_REGION="$DO_REGION" \
+    DO_SPACES_REGION="$DO_SPACES_REGION" \
     PG_DB_URL="$PG_DB_URL" \
     exec ./satelit-import
 }
