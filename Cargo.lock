@@ -1386,6 +1386,7 @@ dependencies = [
  "futures",
  "lazy_static",
  "log",
+ "openssl",
  "prost",
  "quick-xml",
  "rust-s3",

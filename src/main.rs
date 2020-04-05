@@ -1,3 +1,5 @@
+extern crate openssl;  // fixes linking openssl on musl
+
 use tonic::transport::Server;
 use tracing::info;
 use tracing_subscriber::{filter::LevelFilter, FmtSubscriber};
