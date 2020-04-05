@@ -8,5 +8,7 @@ WORKDIR /satelit-import/
 EXPOSE 9060
 COPY --from=builder /satelit-import/satelit-import.tar.gz /satelit-import/
 RUN ["tar", "-xvf", "satelit-import.tar.gz"]
+RUN ["apk", "add", "--update", "--no-cache", "ca-certificates"]
+RUN ["update-ca-certificates"]
 ENTRYPOINT ["/satelit-import/entry.sh"]
 HEALTHCHECK --interval=1m --start-period=10s CMD ps cax | grep satelit-import >/dev/null || exit 1
