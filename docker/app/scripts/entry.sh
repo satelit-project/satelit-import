@@ -26,6 +26,9 @@ wait_db() {
 }
 
 main() {
+  export SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+  export SSL_CERT_DIR=/etc/ssl/certs
+
   echo "Waiting for DB" >&2
   wait_db
 
