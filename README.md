@@ -1,14 +1,7 @@
 # satelit-import
 
-Orchestrates data import from external soruces.
+The service keeps track of scraped and to be scraped data and is a single source of thruth for every scraping services.
 
 ## Dependencies
 
-**Required:**
-
 - Rust (stable and nightly)
-- Docker
-
-The app uses PostgreSQL 12 as DB.
-
-See [docker/README.md](./docker/README.md) for more info about Docker.
