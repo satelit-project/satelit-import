@@ -65,6 +65,19 @@ impl ScraperTasksService {
             state: Arc::new(state),
         }
     }
+
+    /// Removes all unfinished tasks and all it's assocciated jobs.
+    ///
+    /// This method can block so it's not recommended to run on executors.
+    pub fn cleanup_tasks(&self) -> Result<(), QueryError> {
+        debug!("removing unfinished tasks");
+        let tasks = self.state.tasks.unfinished()?;
+        for task in tasks {
+            self.state.tasks.finish(&task.id)?;
+        }
+
+        Ok(())
+    }
 }
 
 #[tonic::async_trait]

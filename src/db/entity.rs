@@ -120,6 +120,7 @@ pub struct Task {
     pub id: Uuid,
     pub source: ExternalSource,
     pub schedule_ids: Vec<i32>,
+    pub finished: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }

@@ -40,6 +40,7 @@ table! {
         id -> Uuid,
         source -> Int4,
         schedule_ids -> Array<Int4>,
+        finished -> Bool,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
     }

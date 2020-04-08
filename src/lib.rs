@@ -1,4 +1,4 @@
-extern crate openssl;  // fixes linking openssl on musl
+extern crate openssl; // fixes linking openssl on musl
 #[macro_use]
 extern crate diesel;
 

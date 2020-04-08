@@ -11,7 +11,7 @@ create table schedules
     queued_count       int         default 0     not null,
     has_poster         boolean     default false not null,
     has_start_air_date boolean     default false not null,
-    has_end_air_date   bool        default false not null,
+    has_end_air_date   boolean     default false not null,
     has_type           boolean     default false not null,
     has_anidb_id       boolean     default false not null,
     has_mal_id         boolean     default false not null,
@@ -46,6 +46,7 @@ create table tasks
     id           uuid        default uuid_generate_v4() not null,
     source       int                                    not null,
     schedule_ids int[]       default array []::int[]    not null,
+    finished     boolean     default false              not null,
     created_at   timestamptz default now()              not null,
     updated_at   timestamptz default now()              not null
 );

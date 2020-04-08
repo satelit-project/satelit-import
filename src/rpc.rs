@@ -45,6 +45,7 @@ impl ServicesBuilder {
     /// Creates and returns an `ScraperTasksService` gRPC service.
     pub fn tasks_service(
         &self,
+        cleanup: bool,
     ) -> Result<ScraperTasksServiceServer<ScraperTasksService>, Box<dyn error::Error>> {
         let tasks = db::tasks::Tasks::new(self.db_pool.clone());
         let schedules = db::schedules::Schedules::new(self.db_pool.clone());
@@ -52,6 +53,10 @@ impl ServicesBuilder {
         let store = AnimeStore::new(self.settings.storage())?;
 
         let service = ScraperTasksService::new(tasks, schedules, scheduled_tasks, store);
+        if cleanup {
+            service.cleanup_tasks()?;
+        }
+
         Ok(ScraperTasksServiceServer::new(service))
     }
 }

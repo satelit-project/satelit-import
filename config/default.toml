@@ -6,7 +6,7 @@ url = "{ db.url }"
 url = "postgres://postgres@localhost/satelit_import"
 {{ endif }}
 
-max_connections = 64
+max_connections = 16
 connection_timeout = 30
 
 [rpc]
