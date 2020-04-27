@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 config = "0.10.1"
-tinytemplate = "1.0.3"
+tinytemplate = "1.0.4"
 tempfile = "3.1.0"
 log = { version = "0.4.8", features = ["std"] }
 lazy_static = "1.4.0"
