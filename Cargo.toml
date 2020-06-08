@@ -23,7 +23,7 @@ openssl = "*"  # diesel on musl
 futures = "0.3.4"
 tokio = { version = "0.2.13", features = ["fs", "io-util", "macros"] }
 tokio-util = { version = "0.3.0", features = ["compat"] }
-tracing = "0.1.13"
+tracing = "0.1.15"
 tracing-futures = "0.2.3"
 tracing-subscriber = "0.2.3"
 
