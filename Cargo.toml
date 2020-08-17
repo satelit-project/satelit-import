@@ -17,7 +17,7 @@ quick-xml = "0.18.1"
 rust-s3 = "0.19.0"
 
 diesel = { version = "1.4.3", features = ["postgres", "r2d2", "chrono"] }
-serde = { version = "1.0.104", features = ["derive"] }
+serde = { version = "1.0.115", features = ["derive"] }
 openssl = "*"  # diesel on musl
 
 futures = "0.3.4"
