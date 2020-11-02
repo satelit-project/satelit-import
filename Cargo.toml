@@ -14,7 +14,7 @@ lazy_static = "1.4.0"
 async-compression = { version = "0.3.1", features = ["futures-bufread", "gzip"] }
 chrono = "0.4.10"
 quick-xml = "0.18.1"
-rust-s3 = "0.19.0"
+rust-s3 = "0.26.3"
 
 diesel = { version = "1.4.3", features = ["postgres", "r2d2", "chrono"] }
 serde = { version = "1.0.104", features = ["derive"] }
