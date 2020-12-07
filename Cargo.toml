@@ -21,7 +21,7 @@ serde = { version = "1.0.104", features = ["derive"] }
 openssl = "*"  # diesel on musl
 
 futures = "0.3.4"
-tokio = { version = "0.2.13", features = ["fs", "io-util", "macros"] }
+tokio = { version = "0.3.5", features = ["fs", "io-util", "macros"] }
 tokio-util = { version = "0.3.0", features = ["compat"] }
 tracing = "0.1.13"
 tracing-futures = "0.2.3"
